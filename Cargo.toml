@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 rlua = "0.17.0"
+actix-web = "2.0"
