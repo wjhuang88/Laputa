@@ -1,31 +1,39 @@
 use crate::script::ScriptHandler;
-use crate::core::System;
-use std::path::Path;
-use std::sync::Arc;
 use rlua::Lua;
+use actix::{Actor, Context as ActixCtx, Handler};
+use crate::script::interpreter::ScriptMessage;
+use std::io;
 
 pub struct LuaHandler {
-    lua : Lua
+    lua : Lua,
 }
 impl LuaHandler {
-    pub fn new() -> LuaHandler {
-        LuaHandler {lua: Lua::new()}
+    pub fn new() -> Box<LuaHandler> {
+        Box::new(LuaHandler { lua: Lua::new() })
+    }
+}
+
+impl Actor for LuaHandler {
+    type Context = ActixCtx<Self>;
+}
+
+impl Handler<ScriptMessage> for LuaHandler {
+    type Result = Result<String, io::Error>;
+
+    fn handle(&mut self, msg: ScriptMessage, _ctx: &mut Self::Context) -> Self::Result {
+        self.exec(msg.source, msg.file)
     }
 }
 
 impl ScriptHandler for LuaHandler {
-    fn register_scripts(&self, system: Arc<System>, dir: &str) {
-        if let Ok(paths) = system.list_dir(dir) {
-            for path in paths {
-                if let Ok(bytes) = system.read_file(&path) {
-                    let route = String::from(Path::new(&path).file_name().unwrap().to_str().unwrap()).replace(".lua", "");
-                    let real_route : &str;
-                    self.lua.context(|context| {
-                        let globals = context.globals();
-                        let loaded = context.load(&bytes).set_name(&path)?.exec();
-                    });
-                }
-            }
-        }
+    type SourceType = Vec<u8>;
+    type ValueType = String;
+
+    fn exec(&mut self, source: Self::SourceType, file_name: String) -> io::Result<Self::ValueType> {
+        self.lua.context(|ctx| {
+            let globals = ctx.globals();
+            ctx.load(&source).set_name(&file_name).unwrap().exec().unwrap();
+            Ok(globals.get::<_, String>("exports").unwrap_or("".to_string()))
+        })
     }
 }
