@@ -21,7 +21,7 @@ impl Handler<ScriptMessage> for LuaHandler {
     type Result = Result<String, io::Error>;
 
     fn handle(&mut self, msg: ScriptMessage, _ctx: &mut Self::Context) -> Self::Result {
-        self.exec(msg.source, msg.file)
+        Ok(self.exec(msg.source, msg.file))
     }
 }
 
@@ -29,11 +29,11 @@ impl ScriptHandler for LuaHandler {
     type SourceType = Vec<u8>;
     type ValueType = String;
 
-    fn exec(&mut self, source: Self::SourceType, file_name: String) -> io::Result<Self::ValueType> {
+    fn exec(&mut self, source: Self::SourceType, file_name: String) -> Self::ValueType {
         self.lua.context(|ctx| {
             let globals = ctx.globals();
             ctx.load(&source).set_name(&file_name).unwrap().exec().unwrap();
-            Ok(globals.get::<_, String>("exports").unwrap_or("".to_string()))
+            globals.get::<_, String>("exports").unwrap_or("".to_string())
         })
     }
 }

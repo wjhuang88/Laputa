@@ -19,7 +19,7 @@ impl ActixMsg for ScriptMessage {
 pub trait ScriptHandler : Actor + Handler<ScriptMessage> {
     type SourceType;
     type ValueType;
-    fn exec(&mut self, source: Self::SourceType, file_name: String) -> io::Result<Self::ValueType>;
+    fn exec(&mut self, source: Self::SourceType, file_name: String) -> Self::ValueType;
 }
 
 #[derive(Clone)]
