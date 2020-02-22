@@ -2,6 +2,7 @@ mod core;
 //mod log;
 //mod plugin;
 mod script;
+mod any_error;
 
 #[macro_use]
 extern crate log;
@@ -103,7 +104,7 @@ async fn main() -> io::Result<()> {
         let name = req.path().trim_matches(|x| x == '/').to_string();
         let script: &ScriptFile = SCRIPT_MAP.get(&name).unwrap();
         let src = script.get_source().unwrap();
-        let msg = ScriptMessage {request: RequestInfo {path: name.clone()}, source: src, file: script.get_file_name()};
+        let msg = ScriptMessage { request: RequestInfo { path: name.clone() }, source: src, file: script.get_file_name() };
         let result = match script.script_type.as_str() {
             "js" => JS_ACTOR.borrow().send(msg).await.unwrap().unwrap(),
             "lua" => LUA_ACTOR.borrow().send(msg).await.unwrap().unwrap(),
