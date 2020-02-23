@@ -1,5 +1,5 @@
-var a = "Hello World from JS"
-a
-console.log("test log")
-var b = {test: "test1", test2: "test23"}
-b
+import * as m from "./deploy/test_module.js"
+
+console.log(m)
+var b = {test: "test1", testM: m}
+export {b}

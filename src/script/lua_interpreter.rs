@@ -9,6 +9,7 @@ pub struct LuaHandler {
 }
 impl LuaHandler {
     pub fn new() -> Box<LuaHandler> {
+        info!("Starting lua engine for first invoking");
         Box::new(LuaHandler { lua: Lua::new() })
     }
 }
