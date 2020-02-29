@@ -41,7 +41,7 @@ pub fn init_log() {
                 level,
                 "Laputa".bright_black().italic(),
                 &record.args(),
-                std::thread::current().name().unwrap_or("<unknown>"),
+                std::thread::current().name().unwrap_or("<unknown>").bright_black().italic(),
             )
         })
         .init();

@@ -1,26 +1,33 @@
 use rlua::Lua;
 use std::thread;
 
-use crate::common::{Receiver, Result, make_channel, Sender, spawn_and_log_error};
-use bytes::Bytes;
+use crate::common::{make_channel, Result, ScriptEvent, Sender};
+use bytes::{Buf, Bytes};
+use futures::{SinkExt, StreamExt};
 use serde::export::Option::Some;
-use std::sync::atomic::AtomicUsize;
-use futures::StreamExt;
 
-pub fn start() -> Result<Sender<Bytes>> {
-    let (send, mut rev) = make_channel::<Bytes>();
+pub fn start() -> Result<Sender<ScriptEvent>> {
+    let (send, mut rev) = make_channel::<ScriptEvent>();
     let thread_builder = thread::Builder::new().name("lua-vm".into());
     thread_builder.spawn(move || {
-        let counter = AtomicUsize::new(0);
-        let lua = Lua::new();
         log::info!("Starting lua engine");
         async_std::task::block_on(async {
-            while let Some(bytes) = rev.next().await {
-                let string = String::from_utf8(bytes.to_vec());
-                spawn_and_log_error(async {
-                    log::info!("get msg: {}", string?);
-                    Ok(())
-                });
+            let lua = Lua::new();
+            while let Some(event) = rev.next().await {
+                let mut sender = event.sender;
+                let source = event.source;
+                let result: String = lua
+                    .context(|ctx| {
+                        let global = ctx.globals();
+                        ctx.load(source.bytes()).exec()?;
+                        global.get::<_, String>("exports")
+                    })
+                    .unwrap_or(String::new());
+                if let Err(e) = sender.send(Bytes::from(result)).await {
+                    log::error!("Error in broker: {}", e);
+                }
+
+                sender.close_channel();
             }
         });
     })?;
