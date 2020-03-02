@@ -9,6 +9,7 @@ pub enum Service<'s> {
     ),
     Lua(&'s str, &'s str),
     JavaScript(&'s str, &'s str),
+    Static(&'s str, &'s str),
 }
 
 impl<'s> Service<'s> {
@@ -17,6 +18,7 @@ impl<'s> Service<'s> {
             Service::Lua(router, _) => (router, self),
             Service::JavaScript(router, _) => (router, self),
             Service::Native(router, _) => (router, self),
+            Service::Static(router, _) => (router, self),
         }
     }
 }

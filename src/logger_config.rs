@@ -1,11 +1,10 @@
-use log::info;
 use chrono;
 use env_logger;
+use log::info;
 
 use colored::Colorize;
 
-const BANNER: &'static str =
-    r"
+pub(crate) const BANNER: &'static str = r"
       __   Castle in the Sky  __
      / /   ____ _____  __  __/ /_____ _
     / /   / __ `/ __ \/ / / / __/ __ `/
@@ -20,11 +19,11 @@ pub fn print_banner() {
 
 pub fn init_log() {
     use chrono::Local;
-    use std::io::Write;
     use colored::*;
     use log::Level::*;
+    use std::io::Write;
 
-    let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "debug");
+    let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info");
     env_logger::Builder::from_env(env)
         .format(|buf, record| {
             let level = match record.level() {
@@ -36,12 +35,24 @@ pub fn init_log() {
             };
             writeln!(
                 buf,
-                "{} [{:<5}] [{}] {} -- [thread: {}]",
-                Local::now().format("%Y-%m-%d %H:%M:%S").to_string().as_str().bright_black(),
+                "{} [{:<5}] {} \t-- [module: {}][thread: {}]",
+                Local::now()
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string()
+                    .as_str()
+                    .bright_black(),
                 level,
-                "Laputa".bright_black().italic(),
                 &record.args(),
-                std::thread::current().name().unwrap_or("<unknown>").bright_black().italic(),
+                record
+                    .module_path()
+                    .unwrap_or("<unknown>")
+                    .bright_black()
+                    .italic(),
+                std::thread::current()
+                    .name()
+                    .unwrap_or("<unknown>")
+                    .bright_black()
+                    .italic(),
             )
         })
         .init();

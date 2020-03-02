@@ -37,6 +37,7 @@ where
 }
 
 pub struct ScriptEvent {
-    pub sender: Sender<bytes::Bytes>,
-    pub source: bytes::Bytes,
+    pub(crate) sender: Sender<bytes::Bytes>,
+    pub(crate) source: bytes::Bytes,
+    pub(crate) name: String,
 }
