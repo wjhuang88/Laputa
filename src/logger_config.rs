@@ -27,32 +27,49 @@ pub fn init_log() {
     env_logger::Builder::from_env(env)
         .format(|buf, record| {
             let level = match record.level() {
-                Error => Error.to_string().as_str().bright_red().on_black(),
-                Warn => Warn.to_string().as_str().bright_yellow().on_black(),
-                Info => Info.to_string().as_str().bright_green().on_black(),
-                Debug => Debug.to_string().as_str().bright_cyan().on_black(),
-                Trace => Trace.to_string().as_str().white().on_black(),
+                Error => Error.to_string().as_str().bright_red(),
+                Warn => Warn.to_string().as_str().bright_yellow(),
+                Info => Info.to_string().as_str().bright_green(),
+                Debug => Debug.to_string().as_str().bright_cyan(),
+                Trace => Trace.to_string().as_str().white(),
             };
+            let date_time = Local::now()
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+                .as_str()
+                .bright_black();
+            let module = {
+                let module = record.module_path().unwrap_or("<unknown>");
+                let len = module.len();
+                if len > 20 {
+                    &module[(len - 20)..]
+                } else {
+                    module
+                }
+            }
+            .bright_cyan()
+            .italic();
+            let args = &record.args();
+            let current = std::thread::current();
+            let thread = {
+                let thread = current.name().unwrap_or("<unknown>");
+                let len = thread.len();
+                if len > 8 {
+                    &thread[(len - 8)..]
+                } else {
+                    thread
+                }
+            }
+            .bright_black()
+            .italic();
             writeln!(
                 buf,
-                "{} [{:<5}] {} \t-- [module: {}][thread: {}]",
-                Local::now()
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string()
-                    .as_str()
-                    .bright_black(),
-                level,
-                &record.args(),
-                record
-                    .module_path()
-                    .unwrap_or("<unknown>")
-                    .bright_black()
-                    .italic(),
-                std::thread::current()
-                    .name()
-                    .unwrap_or("<unknown>")
-                    .bright_black()
-                    .italic(),
+                "{time} [{level:<5}] --- [{thread:>8}][{module:<20}]: {args}",
+                time = date_time,
+                level = level,
+                module = module,
+                args = args,
+                thread = thread,
             )
         })
         .init();
