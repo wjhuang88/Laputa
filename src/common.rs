@@ -4,6 +4,7 @@ use std;
 use std::future::Future;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+pub type StrErrResult<T> = std::result::Result<T, String>;
 
 pub struct ServiceState {
     #[allow(dead_code)]
@@ -37,7 +38,10 @@ where
 }
 
 pub struct ScriptEvent {
-    pub(crate) sender: Sender<bytes::Bytes>,
-    pub(crate) source: bytes::Bytes,
-    pub(crate) name: String,
+    pub(crate) sender: Sender<ScriptResultEvent>,
+    pub(crate) location: String,
+}
+
+pub struct ScriptResultEvent {
+    pub(crate) result: StrErrResult<bytes::Bytes>,
 }

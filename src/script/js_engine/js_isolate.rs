@@ -1,17 +1,22 @@
 use crate::common::Result;
+use async_std::pin::Pin;
 use bytes::{Buf, Bytes};
 use lazy_static::*;
 use log::*;
 use rusty_v8 as v8;
-use std::borrow::BorrowMut;
+use std::borrow::{Borrow, BorrowMut};
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt::Formatter;
 use std::os::raw::c_void;
+use std::rc::Rc;
 use std::sync::Mutex;
 
 lazy_static! {
     static ref INIT_LOCK: Mutex<u32> = Mutex::new(0);
 }
+
+static ROOT_MOD: &str = "___root_module__";
 
 #[must_use]
 struct SetupGuard {}
@@ -73,7 +78,13 @@ pub(crate) struct ModuleInfo {
     pub(crate) name: String,
     pub(crate) id: i32,
     pub(crate) handle: v8::Global<v8::Module>,
-    pub(crate) imports: Vec<String>,
+    pub(crate) imports: Box<Vec<String>>,
+}
+
+impl ModuleInfo {
+    fn set_init(&mut self, is_init: bool) {
+        self.init = is_init;
+    }
 }
 
 pub(crate) struct Modules {
@@ -124,12 +135,25 @@ impl Isolate {
         boxed_isolate
     }
 
-    pub async fn load_module_from_bytes(
+    pub fn load_module_from_bytes(
         &mut self,
         source: Bytes,
         name: String,
         is_main: bool,
     ) -> Result<i32> {
+        match self.modules.name_map.get(&name).map(|id| *id) {
+            Some(id) if name.ne(ROOT_MOD) => {
+                debug!("[JS]  Module {} was already loaded", name);
+                return Ok(id);
+            }
+            Some(id) if name.eq(ROOT_MOD) => {
+                let m = &mut self.modules;
+                m.name_map.remove(&name);
+                m.mod_map.remove(&id);
+            }
+            _ => {}
+        }
+
         let v8_isolate = self.v8_isolate.borrow_mut();
         let mut hs = v8::HandleScope::new(v8_isolate);
         let scope = hs.enter();
@@ -172,6 +196,7 @@ impl Isolate {
                 imports.push(import_specifier);
             }
         };
+        let imports = Box::new(imports);
 
         let mut handle = v8::Global::<v8::Module>::new();
         handle.set(scope, module);
@@ -189,13 +214,36 @@ impl Isolate {
     }
 
     pub async fn load_module(&mut self, specifier: String, is_main: bool) -> Result<i32> {
-        let source = resolve_spec(specifier.clone()).await?;
-        self.load_module_from_bytes(source, specifier, is_main)
-            .await
+        if let Some(id) = self.modules.name_map.get(&specifier) {
+            debug!("[JS]  Module {} was already loaded", specifier);
+            Ok(*id)
+        } else {
+            debug!("[JS]  Module {} will be loaded", specifier);
+            let source = resolve_spec(specifier.clone()).await?;
+            self.load_module_from_bytes(source, specifier, is_main)
+        }
+    }
+
+    async fn load_module_vec(
+        &mut self,
+        specifiers: Vec<String>,
+        is_main: bool,
+    ) -> Vec<Result<i32>> {
+        let futs = specifiers.iter().map(|spec| {
+            let iso = self as *mut Isolate;
+            // TODO: maybe the unsafe block could make things wrong because of the more then
+            // one task will occupied the isolate object and change the maps.
+            unsafe { (*iso).load_module(spec.to_string(), is_main) }
+        });
+        futures::future::join_all(futs).await
     }
 
     pub async fn instantiate_module(&mut self, id: i32) -> Result<()> {
-        let module = self.modules.mod_map.get(&id);
+        let module = {
+            let modules = &mut self.modules;
+            let map = &mut modules.mod_map;
+            map.get_mut(&id)
+        };
         if module.is_none() {
             let err = JsError {
                 message: format!(
@@ -208,12 +256,28 @@ impl Isolate {
         }
 
         let module = module.unwrap();
-        if module.init {
-            info!("Module with id {} has been instantiated", id);
+        let name = &module.name.clone();
+        if module.init && name.ne(ROOT_MOD) {
+            debug!("[JS]  Module {} has been instantiated", name);
             return Ok(());
         }
 
-        info!("Module with id {} will be instantiated", id);
+        debug!("[JS]  Module {} will be instantiated", name);
+
+        {
+            // borrowed mut self must release after use, so let's make a temporary var here
+            let module = {
+                let modules = &mut self.modules;
+                let map = &mut modules.mod_map;
+                map.get_mut(&id)
+            }
+            .unwrap();
+            let specs = module.imports.clone();
+            if specs.len() > 0 {
+                debug!("[JS]  Begin to handle imported modules for module {}", name);
+                self.load_module_vec(*specs, false).await;
+            }
+        }
 
         let v8_isolate = &mut self.v8_isolate;
 
@@ -227,6 +291,13 @@ impl Isolate {
         let mut try_catch = v8::TryCatch::new(scope);
         let tc = try_catch.enter();
 
+        // another temporary var here
+        let module = {
+            let modules = &mut self.modules;
+            let map = &mut modules.mod_map;
+            map.get_mut(&id)
+        }
+        .unwrap();
         let mut real_module = module.handle.get(scope).unwrap();
         if real_module.get_status() == v8::ModuleStatus::Errored {
             let exception = real_module.get_exception();
@@ -239,6 +310,7 @@ impl Isolate {
             };
             return Err(Box::new(err));
         }
+
         let result = real_module.instantiate_module(context, module_resolve_callback);
 
         if result.is_none() || !result.unwrap() {
@@ -253,30 +325,131 @@ impl Isolate {
                 None
             };
             let err = JsError {
-                message: format!("Module with id {} cannot be instantiated", id),
+                message: format!("Module {} cannot be instantiated", name),
                 cause,
             };
             return Err(Box::new(err));
         }
-        todo!("resolve imported modules");
+        module.set_init(true);
+
         Ok(())
+    }
+
+    fn module_evaluate(&mut self, mod_id: i32) -> Result<Bytes> {
+        let v8_isolate = &mut self.v8_isolate;
+        let mut hs = v8::HandleScope::new(v8_isolate);
+        let scope = hs.enter();
+        assert!(!self.global_context.is_empty());
+        let context = self.global_context.get(scope).unwrap();
+        let mut cs = v8::ContextScope::new(scope, context);
+        let scope = cs.enter();
+
+        let module = {
+            let modules = &mut self.modules;
+            let map = &mut modules.mod_map;
+            map.get_mut(&mod_id).expect("ModuleInfo not found")
+        };
+        let name = module.name.clone();
+        let mut real_module = module.handle.get(scope).expect("Empty module handle");
+        let mut status = real_module.get_status();
+        if status == v8::ModuleStatus::Instantiated {
+            let result = real_module.evaluate(scope, context);
+            // Update status after evaluating.
+            status = real_module.get_status();
+            if result.is_some() {
+                assert!(
+                    status == v8::ModuleStatus::Evaluated || status == v8::ModuleStatus::Errored
+                );
+            } else {
+                assert_eq!(status, v8::ModuleStatus::Errored);
+            }
+            match status {
+                v8::ModuleStatus::Evaluated => {
+                    // TODO: return response data when binding code be finished
+                    let eval = result.map(|r| {
+                        r.to_string(scope)
+                            .unwrap_or(v8::String::empty(scope))
+                            .to_rust_string_lossy(scope)
+                    });
+                    let eval = eval.unwrap_or("".to_string());
+                    Ok(Bytes::from(eval))
+                }
+                v8::ModuleStatus::Errored => {
+                    let exception = real_module.get_exception();
+                    let message = v8::Exception::create_message(scope, exception);
+                    print_error(scope, &message);
+                    let err_str = message.get(scope).to_rust_string_lossy(scope);
+                    let err = JsError {
+                        message: err_str,
+                        cause: None,
+                    };
+                    Err(Box::new(err))
+                }
+                other => {
+                    panic!("Unexpected module status {:?}", other);
+                }
+            }
+        } else {
+            let err = JsError {
+                message: format!("Module {} is not instantiated", name),
+                cause: None,
+            };
+            Err(Box::new(err))
+        }
+    }
+
+    pub async fn module_execute(&mut self, specifier: String) -> Result<Bytes> {
+        let root_mod = format!("import m from \"{}\"\nm", specifier);
+        let root_bytes = Bytes::from(root_mod);
+        let root_result = self.load_module_from_bytes(root_bytes, ROOT_MOD.to_string(), true);
+        if let Err(e) = root_result {
+            return Err(e);
+        }
+        let root_id = root_result.unwrap();
+        let inst_result = self.instantiate_module(root_id).await;
+        if let Err(e) = inst_result {
+            return Err(e);
+        }
+        let root_eval = self.module_evaluate(root_id);
+        if let Err(e) = root_eval {
+            return Err(e);
+        }
+        root_eval
     }
 }
 
 fn module_resolve_callback<'s>(
     context: v8::Local<'s, v8::Context>,
-    _specifier: v8::Local<'s, v8::String>,
+    specifier: v8::Local<'s, v8::String>,
     referrer: v8::Local<'s, v8::Module>,
 ) -> Option<v8::Local<'s, v8::Module>> {
     let mut scope = v8::CallbackScope::new_escapable(context);
     let mut scope = v8::EscapableHandleScope::new(scope.enter());
     let scope = scope.enter();
 
-    let my_isolate: &mut Isolate = unsafe { &mut *(scope.isolate().get_data(0) as *mut Isolate) };
-    let modules = &my_isolate.modules;
+    let specifier_str = specifier.to_rust_string_lossy(scope);
     let referrer_id = referrer.get_identity_hash();
 
-    let module = modules.mod_map.get(&referrer_id).unwrap();
+    let my_isolate: &mut Isolate = unsafe { &mut *(scope.isolate().get_data(0) as *mut Isolate) };
+
+    let specifier_id =
+        async_std::task::block_on(my_isolate.load_module(specifier_str.clone(), false));
+    if let Err(e) = specifier_id {
+        error!(
+            "[JS]  Cannot resolve module: {}, cause: {}",
+            specifier_str, e
+        );
+        return Some(referrer);
+    }
+    let specifier_id = specifier_id.unwrap();
+
+    let modules = &my_isolate.modules;
+    let referrer_name = &modules.mod_map.get(&referrer_id).unwrap().name;
+    debug!(
+        "[JS]  Handled imported module {} for {}",
+        specifier_str, referrer_name
+    );
+    let module = modules.mod_map.get(&specifier_id).unwrap();
     module.handle.get(scope).map(|m| scope.escape(m))
 }
 
@@ -383,11 +556,12 @@ fn print_error<'a>(scope: &mut impl v8::ToLocal<'a>, err: &v8::Local<v8::Message
                 let column = frame.get_column();
                 let row = frame.get_line_number();
                 let function = frame.get_function_name(scope);
-                let function = function.unwrap_or(v8::String::empty(scope));
-                let function = function.to_rust_string_lossy(scope);
-                let script = frame.get_script_name_or_source_url(scope);
-                let script = script.unwrap_or(v8::String::empty(scope));
-                let script = script.to_rust_string_lossy(scope);
+                let function = function.map(|f| f.to_rust_string_lossy(scope));
+                let function = function.unwrap_or("<unknown>".to_string());
+                let script = frame
+                    .get_script_name_or_source_url(scope)
+                    .map(|s| s.to_rust_string_lossy(scope));
+                let script = script.unwrap_or("<unknown>".to_string());
                 error!(
                     "[JS]  function {} at {} - [{}:{}]",
                     function, script, row, column
@@ -402,12 +576,14 @@ fn js_log(
     args: v8::FunctionCallbackArguments,
     mut rv: v8::ReturnValue,
 ) {
+    let mut hs = v8::HandleScope::new(scope);
+    let scope = hs.enter();
     let v8str = args
         .get(0)
         .to_string(scope)
         .unwrap_or(v8::String::empty(scope));
     let rstr = v8str.to_rust_string_lossy(scope);
-    info!("[JS]  {}", rstr);
+    info!("[JS]  log: {}", rstr);
     rv.set(v8str.into())
 }
 
@@ -416,12 +592,14 @@ fn js_error(
     args: v8::FunctionCallbackArguments,
     mut rv: v8::ReturnValue,
 ) {
+    let mut hs = v8::HandleScope::new(scope);
+    let scope = hs.enter();
     let v8str = args
         .get(0)
         .to_string(scope)
         .unwrap_or(v8::String::empty(scope));
     let rstr = v8str.to_rust_string_lossy(scope);
-    error!("[JS]  {}", rstr);
+    error!("[JS]  err: {}", rstr);
     rv.set(v8str.into())
 }
 

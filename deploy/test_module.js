@@ -1,3 +1,3 @@
-export {
-    testModule: "from module"
-}
+var test = "from module"
+
+export { test }

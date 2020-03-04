@@ -1,5 +1,5 @@
 use crate::common;
-use crate::common::{ScriptEvent, Sender};
+use crate::common::{ScriptEvent, ScriptResultEvent, Sender};
 use crate::service::Service;
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};
@@ -11,24 +11,23 @@ pub struct Server<'s> {
 }
 
 async fn script_handle(path: std::path::PathBuf, mut engine_tx: Sender<ScriptEvent>) -> Response {
-    let source_vec = async_std::fs::read(path.clone()).await;
-    if let Err(e) = source_vec {
-        log::error!("Error in task: {}", e);
-        return Response::new(404);
-    }
-    let source_vec = source_vec.unwrap();
-    let (result_tx, mut result_rx) = common::make_channel::<Bytes>();
+    let (result_tx, mut result_rx) = common::make_channel::<ScriptResultEvent>();
+    let path_clone = path.clone();
     common::spawn_and_log_error(async move {
         let event = ScriptEvent {
             sender: result_tx.clone(),
-            source: Bytes::from(source_vec),
-            name: path.to_string_lossy().to_string(),
+            location: path_clone.to_string_lossy().to_string(),
         };
         engine_tx.send(event).await?;
         Ok(())
     });
     let mut result = BytesMut::new();
-    while let Some(bytes) = result_rx.next().await {
+    while let Some(r_event) = result_rx.next().await {
+        if let Err(e) = r_event.result {
+            log::error!("Error: {:?}, script: {:?}", e, path);
+            return Response::new(500).body_string(e.to_string());
+        }
+        let bytes = r_event.result.unwrap();
         for byte in bytes {
             result.put_u8(byte);
         }

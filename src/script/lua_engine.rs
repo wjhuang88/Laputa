@@ -1,7 +1,7 @@
 use rlua::Lua;
 use std::thread;
 
-use crate::common::{make_channel, Result, ScriptEvent, Sender};
+use crate::common::{make_channel, Result, ScriptEvent, ScriptResultEvent, Sender};
 use bytes::{Buf, Bytes};
 use futures::{SinkExt, StreamExt};
 use serde::export::Option::Some;
@@ -15,15 +15,19 @@ pub fn start() -> Result<Sender<ScriptEvent>> {
             let lua = Lua::new();
             while let Some(event) = rev.next().await {
                 let mut sender = event.sender;
-                let source = event.source;
+                let location = event.location;
+                let source = async_std::fs::read(location).await.unwrap();
                 let result: String = lua
                     .context(|ctx| {
                         let global = ctx.globals();
-                        ctx.load(source.bytes()).exec()?;
+                        ctx.load(source.as_slice()).exec()?;
                         global.get::<_, String>("exports")
                     })
                     .unwrap_or(String::new());
-                if let Err(e) = sender.send(Bytes::from(result)).await {
+                let r_event = ScriptResultEvent {
+                    result: Ok(Bytes::from(result)),
+                };
+                if let Err(e) = sender.send(r_event).await {
                     log::error!("Error in broker: {}", e);
                 }
 

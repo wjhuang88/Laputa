@@ -23,7 +23,7 @@ pub fn init_log() {
     use log::Level::*;
     use std::io::Write;
 
-    let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info");
+    let env = env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "debug");
     env_logger::Builder::from_env(env)
         .format(|buf, record| {
             let level = match record.level() {
@@ -64,7 +64,7 @@ pub fn init_log() {
             .italic();
             writeln!(
                 buf,
-                "{time} [{level:<5}] --- [{thread:>8}][{module:<20}]: {args}",
+                "{time} [{level:<5}] --- [{thread:>8}] {module:<20} : {args}",
                 time = date_time,
                 level = level,
                 module = module,
