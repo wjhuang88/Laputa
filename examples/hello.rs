@@ -1,16 +1,28 @@
 use async_std::task;
 use laputa::common;
-use laputa::service::Service;
+use laputa::service::ScriptType;
+use tide::http::Method;
+use tide::Response;
 
-fn main() -> common::Result<()> {
+fn main() -> common::BoxErrResult<()> {
     task::block_on(async {
         let mut server = laputa::new();
-        let lua_test = Service::Lua("testlua", "./deploy/ping_lua.lua");
-        let static_test = Service::Static("file", "./deploy/ping_static.html");
-        let js_test = Service::JavaScript("testjs", "./deploy/ping_javascript.js");
-        server.register(lua_test);
-        server.register(static_test);
-        server.register(js_test);
+        server.route_static(
+            Method::GET,
+            mime::TEXT_HTML_UTF_8,
+            "static",
+            "./deploy/ping_static.html",
+        )?;
+        server.route_script(ScriptType::Lua, Method::GET, "lua", "./deploy/ping_lua.lua")?;
+        server.route_script(
+            ScriptType::JavaScript,
+            Method::GET,
+            "js",
+            "./deploy/ping_javascript.js",
+        )?;
+        server.route_fn(Method::GET, "fn", |_| async {
+            Response::new(200).body_string("Hello World!".to_string())
+        })?;
         server.start().await?;
         Ok(())
     })

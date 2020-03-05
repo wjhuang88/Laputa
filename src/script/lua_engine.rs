@@ -1,12 +1,12 @@
 use rlua::Lua;
 use std::thread;
 
-use crate::common::{make_channel, Result, ScriptEvent, ScriptResultEvent, Sender};
-use bytes::{Buf, Bytes};
+use crate::common::{make_channel, BoxErrResult, ScriptEvent, ScriptResultEvent, Sender};
+use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
 use serde::export::Option::Some;
 
-pub fn start() -> Result<Sender<ScriptEvent>> {
+pub fn start() -> BoxErrResult<Sender<ScriptEvent>> {
     let (send, mut rev) = make_channel::<ScriptEvent>();
     let thread_builder = thread::Builder::new().name("lua-vm".into());
     thread_builder.spawn(move || {

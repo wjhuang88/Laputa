@@ -3,7 +3,7 @@ use futures::channel::mpsc;
 use std;
 use std::future::Future;
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+pub type BoxErrResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub type StrErrResult<T> = std::result::Result<T, String>;
 
 pub struct ServiceState {
@@ -28,7 +28,7 @@ pub fn make_channel<T>() -> (Sender<T>, Receiver<T>) {
 
 pub fn spawn_and_log_error<F>(fut: F) -> task::JoinHandle<()>
 where
-    F: Future<Output = Result<()>> + Send + 'static,
+    F: Future<Output = BoxErrResult<()>> + Send + 'static,
 {
     task::spawn(async move {
         if let Err(e) = fut.await {

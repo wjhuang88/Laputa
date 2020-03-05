@@ -1,10 +1,10 @@
-use crate::common::{make_channel, Result, ScriptEvent, ScriptResultEvent, Sender};
+use crate::common::{make_channel, BoxErrResult, ScriptEvent, ScriptResultEvent, Sender};
 use crate::script::js_engine::js_isolate::Isolate;
 use futures::{SinkExt, StreamExt};
 use serde::export::Result::Err;
 use std::thread;
 
-pub fn start() -> Result<Sender<ScriptEvent>> {
+pub fn start() -> BoxErrResult<Sender<ScriptEvent>> {
     let (send, mut rev) = make_channel::<ScriptEvent>();
     let thread_builder = thread::Builder::new().name("v8-vm".into());
     thread_builder.spawn(move || {

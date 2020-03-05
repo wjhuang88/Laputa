@@ -1,15 +1,12 @@
-use crate::common::Result;
-use async_std::pin::Pin;
+use crate::common::BoxErrResult;
 use bytes::{Buf, Bytes};
 use lazy_static::*;
 use log::*;
 use rusty_v8 as v8;
-use std::borrow::{Borrow, BorrowMut};
-use std::cell::Cell;
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::fmt::Formatter;
 use std::os::raw::c_void;
-use std::rc::Rc;
 use std::sync::Mutex;
 
 lazy_static! {
@@ -72,6 +69,7 @@ impl std::error::Error for JsError {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) struct ModuleInfo {
     pub(crate) main: bool,
     pub(crate) init: bool,
@@ -140,7 +138,7 @@ impl Isolate {
         source: Bytes,
         name: String,
         is_main: bool,
-    ) -> Result<i32> {
+    ) -> BoxErrResult<i32> {
         match self.modules.name_map.get(&name).map(|id| *id) {
             Some(id) if name.ne(ROOT_MOD) => {
                 debug!("[JS]  Module {} was already loaded", name);
@@ -213,7 +211,7 @@ impl Isolate {
         Ok(id)
     }
 
-    pub async fn load_module(&mut self, specifier: String, is_main: bool) -> Result<i32> {
+    pub async fn load_module(&mut self, specifier: String, is_main: bool) -> BoxErrResult<i32> {
         if let Some(id) = self.modules.name_map.get(&specifier) {
             debug!("[JS]  Module {} was already loaded", specifier);
             Ok(*id)
@@ -228,7 +226,7 @@ impl Isolate {
         &mut self,
         specifiers: Vec<String>,
         is_main: bool,
-    ) -> Vec<Result<i32>> {
+    ) -> Vec<BoxErrResult<i32>> {
         let futs = specifiers.iter().map(|spec| {
             let iso = self as *mut Isolate;
             // TODO: maybe the unsafe block could make things wrong because of the more then
@@ -238,7 +236,7 @@ impl Isolate {
         futures::future::join_all(futs).await
     }
 
-    pub async fn instantiate_module(&mut self, id: i32) -> Result<()> {
+    pub async fn instantiate_module(&mut self, id: i32) -> BoxErrResult<()> {
         let module = {
             let modules = &mut self.modules;
             let map = &mut modules.mod_map;
@@ -335,7 +333,7 @@ impl Isolate {
         Ok(())
     }
 
-    fn module_evaluate(&mut self, mod_id: i32) -> Result<Bytes> {
+    fn module_evaluate(&mut self, mod_id: i32) -> BoxErrResult<Bytes> {
         let v8_isolate = &mut self.v8_isolate;
         let mut hs = v8::HandleScope::new(v8_isolate);
         let scope = hs.enter();
@@ -398,7 +396,7 @@ impl Isolate {
         }
     }
 
-    pub async fn module_execute(&mut self, specifier: String) -> Result<Bytes> {
+    pub async fn module_execute(&mut self, specifier: String) -> BoxErrResult<Bytes> {
         let root_mod = format!("import m from \"{}\"\nm", specifier);
         let root_bytes = Bytes::from(root_mod);
         let root_result = self.load_module_from_bytes(root_bytes, ROOT_MOD.to_string(), true);
@@ -489,7 +487,7 @@ fn init_context<'s>(scope: &mut impl v8::ToLocal<'s>) -> v8::Local<'s, v8::Conte
     scope.escape(context)
 }
 
-async fn resolve_spec(specifier: String) -> Result<Bytes> {
+async fn resolve_spec(specifier: String) -> BoxErrResult<Bytes> {
     if specifier.starts_with("http://") || specifier.starts_with("https://") {
         let data = reqwest::get(&specifier).await?.bytes().await?;
         Ok(data)
