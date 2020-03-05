@@ -1,3 +1,3 @@
-var test = "from module"
+var test = "some content from test module"
 
 export { test }

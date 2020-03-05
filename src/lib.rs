@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use tide::Response;
-
 pub mod common;
 mod inner_pages;
 mod logger_config;

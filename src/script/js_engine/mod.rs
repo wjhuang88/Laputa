@@ -1,3 +1,4 @@
+mod bindings;
 mod js_core;
 mod js_isolate;
 

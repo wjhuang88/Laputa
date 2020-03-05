@@ -1,6 +1,7 @@
 use async_std::task;
 use futures::channel::mpsc;
 use std;
+use std::collections::HashMap;
 use std::future::Future;
 
 pub type BoxErrResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -43,5 +44,11 @@ pub struct ScriptEvent {
 }
 
 pub struct ScriptResultEvent {
-    pub(crate) result: StrErrResult<bytes::Bytes>,
+    pub(crate) result: StrErrResult<ResponseData>,
+}
+
+pub struct ResponseData {
+    pub(crate) headers: HashMap<String, String>,
+    pub(crate) body: bytes::Bytes,
+    pub(crate) status: u16,
 }

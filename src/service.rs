@@ -1,9 +1,5 @@
-use crate::common::{BoxErrResult, ScriptEvent, Sender, ServiceState};
-use serde::export::fmt::Error;
+use crate::common::{BoxErrResult, ScriptEvent, Sender};
 use serde::export::Formatter;
-use std::future::Future;
-use std::pin::Pin;
-use tide::{Request, Response};
 
 static TYPE_NAMES: [&'static str; 2] = ["lua", "javascript"];
 

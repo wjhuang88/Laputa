@@ -1,10 +1,13 @@
 use rlua::Lua;
 use std::thread;
 
-use crate::common::{make_channel, BoxErrResult, ScriptEvent, ScriptResultEvent, Sender};
+use crate::common::{
+    make_channel, BoxErrResult, ResponseData, ScriptEvent, ScriptResultEvent, Sender,
+};
 use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
 use serde::export::Option::Some;
+use std::collections::HashMap;
 
 pub fn start() -> BoxErrResult<Sender<ScriptEvent>> {
     let (send, mut rev) = make_channel::<ScriptEvent>();
@@ -25,7 +28,11 @@ pub fn start() -> BoxErrResult<Sender<ScriptEvent>> {
                     })
                     .unwrap_or(String::new());
                 let r_event = ScriptResultEvent {
-                    result: Ok(Bytes::from(result)),
+                    result: Ok(ResponseData {
+                        status: 200,
+                        headers: HashMap::new(),
+                        body: Bytes::from(result),
+                    }),
                 };
                 if let Err(e) = sender.send(r_event).await {
                     log::error!("Error in broker: {}", e);

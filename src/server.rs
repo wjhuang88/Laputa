@@ -4,8 +4,8 @@ use crate::{common, inner_pages};
 use bytes::{BufMut, BytesMut};
 use futures::{SinkExt, StreamExt};
 use mimalloc::MiMalloc;
-use mime::Mime;
 use std::collections::HashMap;
+use std::ptr;
 use tide::{Endpoint, Response};
 
 #[global_allocator]
@@ -28,18 +28,35 @@ async fn script_handle(path: std::path::PathBuf, mut engine_tx: Sender<ScriptEve
         Ok(())
     });
     let mut result = BytesMut::new();
+    let mut status = 200;
+    let mut headers: Option<HashMap<String, String>> = None;
     while let Some(r_event) = result_rx.next().await {
         if let Err(e) = r_event.result {
             log::error!("Error: {:?}, script: {:?}", e, path);
             return Response::new(500).body_string(e.to_string());
         }
-        let bytes = r_event.result.unwrap();
+        let res = r_event.result.unwrap();
+        let bytes = res.body;
         for byte in bytes {
             result.put_u8(byte);
         }
+        status = res.status;
+        headers.replace(res.headers);
     }
     let result_str = String::from_utf8(result.to_vec()).unwrap_or(String::new());
-    Response::new(200).body_string(result_str)
+    let mut resp = Response::new(status).body_string(result_str);
+    if let Some(map) = headers {
+        if !map.is_empty() {
+            for (k, v) in map {
+                let boxed_k = Box::new(k);
+                let ptr = Box::into_raw(boxed_k);
+                let k_static = unsafe { &*ptr as &String };
+                resp = resp.set_header(k_static, v);
+                unsafe { ptr::drop_in_place(ptr) }
+            }
+        }
+    }
+    resp
 }
 
 impl Server {

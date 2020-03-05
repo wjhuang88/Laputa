@@ -1,4 +1,5 @@
-use crate::common::BoxErrResult;
+use crate::common::{BoxErrResult, ResponseData};
+use crate::script::js_engine::bindings;
 use bytes::{Buf, Bytes};
 use lazy_static::*;
 use log::*;
@@ -112,7 +113,7 @@ impl Isolate {
         let mut global_context = v8::Global::<v8::Context>::new();
         let mut hs = v8::HandleScope::new(&mut v8_isolate);
         let scope = hs.enter();
-        let context = init_context(scope);
+        let context = bindings::init_context(scope);
         global_context.set(scope, context);
         let pending_promise_exceptions = HashMap::new();
         let my_isolate = Self {
@@ -333,7 +334,7 @@ impl Isolate {
         Ok(())
     }
 
-    fn module_evaluate(&mut self, mod_id: i32) -> BoxErrResult<Bytes> {
+    fn module_evaluate(&mut self, mod_id: i32) -> BoxErrResult<ResponseData> {
         let v8_isolate = &mut self.v8_isolate;
         let mut hs = v8::HandleScope::new(v8_isolate);
         let scope = hs.enter();
@@ -363,14 +364,8 @@ impl Isolate {
             }
             match status {
                 v8::ModuleStatus::Evaluated => {
-                    // TODO: return response data when binding code be finished
-                    let eval = result.map(|r| {
-                        r.to_string(scope)
-                            .unwrap_or(v8::String::empty(scope))
-                            .to_rust_string_lossy(scope)
-                    });
-                    let eval = eval.unwrap_or("".to_string());
-                    Ok(Bytes::from(eval))
+                    let result = result.unwrap();
+                    bindings::make_response(scope, context, result)
                 }
                 v8::ModuleStatus::Errored => {
                     let exception = real_module.get_exception();
@@ -396,23 +391,12 @@ impl Isolate {
         }
     }
 
-    pub async fn module_execute(&mut self, specifier: String) -> BoxErrResult<Bytes> {
+    pub async fn module_execute(&mut self, specifier: String) -> BoxErrResult<ResponseData> {
         let root_mod = format!("import m from \"{}\"\nm", specifier);
         let root_bytes = Bytes::from(root_mod);
-        let root_result = self.load_module_from_bytes(root_bytes, ROOT_MOD.to_string(), true);
-        if let Err(e) = root_result {
-            return Err(e);
-        }
-        let root_id = root_result.unwrap();
-        let inst_result = self.instantiate_module(root_id).await;
-        if let Err(e) = inst_result {
-            return Err(e);
-        }
-        let root_eval = self.module_evaluate(root_id);
-        if let Err(e) = root_eval {
-            return Err(e);
-        }
-        root_eval
+        let root_id = self.load_module_from_bytes(root_bytes, ROOT_MOD.to_string(), true)?;
+        let _ = self.instantiate_module(root_id).await?;
+        self.module_evaluate(root_id)
     }
 }
 
@@ -449,42 +433,6 @@ fn module_resolve_callback<'s>(
     );
     let module = modules.mod_map.get(&specifier_id).unwrap();
     module.handle.get(scope).map(|m| scope.escape(m))
-}
-
-fn init_context<'s>(scope: &mut impl v8::ToLocal<'s>) -> v8::Local<'s, v8::Context> {
-    let mut hs = v8::EscapableHandleScope::new(scope);
-    let scope = hs.enter();
-
-    let context = v8::Context::new(scope);
-    let global = context.global(scope);
-
-    let mut cs = v8::ContextScope::new(scope, context);
-    let scope = cs.enter();
-
-    // add console log/error handler
-    let console_log = v8::FunctionTemplate::new(scope, js_log);
-    let console_error = v8::FunctionTemplate::new(scope, js_error);
-    let console_key =
-        v8::String::new_from_utf8(scope, "console".as_bytes(), v8::NewStringType::Normal).unwrap();
-    let console_log_key =
-        v8::String::new_from_utf8(scope, "log".as_bytes(), v8::NewStringType::Normal).unwrap();
-    let console_error_key =
-        v8::String::new_from_utf8(scope, "error".as_bytes(), v8::NewStringType::Normal).unwrap();
-    let console_obj = v8::ObjectTemplate::new(scope);
-    console_obj.set_with_attr(
-        console_log_key.into(),
-        console_log.into(),
-        v8::READ_ONLY + v8::DONT_ENUM + v8::DONT_DELETE,
-    );
-    console_obj.set_with_attr(
-        console_error_key.into(),
-        console_error.into(),
-        v8::READ_ONLY + v8::DONT_ENUM + v8::DONT_DELETE,
-    );
-    let console_instance = console_obj.new_instance(scope, context).unwrap();
-    global.set(context, console_key.into(), console_instance.into());
-
-    scope.escape(context)
 }
 
 async fn resolve_spec(specifier: String) -> BoxErrResult<Bytes> {
@@ -567,38 +515,6 @@ fn print_error<'a>(scope: &mut impl v8::ToLocal<'a>, err: &v8::Local<v8::Message
             }
         }
     }
-}
-
-fn js_log(
-    scope: v8::FunctionCallbackScope,
-    args: v8::FunctionCallbackArguments,
-    mut rv: v8::ReturnValue,
-) {
-    let mut hs = v8::HandleScope::new(scope);
-    let scope = hs.enter();
-    let v8str = args
-        .get(0)
-        .to_string(scope)
-        .unwrap_or(v8::String::empty(scope));
-    let rstr = v8str.to_rust_string_lossy(scope);
-    info!("[JS]  log: {}", rstr);
-    rv.set(v8str.into())
-}
-
-fn js_error(
-    scope: v8::FunctionCallbackScope,
-    args: v8::FunctionCallbackArguments,
-    mut rv: v8::ReturnValue,
-) {
-    let mut hs = v8::HandleScope::new(scope);
-    let scope = hs.enter();
-    let v8str = args
-        .get(0)
-        .to_string(scope)
-        .unwrap_or(v8::String::empty(scope));
-    let rstr = v8str.to_rust_string_lossy(scope);
-    error!("[JS]  err: {}", rstr);
-    rv.set(v8str.into())
 }
 
 pub extern "C" fn promise_reject_callback(message: v8::PromiseRejectMessage) {
