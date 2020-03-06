@@ -173,7 +173,7 @@ pub(crate) fn make_request<'s>(
     unsafe { v8_isolate.set_data(1, raw_request as *mut c_void) }
 
     let obj_name = v8::String::new(scope, "request").unwrap();
-    let headers_name = v8::String::new(scope, "headers").unwrap();
+    let headers_name = v8::String::new(scope, "header").unwrap();
     let body_name = v8::String::new(scope, "body").unwrap();
     let uri_name = v8::String::new(scope, "uri").unwrap();
     let query_name = v8::String::new(scope, "query").unwrap();
