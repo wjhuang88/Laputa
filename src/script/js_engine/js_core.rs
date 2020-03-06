@@ -14,8 +14,9 @@ pub fn start() -> BoxErrResult<Sender<ScriptEvent>> {
             while let Some(event) = rev.next().await {
                 let mut sender = event.sender;
                 let location = event.location;
+                let req = event.request;
                 let result = isolate
-                    .module_execute(location)
+                    .module_execute(location, req)
                     .await
                     .map_err(|e| e.to_string());
                 let r_event = ScriptResultEvent { result };

@@ -41,10 +41,18 @@ where
 pub struct ScriptEvent {
     pub(crate) sender: Sender<ScriptResultEvent>,
     pub(crate) location: String,
+    pub(crate) request: RequestData,
 }
 
 pub struct ScriptResultEvent {
     pub(crate) result: StrErrResult<ResponseData>,
+}
+
+pub struct RequestData {
+    pub(crate) headers: http::HeaderMap,
+    pub(crate) body: bytes::Bytes,
+    pub(crate) uri: String,
+    pub(crate) query: String,
 }
 
 pub struct ResponseData {

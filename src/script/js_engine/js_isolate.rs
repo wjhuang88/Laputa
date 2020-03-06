@@ -1,4 +1,4 @@
-use crate::common::{BoxErrResult, ResponseData};
+use crate::common::{BoxErrResult, RequestData, ResponseData};
 use crate::script::js_engine::bindings;
 use bytes::{Buf, Bytes};
 use lazy_static::*;
@@ -391,7 +391,26 @@ impl Isolate {
         }
     }
 
-    pub async fn module_execute(&mut self, specifier: String) -> BoxErrResult<ResponseData> {
+    pub async fn module_execute(
+        &mut self,
+        specifier: String,
+        request: RequestData,
+    ) -> BoxErrResult<ResponseData> {
+        let v8_isolate = &mut self.v8_isolate;
+        let mut hs = v8::HandleScope::new(v8_isolate);
+        let scope = hs.enter();
+        assert!(!self.global_context.is_empty());
+        let context = self.global_context.get(scope).unwrap();
+        let mut cs = v8::ContextScope::new(scope, context);
+        let scope = cs.enter();
+
+        let _ = bindings::make_request(scope, context, request)?;
+
+        let cache_map = &mut self.modules;
+        if let Some(&id) = cache_map.name_map.get(&specifier) {
+            cache_map.name_map.remove(&specifier);
+            cache_map.mod_map.remove(&id);
+        }
         let root_mod = format!("import m from \"{}\"\nm", specifier);
         let root_bytes = Bytes::from(root_mod);
         let root_id = self.load_module_from_bytes(root_bytes, ROOT_MOD.to_string(), true)?;

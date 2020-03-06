@@ -1,8 +1,9 @@
-use crate::common::{BoxErrResult, ResponseData};
+use crate::common::{BoxErrResult, RequestData, ResponseData};
 use bytes::Bytes;
 use log::*;
 use rusty_v8 as v8;
 use std::collections::HashMap;
+use std::ffi::c_void;
 
 pub(crate) fn make_response<'s>(
     scope: &mut impl v8::ToLocal<'s>,
@@ -83,6 +84,113 @@ pub(crate) fn make_response<'s>(
             body: Bytes::from("Script returns empty content"),
         })
     }
+}
+
+fn uri_accessor(
+    scope: v8::PropertyCallbackScope,
+    _name: v8::Local<v8::Name>,
+    _args: v8::PropertyCallbackArguments,
+    mut rv: v8::ReturnValue,
+) {
+    let mut hs = v8::HandleScope::new(scope);
+    let scope = hs.enter();
+    let v8_isolate = scope.isolate();
+    let request = unsafe { &*(v8_isolate.get_data(1) as *mut RequestData) };
+    rv.set(v8::String::new(scope, &request.uri).unwrap().into());
+}
+
+fn query_accessor(
+    scope: v8::PropertyCallbackScope,
+    _name: v8::Local<v8::Name>,
+    _args: v8::PropertyCallbackArguments,
+    mut rv: v8::ReturnValue,
+) {
+    let mut hs = v8::HandleScope::new(scope);
+    let scope = hs.enter();
+    let v8_isolate = scope.isolate();
+    let request = unsafe { &*(v8_isolate.get_data(1) as *mut RequestData) };
+    rv.set(v8::String::new(scope, &request.query).unwrap().into());
+}
+
+fn body_accessor(
+    scope: v8::PropertyCallbackScope,
+    _name: v8::Local<v8::Name>,
+    _args: v8::PropertyCallbackArguments,
+    mut rv: v8::ReturnValue,
+) {
+    let mut hs = v8::HandleScope::new(scope);
+    let scope = hs.enter();
+    let v8_isolate = scope.isolate();
+    let request = unsafe { &*(v8_isolate.get_data(1) as *mut RequestData) };
+    rv.set(
+        v8::String::new(scope, &String::from_utf8(request.body.to_vec()).unwrap())
+            .unwrap()
+            .into(),
+    )
+}
+
+fn headers_accessor(
+    scope: v8::FunctionCallbackScope,
+    args: v8::FunctionCallbackArguments,
+    mut rv: v8::ReturnValue,
+) {
+    let mut hs = v8::HandleScope::new(scope);
+    let scope = hs.enter();
+    let v8_isolate = scope.isolate();
+    let request = unsafe { &*(v8_isolate.get_data(1) as *mut RequestData) };
+
+    let mut hs = v8::HandleScope::new(scope);
+    let scope = hs.enter();
+    let v8str = args
+        .get(0)
+        .to_string(scope)
+        .unwrap_or(v8::String::empty(scope))
+        .to_rust_string_lossy(scope);
+    let arr: Vec<v8::Local<v8::Value>> = request
+        .headers
+        .get_all(v8str)
+        .iter()
+        .map(|value| {
+            v8::String::new(scope, value.to_str().unwrap_or(""))
+                .unwrap()
+                .into()
+        })
+        .collect();
+    let result = v8::Array::new_with_elements(scope, &arr);
+    rv.set(result.into());
+}
+
+pub(crate) fn make_request<'s>(
+    scope: &mut impl v8::ToLocal<'s>,
+    context: v8::Local<v8::Context>,
+    request: RequestData,
+) -> BoxErrResult<()> {
+    let boxed_request = Box::new(request);
+    let raw_request = Box::into_raw(boxed_request);
+    let mut hs = v8::HandleScope::new(scope);
+    let scope = hs.enter();
+    let v8_isolate = scope.isolate();
+    unsafe { v8_isolate.set_data(1, raw_request as *mut c_void) }
+
+    let obj_name = v8::String::new(scope, "request").unwrap();
+    let headers_name = v8::String::new(scope, "headers").unwrap();
+    let body_name = v8::String::new(scope, "body").unwrap();
+    let uri_name = v8::String::new(scope, "uri").unwrap();
+    let query_name = v8::String::new(scope, "query").unwrap();
+    let mut request_temp = v8::ObjectTemplate::new(scope);
+    request_temp.set_accessor(uri_name, uri_accessor);
+    request_temp.set_accessor(query_name, query_accessor);
+    request_temp.set_accessor(body_name, body_accessor);
+    let headers_func = v8::FunctionTemplate::new(scope, headers_accessor);
+    request_temp.set_with_attr(
+        headers_name.into(),
+        headers_func.into(),
+        v8::READ_ONLY + v8::DONT_ENUM + v8::DONT_DELETE,
+    );
+    let global = context.global(scope);
+    let request_inst = request_temp.new_instance(scope, context).unwrap();
+    global.set(context, obj_name.into(), request_inst.into());
+    Ok(())
 }
 
 pub(crate) fn init_context<'s>(scope: &mut impl v8::ToLocal<'s>) -> v8::Local<'s, v8::Context> {

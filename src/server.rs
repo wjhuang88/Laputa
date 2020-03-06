@@ -1,4 +1,6 @@
-use crate::common::{BoxErrResult, ScriptEvent, ScriptResultEvent, Sender, ServiceState};
+use crate::common::{
+    BoxErrResult, RequestData, ScriptEvent, ScriptResultEvent, Sender, ServiceState,
+};
 use crate::service::ScriptType;
 use crate::{common, inner_pages};
 use bytes::{BufMut, BytesMut};
@@ -6,7 +8,7 @@ use futures::{SinkExt, StreamExt};
 use mimalloc::MiMalloc;
 use std::collections::HashMap;
 use std::ptr;
-use tide::{Endpoint, Response};
+use tide::{Endpoint, Request, Response};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -16,13 +18,18 @@ pub struct Server {
     sender_map: HashMap<ScriptType, Sender<ScriptEvent>>,
 }
 
-async fn script_handle(path: std::path::PathBuf, mut engine_tx: Sender<ScriptEvent>) -> Response {
+async fn script_handle(
+    path: std::path::PathBuf,
+    mut engine_tx: Sender<ScriptEvent>,
+    request_data: RequestData,
+) -> Response {
     let (result_tx, mut result_rx) = common::make_channel::<ScriptResultEvent>();
     let path_clone = path.clone();
     common::spawn_and_log_error(async move {
         let event = ScriptEvent {
             sender: result_tx.clone(),
             location: path_clone.to_string_lossy().to_string(),
+            request: request_data,
         };
         engine_tx.send(event).await?;
         Ok(())
@@ -145,10 +152,28 @@ impl Server {
         log::info!("Route /{} for {} code form {}", route, script_type, path);
         let path = std::path::PathBuf::from(path);
         let engine_tx = tx.clone();
-        self.app.at(route).method(method, move |_| {
-            let path = path.clone();
-            script_handle(path, engine_tx.clone())
-        });
+        self.app
+            .at(route)
+            .method(method, move |mut req: Request<ServiceState>| {
+                let path = path.clone();
+                let headers = req.headers().clone();
+                let uri = req.uri().clone();
+                let query = uri.query().unwrap_or("").to_string();
+                let uri_str = uri.to_string();
+                let engine_tx = engine_tx.clone();
+                async move {
+                    let body_fut = req.body_bytes();
+                    let body = body_fut.await.unwrap_or(Vec::new());
+                    let req_data = RequestData {
+                        headers,
+                        uri: uri_str,
+                        query,
+                        body: bytes::Bytes::from(body.clone()),
+                    };
+
+                    script_handle(path, engine_tx.clone(), req_data).await
+                }
+            });
         Ok(())
     }
 }

@@ -21,6 +21,7 @@ serde = "^1.0"
 bytes = "^0.5"
 mime = "^0.3"
 reqwest = "^0.10"
+http = "^0.1"
 
 log = "^0.4.8"
 env_logger = "^0.7.1"
