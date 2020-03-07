@@ -1,7 +1,7 @@
 local _M = {}
 
 function _M.run()
-    local headers = { ["Content-type"] = "text/html" }
+    local headers = { ["Content-type"] = "text/html", ["Custom"] = "test lua" }
 
     local function hello_text()
         coroutine.yield("<html><body>")
