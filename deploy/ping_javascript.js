@@ -16,7 +16,7 @@ export default {
     status: 200,
     headers: {
         "Content-type": "text/html",
-        "Custom-Test": "From js test",
+        "Custom-Test": "test header",
     },
     body
 }
