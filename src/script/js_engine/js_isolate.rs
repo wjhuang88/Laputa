@@ -406,11 +406,14 @@ impl Isolate {
 
         let _ = bindings::make_request(scope, context, request)?;
 
+        // TODO: removing cached module makes a huge impact on performance, this code block
+        // must be removed when file watcher is ready.
         let cache_map = &mut self.modules;
         if let Some(&id) = cache_map.name_map.get(&specifier) {
             cache_map.name_map.remove(&specifier);
             cache_map.mod_map.remove(&id);
         }
+
         let root_mod = format!("import m from \"{}\"\nm", specifier);
         let root_bytes = Bytes::from(root_mod);
         let root_id = self.load_module_from_bytes(root_bytes, ROOT_MOD.to_string(), true)?;
