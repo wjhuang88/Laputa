@@ -1,6 +1,8 @@
 # Laputa
 
-项目开发中。
+项目重构中，敬请期待。
+
+---
 
 [![build](https://img.shields.io/github/workflow/status/wjhuang88/Laputa/Rust/master)](https://github.com/wjhuang88/laputa/actions)
 

@@ -1,32 +1,23 @@
-[package]
-name = "laputa"
-version = "0.1.0"
+[workspace]
+resolver = "2"
+members = ["core", "v8"]
+
+[workspace.package]
+version = "0.2.0"
 authors = ["Huang.Weijie <wjhuang@live.cn>"]
-edition = "2018"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/wjhuang88/Laputa"
 
 [profile.release]
-lto = "fat"
 codegen-units = 1
-panic = "abort"
+incremental = true
+lto = true
+opt-level = 'z' # Optimize for size
 
-[dependencies]
-async-std = "^1"
-tide = "^0.6"
-
-rlua = "^0.17"
-
-lazy_static = "^1.4"
-futures = "^0.3"
-serde = "^1.0"
-bytes = "^0.5"
-mime = "^0.3"
-reqwest = "^0.10"
-http = "^0.1"
-
-log = "^0.4.8"
-env_logger = "^0.7.1"
-chrono = "^0.4.10"
-colored = "^1.9"
-
-rusty_v8 = { path = "rusty_v8" }
-mimalloc = { version = "*", default-features = false }
+[workspace.dependencies]
+v8 = "^0.82"
+thiserror = "1.0"
+snowdon = { version = "^0.2", default-features = false, features = ["lock-free"] }
+url = "2.5"
+cookie = "0.18"
