@@ -1,0 +1,2 @@
+import __laputa_handle__ from __laputa_runner__
+await __laputa_handle__(__laputa_context_input__)

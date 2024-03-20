@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 pub struct V8Modules {
-    module_map: HashMap<String, v8::Global<v8::Module>>
+    module_map: HashMap<String, v8::Global<v8::Module>>,
 }
 
 pub struct V8Runtime {
     isolate: v8::OwnedIsolate,
-    modules: V8Modules
+    modules: V8Modules,
 }
 
 impl V8Runtime {
@@ -17,12 +17,16 @@ impl V8Runtime {
 
         let isolate = v8::Isolate::new(Default::default());
 
-        let module_list = V8Modules { module_map: HashMap::new() };
-        V8Runtime { isolate, modules: module_list }
+        let module_list = V8Modules {
+            module_map: HashMap::new(),
+        };
+        V8Runtime {
+            isolate,
+            modules: module_list,
+        }
     }
 
-    pub fn init_module(&mut self, name: impl AsRef<str>, source: impl AsRef<str>) {
-
+    pub fn import_module(&mut self, name: impl AsRef<str>, source: impl AsRef<str>) {
         let hc = &mut v8::HandleScope::new(&mut self.isolate);
         let context = v8::Context::new(hc);
         let scope = &mut v8::ContextScope::new(hc, context);
@@ -35,22 +39,40 @@ impl V8Runtime {
         let map_url = v8::String::new(scope, "").unwrap();
 
         let origin = v8::ScriptOrigin::new(
-            scope, name_string.into(),0, 0, false, 
-            0, map_url.into(), false, false, true);
+            scope,
+            name_string.into(),
+            0,
+            0,
+            false,
+            0,
+            map_url.into(),
+            true,
+            false,
+            true,
+        );
         let source = v8::script_compiler::Source::new(code_string, Some(&origin));
 
         let module = v8::script_compiler::compile_module(scope, source).unwrap();
-        let _ = module.instantiate_module(scope, |_m1,_m2,_m3,_m4| None);
+        let _ = module.instantiate_module(scope, |_m1, _m2, _m3, _m4| None);
         let module_handle = v8::Global::<v8::Module>::new(scope, module);
-        self.modules.module_map.insert(name_str.to_string(), module_handle);
+        self.modules
+            .module_map
+            .insert(name_str.to_string(), module_handle);
     }
 
-    pub fn execute(&mut self, name: impl AsRef<str>) -> Option<v8::Local<'_, v8::Value>> {
+    pub fn execute_module(&mut self, name: impl AsRef<str>) -> Option<String> {
         let hc = &mut v8::HandleScope::new(&mut self.isolate);
         let context = v8::Context::new(hc);
         let scope = &mut v8::ContextScope::new(hc, context);
 
         let m = self.modules.module_map.get_mut(name.as_ref())?.open(scope);
-        m.evaluate(scope)
+        let result = m.evaluate(scope)?.to_rust_string_lossy(scope);
+        Some(result)
+    }
+}
+
+impl Default for V8Runtime {
+    fn default() -> Self {
+        Self::new()
     }
 }
