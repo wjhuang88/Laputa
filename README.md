@@ -10,7 +10,7 @@ Laputa uses [Talos](https://github.com/wjhuang88/talos) as its embedded Agent Lo
 
 ## Current status
 
-The product baseline and governance are initialized. The first implementation slice, `LAPUTA-001-A`, now establishes project persistence and non-destructive mixed-media import. AI analysis, first-cut generation, timeline editing, and the final GPUI experience remain later Stories in `LAPUTA-001`.
+The product baseline and governance are initialized. `LAPUTA-001-A` is now **In Progress**: the project-persistence, non-destructive mixed-media import, media-probe boundary, and automated safety-test foundation is implemented and CI-validated. The remaining Story A acceptance is the GPUI file-picker/drag-and-drop path, Asset Browser presentation, and desktop GUI smoke evidence.
 
 The current runnable foundation intentionally uses a thin CLI so the storage/import contract can be validated before the consumer GUI is defined:
 
