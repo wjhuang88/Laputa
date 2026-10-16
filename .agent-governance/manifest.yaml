@@ -1,0 +1,51 @@
+schema_version: "1"
+managed_by: "agent-project-governance"
+profile: "product"
+status: "conformant"
+initialized_at: "2026-10-15"
+last_audited_at: "2026-10-15"
+
+governance:
+  skill_name: "agent-project-governance"
+  skill_version: "2.0.0"
+  last_refresh: "2026-10-15"
+
+entrypoints:
+  agent_guide: "AGENTS.md"
+  evolution: "EVOLUTION.md"
+  evolution_feedback: "docs/sop/EVOLUTION-FEEDBACK.md"
+  document_map: "docs/README.md"
+  backlog: "docs/backlog/PRODUCT-BACKLOG.md"
+  iterations: "docs/iterations/"
+  decisions: "docs/decisions/"
+  roadmap: "docs/roadmap/IMPLEMENTATION-ROADMAP.md"
+  proposals: "docs/proposals/"
+  reference: "docs/reference/"
+  sop: "docs/sop/"
+
+capabilities:
+  task_router: "conformant"
+  evolution_feedback: "conformant"
+  testing_policy: "conformant"
+  git_workflow: "conformant"
+  requirement_intake: "conformant"
+  iteration_workflow: "conformant"
+  change_control: "conformant"
+  decision_records: "conformant"
+  release_workflow: "not_applicable"
+  risk_specific_gates: "conformant"
+
+risk_gates:
+  - signal: "Imported media may be the user's only original copy."
+    gate: "All media editing and generation is non-destructive; tests must prove original bytes are never overwritten by supported operations."
+    owner: "AGENTS.md and docs/sop/TESTING.md"
+  - signal: "External AI operations are asynchronous and may fail after job submission."
+    gate: "Timeline/project state may reference a generated artifact only after the job reports completion and the artifact is materialized/verified."
+    owner: "AGENTS.md and docs/reference/ARCHITECTURE.md"
+  - signal: "External AI calls can upload private media and incur variable cost."
+    gate: "Outbound media calls must pass through registered functional providers with provenance, cancellation/error handling, and project-level cost/accounting metadata."
+    owner: "docs/reference/PRODUCT-REQUIREMENTS-v0.1.md and docs/sop/TESTING.md"
+
+migration:
+  legacy_assets: []
+  next_actions: []

@@ -1,0 +1,10 @@
+param([string]$ProjectRoot = ".")
+$root = (Resolve-Path $ProjectRoot).Path
+$crates = @(Get-ChildItem (Join-Path $root "crates") -Directory -ErrorAction SilentlyContinue).Count
+$active = @(Get-ChildItem (Join-Path $root "docs/backlog/active") -Filter "*.md" -File -ErrorAction SilentlyContinue).Count
+Write-Output "crates=$crates"
+Write-Output "active_backlog_items=$active"
+Write-Output "has_external_integrations=yes"
+Write-Output "has_desktop_gui=yes"
+Write-Output "continuing_feature_development=yes"
+Write-Output "recommended_profile=product"

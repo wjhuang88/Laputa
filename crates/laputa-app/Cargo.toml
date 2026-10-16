@@ -1,0 +1,12 @@
+[package]
+name = "laputa-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+laputa-domain = { path = "../laputa-domain" }
+laputa-agent = { path = "../laputa-agent" }
+laputa-media = { path = "../laputa-media" }
+laputa-timeline = { path = "../laputa-timeline" }
+tokio.workspace = true

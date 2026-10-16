@@ -1,0 +1,28 @@
+[workspace]
+resolver = "3"
+members = [
+  "crates/laputa-app",
+  "crates/laputa-domain",
+  "crates/laputa-agent",
+  "crates/laputa-provider",
+  "crates/laputa-media",
+  "crates/laputa-timeline",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.95"
+repository = "https://github.com/wjhuang88/laputa"
+
+[workspace.dependencies]
+anyhow = "1"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+talos-runtime = { git = "https://github.com/wjhuang88/talos.git", rev = "0ef5a532930642d730bcc6d974f2a79605efaaee" }
+
+[workspace.lints.clippy]
+unwrap_used = "warn"

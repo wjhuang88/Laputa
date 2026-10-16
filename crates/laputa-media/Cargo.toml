@@ -1,0 +1,9 @@
+[package]
+name = "laputa-media"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+laputa-domain = { path = "../laputa-domain" }
+laputa-provider = { path = "../laputa-provider" }
