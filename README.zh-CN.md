@@ -24,9 +24,9 @@ Laputa 不希望把传统专业剪辑软件简单“套一层 AI”，也不希�
 
 ## 当前状态
 
-产品治理、架构和 V0.1 需求基线已经完成。当前第一轮实现聚焦 `LAPUTA-001-A`：**项目持久化 + 非破坏性混合媒体导入**。
+产品治理、架构和 V0.1 需求基线已经完成。当前 `LAPUTA-001-A` 处于 **In Progress**：项目持久化、非破坏性混合媒体导入、媒体探测边界和自动化安全测试等底层基础已经实现并通过 CI；剩余的是 GPUI 文件选择/拖拽导入、Asset Browser 展示和桌面 GUI smoke 验收。
 
-这一阶段暂时使用一个很薄的 CLI 验证底层契约，避免在 Project/Asset 边界尚未稳定前就提前固化最终 GPUI 交互：
+当前底层基础暂时提供一个很薄的开发 CLI，避免在 Project/Asset 边界尚未稳定前就提前固化最终 GPUI 交互：
 
 ```sh
 cargo run -p laputa-app -- create ./demo-project "我的 Vlog"
@@ -130,7 +130,7 @@ Talos 不应感知 `Shot`、`Timeline`、Vlog、FFmpeg 或具体生成模型等 
 ## 当前 MVP 任务链
 
 - #1 `LAPUTA-001`：Agentic Consumer Vlog MVP
-- #2 `LAPUTA-001-A`：项目创建与非破坏性混合媒体导入（Ready / 当前实现）
+- #2 `LAPUTA-001-A`：项目创建与非破坏性混合媒体导入（In Progress；基础实现已完成）
 - #3 `LAPUTA-001-B`：素材结构化理解与功能型 Provider
 - #4 `LAPUTA-001-C`：Talos 驱动的一句话 First Cut
 - #5 `LAPUTA-001-D`：Preview + Scene Strip + Selection 上下文
