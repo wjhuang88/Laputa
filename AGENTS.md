@@ -43,6 +43,7 @@ Laputa is a consumer desktop application that uses Talos as its embedded Agent L
 | --- | --- |
 | Understand product intent or current architecture | `docs/reference/PRODUCT-VISION.md`, `docs/reference/ARCHITECTURE.md` |
 | Understand V0.1 requirements | `docs/reference/PRODUCT-REQUIREMENTS-v0.1.md` |
+| Implement or review consumer UI / GPUI layout | `docs/design/UI-UX-VISION-v0.1.md`, `docs/reference/PRODUCT-REQUIREMENTS-v0.1.md`, and the selected Story |
 | Add/refine requirements or split Epic/Story | `docs/sop/REQUIREMENT-INTAKE.md`, `docs/backlog/PRODUCT-BACKLOG.md` |
 | Start an implementation batch | `docs/sop/START-ITERATION.md`, `docs/sop/ITERATION-WORKFLOW.md` |
 | Change accepted/in-progress scope | `docs/sop/CHANGE-CONTROL.md` |
