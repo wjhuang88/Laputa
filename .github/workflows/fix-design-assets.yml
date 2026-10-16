@@ -22,9 +22,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          cat bootstrap/design-assets/01-home.part.* | base64 -d > docs/design/assets/v0.1/01-home.webp
-          cat bootstrap/design-assets/02-import.part.* | base64 -d > docs/design/assets/v0.1/02-import.webp
-          cat bootstrap/design-assets/03-workspace.part.* | base64 -d > docs/design/assets/v0.1/03-workspace.webp
+          cat \
+            bootstrap/design-assets/01-home.final.00 \
+            bootstrap/design-assets/01-home.final.01 \
+            bootstrap/design-assets/01-home.final.02 \
+            bootstrap/design-assets/01-home.final.03 \
+            bootstrap/design-assets/01-home.tail \
+            | base64 -d > docs/design/assets/v0.1/01-home.webp
+
+          cat bootstrap/design-assets/02-import.full \
+            | base64 -d > docs/design/assets/v0.1/02-import.webp
+
+          cat \
+            bootstrap/design-assets/03-workspace.final.00 \
+            bootstrap/design-assets/03-workspace.final.01 \
+            bootstrap/design-assets/03-workspace.final.02 \
+            bootstrap/design-assets/03-workspace.final.03 \
+            bootstrap/design-assets/03-workspace.final.04 \
+            bootstrap/design-assets/03-workspace.final.05 \
+            bootstrap/design-assets/03-workspace.final.06 \
+            bootstrap/design-assets/03-workspace.final.07 \
+            | base64 -d > docs/design/assets/v0.1/03-workspace.webp
 
           test "$(git hash-object docs/design/assets/v0.1/01-home.webp)" = "7c43b93c337e3065d42277fde3c2b20b45ee932e"
           test "$(git hash-object docs/design/assets/v0.1/02-import.webp)" = "a45378735917b47429751e73802c1c9a0a6e1040"
