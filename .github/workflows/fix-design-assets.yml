@@ -26,9 +26,9 @@ jobs:
           cat bootstrap/design-assets/02-import.part.* | base64 -d > docs/design/assets/v0.1/02-import.webp
           cat bootstrap/design-assets/03-workspace.part.* | base64 -d > docs/design/assets/v0.1/03-workspace.webp
 
-          test "$(git hash-object docs/design/assets/v0.1/01-home.webp)" = "e1532d5fdf460e3f49de39223645631f7ab12202"
-          test "$(git hash-object docs/design/assets/v0.1/02-import.webp)" = "f72b6722881882853e12b45a8a40a9aba09af6a9"
-          test "$(git hash-object docs/design/assets/v0.1/03-workspace.webp)" = "cc41e436e5522285c0203f418eadb50294f624b3"
+          test "$(git hash-object docs/design/assets/v0.1/01-home.webp)" = "7c43b93c337e3065d42277fde3c2b20b45ee932e"
+          test "$(git hash-object docs/design/assets/v0.1/02-import.webp)" = "a45378735917b47429751e73802c1c9a0a6e1040"
+          test "$(git hash-object docs/design/assets/v0.1/03-workspace.webp)" = "c648120f5641773ab2ffe8158663e0b573369f16"
 
           file docs/design/assets/v0.1/*.webp
 
