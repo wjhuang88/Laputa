@@ -65,8 +65,8 @@ Remaining before this Story can be Complete:
 
 The remaining GPUI work must read `docs/design/UI-UX-VISION-v0.1.md` before implementation.
 
-- Use the **Empty project / media import** mockup (`docs/design/assets/v0.1/02-import.jpg`) as the primary visual reference for create/import behavior.
-- Use the **First-cut workspace** mockup (`docs/design/assets/v0.1/03-workspace.jpg`) for the persistent workspace hierarchy into which the Asset Browser should evolve.
+- Use the **Empty project / media import** mockup (`docs/design/assets/v0.1/02-import.webp`) as the primary visual reference for create/import behavior.
+- Use the **First-cut workspace** mockup (`docs/design/assets/v0.1/03-workspace.webp`) for the persistent workspace hierarchy into which the Asset Browser should evolve.
 - Preserve the approved low-density, flat Nordic visual direction and keep the central Stage visually dominant.
 - Mockups are hierarchy/interaction references, not pixel-perfect acceptance criteria; this Story's acceptance and `PRODUCT-REQUIREMENTS-v0.1.md` remain behavior owners.
 - Do not add setup wizards, model/provider selection, professional timeline controls or other visible configuration to satisfy this Story.
