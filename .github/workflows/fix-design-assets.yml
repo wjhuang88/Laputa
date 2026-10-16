@@ -22,20 +22,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          cat bootstrap/design-assets/01-home.part.* | base64 -d > docs/design/assets/v0.1/01-home.jpg
-          cat bootstrap/design-assets/02-import.part.* | base64 -d > docs/design/assets/v0.1/02-import.jpg
-          cat bootstrap/design-assets/03-workspace.part.* | base64 -d > docs/design/assets/v0.1/03-workspace.jpg
+          cat bootstrap/design-assets/01-home.part.* | base64 -d > docs/design/assets/v0.1/01-home.webp
+          cat bootstrap/design-assets/02-import.part.* | base64 -d > docs/design/assets/v0.1/02-import.webp
+          cat bootstrap/design-assets/03-workspace.part.* | base64 -d > docs/design/assets/v0.1/03-workspace.webp
 
-          test "$(git hash-object docs/design/assets/v0.1/01-home.jpg)" = "2dbbdf18096bc257705a42e1f2b5cae7af054f34"
-          test "$(git hash-object docs/design/assets/v0.1/02-import.jpg)" = "8d7f72f62c62b7dd7489a9b1c2a0717558fdf2b9"
-          test "$(git hash-object docs/design/assets/v0.1/03-workspace.jpg)" = "44e8bd0484c1da0546098cc35a3a31a9d20d0fe4"
+          test "$(git hash-object docs/design/assets/v0.1/01-home.webp)" = "e1532d5fdf460e3f49de39223645631f7ab12202"
+          test "$(git hash-object docs/design/assets/v0.1/02-import.webp)" = "f72b6722881882853e12b45a8a40a9aba09af6a9"
+          test "$(git hash-object docs/design/assets/v0.1/03-workspace.webp)" = "cc41e436e5522285c0203f418eadb50294f624b3"
 
-          file docs/design/assets/v0.1/*.jpg
+          file docs/design/assets/v0.1/*.webp
 
       - name: Commit recovered binaries
         shell: bash
         run: |
           set -euo pipefail
+          rm -f docs/design/assets/v0.1/*.jpg
           rm -rf bootstrap/design-assets
           rm -f .github/workflows/fix-design-assets.yml
 
@@ -43,5 +44,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --exit-code >/dev/null && exit 0
-          git commit -m "fix(design): restore binary visual assets (#LAPUTA-001-A) [model:GPT-5.6 Sol]"
+          git commit -m "fix(design): restore visual assets with verified WebP binaries (#LAPUTA-001-A) [model:GPT-5.6 Sol]"
           git push
