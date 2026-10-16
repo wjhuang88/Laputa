@@ -16,7 +16,7 @@ Before implementing current MVP work, read:
 | ID | Type | Outcome | Status | Decision Context | Required Reads |
 | --- | --- | --- | --- | --- | --- |
 | LAPUTA-001 | Epic | Prove the end-to-end agentic consumer Vlog MVP | Refined | Validate the simple “add → intent → first cut → revise → export” interaction before local-model deployment | `active/LAPUTA-001-agentic-vlog-mvp.md`, product requirements, architecture |
-| LAPUTA-001-A | Story | User can create a project and safely import mixed media | Ready | Establish immutable originals and project world first | `active/LAPUTA-001-A-project-media-import.md`, ADR-0003 |
+| LAPUTA-001-A | Story | User can create a project and safely import mixed media | In Progress | Core persistence/import foundation is implemented; GPUI import and asset-browser acceptance remain | `active/LAPUTA-001-A-project-media-import.md`, ADR-0003 |
 | LAPUTA-001-B | Story | Imported assets can be structurally analyzed through a functional provider | Proposed | Requires A project persistence boundary | `active/LAPUTA-001-B-asset-understanding.md`, ADR-0002 |
 | LAPUTA-001-C | Story | Talos can produce a first-cut project state using Laputa tools | Proposed | Requires A+B and Tool/runtime boundary | `active/LAPUTA-001-C-talos-first-cut.md`, ADR-0001, ADR-0002 |
 | LAPUTA-001-D | Story | User can preview and inspect the first cut as a scene strip | Proposed | Requires C timeline state | `active/LAPUTA-001-D-preview-scene-strip.md`, ADR-0003 |
