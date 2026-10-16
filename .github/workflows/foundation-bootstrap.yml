@@ -1,0 +1,49 @@
+name: Foundation bootstrap validation
+
+on:
+  push:
+    branches:
+      - feature/laputa-001-a-foundation
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.95.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.95.0
+
+      - name: Materialize lockfile and formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile
+          cargo fmt --all
+          git config user.name 'Laputa Foundation CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add Cargo.lock Cargo.toml crates README.md README.zh-CN.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore(workspace): normalize foundation lock and format (#LAPUTA-001-A) [model:GPT-5.6 Sol]'
+            git push origin HEAD:feature/laputa-001-a-foundation
+          fi
+
+      - name: Baseline validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          cargo check --workspace --locked
+          cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+          cargo test --workspace --locked
+          scripts/validate_project_governance.sh .
