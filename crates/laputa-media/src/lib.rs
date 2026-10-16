@@ -245,7 +245,6 @@ impl ProjectStore {
             imported.push(asset);
         }
 
-        self.save(&candidate)?;
         for asset in &imported {
             fs::create_dir_all(self.asset_cache_dir(asset.id)).with_context(|| {
                 format!("failed to create cache directory for asset {}", asset.id)
@@ -257,6 +256,7 @@ impl ProjectStore {
                 )
             })?;
         }
+        self.save(&candidate)?;
 
         Ok(ImportReport {
             project: candidate,
@@ -396,6 +396,8 @@ mod tests {
         let report = store.import_media(&[image.clone(), video.clone()], &FixtureProbe)?;
 
         assert_eq!(report.imported.len(), 2);
+        assert_eq!(report.imported[0].source_sha256, image_before);
+        assert_eq!(report.imported[1].source_sha256, video_before);
         assert_eq!(sha256_file(&image)?, image_before);
         assert_eq!(sha256_file(&video)?, video_before);
         for asset in &report.imported {
@@ -432,6 +434,32 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(store.open()?, baseline);
+        Ok(())
+    }
+
+    #[derive(Debug)]
+    struct FailingProbe;
+
+    impl MediaProbe for FailingProbe {
+        fn probe(&self, _source: &Path, _kind: MediaKind) -> Result<AssetTechnicalMetadata> {
+            anyhow::bail!("fixture probe failure")
+        }
+    }
+
+    #[test]
+    fn probe_failure_does_not_mutate_manifest_or_original() -> Result<()> {
+        let temp = tempdir()?;
+        let image = temp.path().join("photo.jpg");
+        fs::write(&image, b"image")?;
+        let before = sha256_file(&image)?;
+
+        let store = ProjectStore::at(temp.path().join("project"));
+        let baseline = store.create("Trip")?;
+        let result = store.import_media(std::slice::from_ref(&image), &FailingProbe);
+
+        assert!(result.is_err());
+        assert_eq!(store.open()?, baseline);
+        assert_eq!(sha256_file(&image)?, before);
         Ok(())
     }
 
