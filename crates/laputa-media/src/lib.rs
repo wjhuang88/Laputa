@@ -38,7 +38,9 @@ impl MediaProbe for FfprobeMediaProbe {
             ])
             .arg(source)
             .output()
-            .with_context(|| "failed to start ffprobe; install FFmpeg or configure another MediaProbe")?;
+            .with_context(
+                || "failed to start ffprobe; install FFmpeg or configure another MediaProbe",
+            )?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -147,8 +149,9 @@ impl ProjectStore {
             self.root.display()
         );
 
-        fs::create_dir_all(self.cache_dir())
-            .with_context(|| format!("failed to create project cache at {}", self.root.display()))?;
+        fs::create_dir_all(self.cache_dir()).with_context(|| {
+            format!("failed to create project cache at {}", self.root.display())
+        })?;
         fs::create_dir_all(self.derivatives_dir()).with_context(|| {
             format!(
                 "failed to create project derivatives at {}",
@@ -203,7 +206,11 @@ impl ProjectStore {
         for source in sources {
             let canonical = fs::canonicalize(source)
                 .with_context(|| format!("failed to resolve media file {}", source.display()))?;
-            ensure!(canonical.is_file(), "media source is not a file: {}", canonical.display());
+            ensure!(
+                canonical.is_file(),
+                "media source is not a file: {}",
+                canonical.display()
+            );
             ensure!(
                 !canonical.starts_with(&state_dir),
                 "Laputa project state cannot be imported as source media: {}",
@@ -244,7 +251,10 @@ impl ProjectStore {
                 format!("failed to create cache directory for asset {}", asset.id)
             })?;
             fs::create_dir_all(self.asset_derivatives_dir(asset.id)).with_context(|| {
-                format!("failed to create derivative directory for asset {}", asset.id)
+                format!(
+                    "failed to create derivative directory for asset {}",
+                    asset.id
+                )
             })?;
         }
 
@@ -256,19 +266,24 @@ impl ProjectStore {
 
     fn save(&self, manifest: &ProjectManifest) -> Result<()> {
         fs::create_dir_all(self.state_dir()).with_context(|| {
-            format!("failed to create Laputa state directory at {}", self.root.display())
+            format!(
+                "failed to create Laputa state directory at {}",
+                self.root.display()
+            )
         })?;
-        let bytes = serde_json::to_vec_pretty(manifest).context("failed to serialize project manifest")?;
-        let temporary = self.state_dir().join(format!(
-            ".{MANIFEST_FILE}.tmp-{}",
-            std::process::id()
-        ));
+        let bytes =
+            serde_json::to_vec_pretty(manifest).context("failed to serialize project manifest")?;
+        let temporary = self
+            .state_dir()
+            .join(format!(".{MANIFEST_FILE}.tmp-{}", std::process::id()));
         fs::write(&temporary, bytes).with_context(|| {
             format!("failed to write temporary manifest {}", temporary.display())
         })?;
         File::open(&temporary)
             .and_then(|file| file.sync_all())
-            .with_context(|| format!("failed to sync temporary manifest {}", temporary.display()))?;
+            .with_context(|| {
+                format!("failed to sync temporary manifest {}", temporary.display())
+            })?;
 
         match fs::rename(&temporary, self.manifest_path()) {
             Ok(()) => Ok(()),
@@ -384,8 +399,16 @@ mod tests {
         assert_eq!(sha256_file(&image)?, image_before);
         assert_eq!(sha256_file(&video)?, video_before);
         for asset in &report.imported {
-            assert!(store.asset_cache_dir(asset.id).starts_with(store.state_dir()));
-            assert!(store.asset_derivatives_dir(asset.id).starts_with(store.state_dir()));
+            assert!(
+                store
+                    .asset_cache_dir(asset.id)
+                    .starts_with(store.state_dir())
+            );
+            assert!(
+                store
+                    .asset_derivatives_dir(asset.id)
+                    .starts_with(store.state_dir())
+            );
             assert_ne!(asset.original_path, store.asset_cache_dir(asset.id));
         }
 
