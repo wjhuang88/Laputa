@@ -2,7 +2,7 @@
 
 Parent: LAPUTA-001  
 Type: Product Story  
-Status: Ready  
+Status: In Progress  
 Dependencies: None  
 Decision links: `docs/decisions/ADR-0003-agent-first-consumer-interaction.md`
 
@@ -40,6 +40,37 @@ so that I can start creating while my originals remain safe.
 - Automated fixture test records original hashes before/after import and derivative generation.
 - Rust workspace checks/tests for affected crates.
 - Manual desktop smoke check for import and reopen when GUI path exists.
+
+## Current implementation checkpoint
+
+Completed foundation:
+
+- Persisted versioned `ProjectManifest` and immutable original `Asset` references.
+- Project-local `.laputa/` state, cache and derivatives layout.
+- Non-destructive batch import with SHA-256 provenance and duplicate/type validation.
+- `MediaProbe` boundary with an `ffprobe` implementation.
+- Manifest commit only after all input validation/probing and derivative-directory preparation succeeds.
+- Reopen restores the imported asset inventory.
+- Thin developer CLI for `create`, `import`, and `open` so the foundation is runnable before GPUI is introduced.
+- Automated evidence covers original-byte immutability, reopen, invalid-batch rollback, duplicate rejection and probe failure rollback.
+
+Remaining before this Story can be Complete:
+
+- GPUI desktop file picker and/or drag-and-drop import path.
+- Asset Browser rendering of imported items.
+- Manual desktop import/reopen smoke evidence through the GUI path.
+
+## Validation evidence
+
+GitHub Actions `Foundation bootstrap validation` run `38860507105` passed on Rust 1.95 with:
+
+- `cargo fmt --all -- --check`
+- `cargo check --workspace --locked`
+- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`
+- `cargo test --workspace --locked`
+- `scripts/validate_project_governance.sh .`
+
+`laputa-media` currently has four passing focused tests for safe import/reopen and rollback semantics.
 
 ## State owners to synchronize
 

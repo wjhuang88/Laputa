@@ -10,7 +10,17 @@ Laputa uses [Talos](https://github.com/wjhuang88/talos) as its embedded Agent Lo
 
 ## Current status
 
-This repository is an initialized product workspace. Governance, architecture boundaries, the initial product-requirement baseline, and the first MVP Epic are defined. End-to-end product implementation has not started yet.
+The product baseline and governance are initialized. `LAPUTA-001-A` is now **In Progress**: the project-persistence, non-destructive mixed-media import, media-probe boundary, and automated safety-test foundation is implemented and CI-validated. The remaining Story A acceptance is the GPUI file-picker/drag-and-drop path, Asset Browser presentation, and desktop GUI smoke evidence.
+
+The current runnable foundation intentionally uses a thin CLI so the storage/import contract can be validated before the consumer GUI is defined:
+
+```sh
+cargo run -p laputa-app -- create ./demo-project "My Vlog"
+cargo run -p laputa-app -- import ./demo-project /path/to/photo.jpg /path/to/clip.mp4
+cargo run -p laputa-app -- open ./demo-project
+```
+
+`import` uses `ffprobe` for deterministic media metadata. Install FFmpeg for this developer smoke path. Imported originals are referenced read-only; project metadata, caches, and future derivatives live under `<project>/.laputa/`.
 
 ## Product principles
 
@@ -23,11 +33,11 @@ This repository is an initialized product workspace. Governance, architecture bo
 
 ## Repository map
 
-- `crates/laputa-app`: desktop application shell.
+- `crates/laputa-app`: desktop application shell and current foundation CLI.
 - `crates/laputa-domain`: project-world domain model.
 - `crates/laputa-agent`: Talos runtime composition and Laputa tools.
 - `crates/laputa-provider`: functional provider contracts.
-- `crates/laputa-media`: deterministic media operations and artifact handling.
+- `crates/laputa-media`: deterministic media operations, project persistence, and non-destructive import.
 - `crates/laputa-timeline`: timeline IR and render-facing editing model.
 - `docs/reference/PRODUCT-REQUIREMENTS-v0.1.md`: approved V0.1 product requirement baseline.
 - `docs/backlog/active/LAPUTA-001-agentic-vlog-mvp.md`: first implementation Epic.

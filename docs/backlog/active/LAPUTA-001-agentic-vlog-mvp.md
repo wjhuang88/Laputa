@@ -20,7 +20,7 @@ Hard constraints and assumptions are owned by `docs/reference/PRODUCT-REQUIREMEN
 
 | Child | Outcome | Status | Depends on | Iteration |
 | --- | --- | --- | --- | --- |
-| LAPUTA-001-A | Project creation + non-destructive mixed-media import | Ready | None | - |
+| LAPUTA-001-A | Project creation + non-destructive mixed-media import | In Progress | None | `2026-10-16-project-media-foundation.md` |
 | LAPUTA-001-B | Structured asset understanding via functional provider | Proposed | LAPUTA-001-A | - |
 | LAPUTA-001-C | Talos-driven first-cut loop using Laputa tools | Proposed | LAPUTA-001-A, LAPUTA-001-B | - |
 | LAPUTA-001-D | Playable preview + scene-strip representation | Proposed | LAPUTA-001-C | - |
