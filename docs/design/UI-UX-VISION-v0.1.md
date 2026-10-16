@@ -58,7 +58,7 @@ These screenshots are approved reference states. They define visual hierarchy, d
 
 ### 1. Home / project launcher
 
-![Laputa V0.1 home](assets/v0.1/01-home.jpg)
+![Laputa V0.1 home](assets/v0.1/01-home.webp)
 
 Intent:
 
@@ -69,7 +69,7 @@ Intent:
 
 ### 2. Empty project / media import
 
-![Laputa V0.1 import](assets/v0.1/02-import.jpg)
+![Laputa V0.1 import](assets/v0.1/02-import.webp)
 
 Intent:
 
@@ -83,7 +83,7 @@ This page is the primary visual reference for the remaining GUI acceptance in `L
 
 ### 3. First-cut film workspace
 
-![Laputa V0.1 workspace](assets/v0.1/03-workspace.jpg)
+![Laputa V0.1 workspace](assets/v0.1/03-workspace.webp)
 
 Intent:
 
@@ -111,8 +111,8 @@ If implementation evidence shows that this hierarchy prevents a required V0.1 ta
 
 Repository-resident visual references:
 
-- `docs/design/assets/v0.1/01-home.jpg`
-- `docs/design/assets/v0.1/02-import.jpg`
-- `docs/design/assets/v0.1/03-workspace.jpg`
+- `docs/design/assets/v0.1/01-home.webp`
+- `docs/design/assets/v0.1/02-import.webp`
+- `docs/design/assets/v0.1/03-workspace.webp`
 
-They are repository-friendly high-quality JPEG renders at 1586×992, retained as product design evidence and implementation references.
+The repository stores **800×500 WebP reference renders** derived from the approved full-resolution mockups. This keeps Git history lightweight while retaining enough fidelity for layout, hierarchy and interaction implementation. Full-resolution artwork is not the acceptance source; product behavior remains governed by the product requirements and active Story.
