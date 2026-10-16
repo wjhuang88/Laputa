@@ -1,5 +1,7 @@
 # Laputa
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Laputa is an agentic desktop video-creation product for ordinary users. It turns personal photos and videos into a finished Vlog through one primary interaction loop:
 
 > Add media → describe the result → review the first cut → select and revise → export.
