@@ -115,12 +115,7 @@ impl DesktopWindow {
         }
     }
 
-    fn load_project(
-        &mut self,
-        root: PathBuf,
-        mode: ProjectPromptMode,
-        cx: &mut Context<Self>,
-    ) {
+    fn load_project(&mut self, root: PathBuf, mode: ProjectPromptMode, cx: &mut Context<Self>) {
         self.state.cancel_operation();
         let operation = match mode {
             ProjectPromptMode::Create => DesktopOperation::CreatingProject,
@@ -263,7 +258,12 @@ impl DesktopWindow {
         }))
     }
 
-    fn filter_button(&self, filter: AssetFilter, index: usize, cx: &mut Context<Self>) -> impl IntoElement {
+    fn filter_button(
+        &self,
+        filter: AssetFilter,
+        index: usize,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let selected = self.state.filter() == filter;
         let button = div()
             .id(("asset-filter", index))
@@ -375,18 +375,20 @@ impl DesktopWindow {
                             .justify_center()
                             .gap_5()
                             .child(div().text_3xl().child("把片段变成故事"))
-                            .child(
-                                div()
-                                    .text_color(rgb(MUTED))
-                                    .child("把生活里的照片和视频放进来，先从一个安静、简单的影片项目开始。"),
-                            )
+                            .child(div().text_color(rgb(MUTED)).child(
+                                "把生活里的照片和视频放进来，先从一个安静、简单的影片项目开始。",
+                            ))
                             .child(
                                 div()
                                     .flex()
                                     .gap_3()
                                     .child(self.action_button(
                                         "new-project",
-                                        if busy { "处理中…" } else { "＋ 新建影片" },
+                                        if busy {
+                                            "处理中…"
+                                        } else {
+                                            "＋ 新建影片"
+                                        },
                                         UiCommand::NewProject,
                                         true,
                                         cx,
@@ -427,13 +429,16 @@ impl DesktopWindow {
                                     .flex_col()
                                     .gap_3()
                                     .child(div().text_xl().child("Laputa"))
-                                    .child(
-                                        div()
-                                            .text_color(rgb(MUTED))
-                                            .child("不是从复杂时间线开始，而是从你的素材和想表达的故事开始。"),
-                                    ),
+                                    .child(div().text_color(rgb(MUTED)).child(
+                                        "不是从复杂时间线开始，而是从你的素材和想表达的故事开始。",
+                                    )),
                             )
-                            .child(div().text_sm().text_color(rgb(MUTED)).child("Moments → Story → Film")),
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(rgb(MUTED))
+                                    .child("Moments → Story → Film"),
+                            ),
                     ),
             )
     }
@@ -468,7 +473,12 @@ impl DesktopWindow {
                             .items_center()
                             .justify_between()
                             .child(div().text_xl().child("片段素材"))
-                            .child(div().text_sm().text_color(rgb(MUTED)).child(asset_count.to_string())),
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(rgb(MUTED))
+                                    .child(asset_count.to_string()),
+                            ),
                     )
                     .child(
                         div()
@@ -506,9 +516,12 @@ impl DesktopWindow {
                                 .child("还没有符合当前筛选的素材"),
                         )
                     })
-                    .children(cards.into_iter().enumerate().map(|(index, card)| {
-                        Self::asset_card(card, index)
-                    })),
+                    .children(
+                        cards
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, card)| Self::asset_card(card, index)),
+                    ),
             );
 
         let stage = div()
@@ -768,14 +781,15 @@ fn initial_state() -> Result<DesktopState, String> {
             if args.next().is_some() {
                 return Err("用法: laputa-desktop open <project-dir>".to_owned());
             }
-            let project = ProjectStore::at(&root).open().map_err(|error| error.to_string())?;
+            let project = ProjectStore::at(&root)
+                .open()
+                .map_err(|error| error.to_string())?;
             Ok(DesktopState::from_project(root, project))
         }
         "create" => {
-            let root = args
-                .next()
-                .map(PathBuf::from)
-                .ok_or_else(|| "用法: laputa-desktop create <project-dir> [project-name]".to_owned())?;
+            let root = args.next().map(PathBuf::from).ok_or_else(|| {
+                "用法: laputa-desktop create <project-dir> [project-name]".to_owned()
+            })?;
             let name = args
                 .next()
                 .map(|value| value.to_string_lossy().into_owned())

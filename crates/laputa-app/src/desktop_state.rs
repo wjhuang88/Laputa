@@ -144,7 +144,9 @@ impl DesktopState {
 
     #[must_use]
     pub fn asset_count(&self) -> usize {
-        self.project.as_ref().map_or(0, |project| project.assets.len())
+        self.project
+            .as_ref()
+            .map_or(0, |project| project.assets.len())
     }
 
     #[must_use]
