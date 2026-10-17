@@ -10,9 +10,39 @@ Laputa uses [Talos](https://github.com/wjhuang88/talos) as its embedded Agent Lo
 
 ## Current status
 
-The product baseline and governance are initialized. `LAPUTA-001-A` is now **In Progress**: the project-persistence, non-destructive mixed-media import, media-probe boundary, and automated safety-test foundation is implemented and CI-validated. The remaining Story A acceptance is the GPUI file-picker/drag-and-drop path, Asset Browser presentation, and desktop GUI smoke evidence.
+The product, governance, V0.1 requirement, and UI/UX visual baselines are initialized. `LAPUTA-001-A` remains **In Progress**: project persistence, non-destructive mixed-media import, the media-probe boundary, automated safety tests, and the GPUI project-create/open, system file-picker import, and Asset Browser paths are implemented.
 
-The current runnable foundation intentionally uses a thin CLI so the storage/import contract can be validated before the consumer GUI is defined:
+The one required Story A evidence row still missing is a real graphical-desktop smoke proving **import → close/relaunch → reopen the same project → imported inventory remains visible**. A successful headless CI build is intentionally not treated as that manual evidence.
+
+### Desktop GUI
+
+The consumer desktop entrypoint is a separate feature-gated `laputa-desktop` binary; the thin CLI remains available for deterministic foundation debugging.
+
+Launch the project home:
+
+```sh
+cargo run -p laputa-app --features desktop-ui --bin laputa-desktop
+```
+
+Create a project directly:
+
+```sh
+cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- \
+  create ./demo-project "My Vlog"
+```
+
+Open an existing project directly:
+
+```sh
+cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- \
+  open ./demo-project
+```
+
+Desktop import uses the native multi-file picker and reuses `ffprobe` through the existing `ProjectStore` import path, so install FFmpeg before importing media. Import/probe work runs off the UI thread. Successful imports update the Asset Browser from the committed `ProjectManifest`; failures preserve the visible project inventory and surface a recoverable error.
+
+The first Asset Browser intentionally shows media kind, filename, and available duration/dimension metadata instead of expanding Story A into thumbnail-generation work. The visual hierarchy follows the [Laputa V0.1 UI/UX baseline](docs/design/UI-UX-VISION-v0.1.md).
+
+### Developer CLI
 
 ```sh
 cargo run -p laputa-app -- create ./demo-project "My Vlog"
@@ -20,7 +50,9 @@ cargo run -p laputa-app -- import ./demo-project /path/to/photo.jpg /path/to/cli
 cargo run -p laputa-app -- open ./demo-project
 ```
 
-`import` uses `ffprobe` for deterministic media metadata. Install FFmpeg for this developer smoke path. Imported originals are referenced read-only; project metadata, caches, and future derivatives live under `<project>/.laputa/`.
+`import` also uses `ffprobe` for deterministic media metadata. Imported originals are referenced read-only; project metadata, caches, and future derivatives live under `<project>/.laputa/`.
+
+Media AI understanding, the Talos First Cut, generated media, playable Preview, real Scene Strip editing, Critic, and final export interaction remain later Stories in the `LAPUTA-001` A→H chain.
 
 ## Product principles
 
@@ -33,12 +65,13 @@ cargo run -p laputa-app -- open ./demo-project
 
 ## Repository map
 
-- `crates/laputa-app`: desktop application shell and current foundation CLI.
+- `crates/laputa-app`: desktop application shell plus the foundation CLI.
 - `crates/laputa-domain`: project-world domain model.
 - `crates/laputa-agent`: Talos runtime composition and Laputa tools.
 - `crates/laputa-provider`: functional provider contracts.
 - `crates/laputa-media`: deterministic media operations, project persistence, and non-destructive import.
 - `crates/laputa-timeline`: timeline IR and render-facing editing model.
+- `docs/design/UI-UX-VISION-v0.1.md`: approved V0.1 consumer visual/interaction direction.
 - `docs/reference/PRODUCT-REQUIREMENTS-v0.1.md`: approved V0.1 product requirement baseline.
 - `docs/backlog/active/LAPUTA-001-agentic-vlog-mvp.md`: first implementation Epic.
 - `AGENTS.md`: Agent-facing project rules and task router.

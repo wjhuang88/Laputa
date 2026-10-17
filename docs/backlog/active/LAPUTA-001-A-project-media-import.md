@@ -52,36 +52,49 @@ Completed foundation:
 - `MediaProbe` boundary with an `ffprobe` implementation.
 - Manifest commit only after all input validation/probing and derivative-directory preparation succeeds.
 - Reopen restores the imported asset inventory.
-- Thin developer CLI for `create`, `import`, and `open` so the foundation is runnable before GPUI is introduced.
+- Thin developer CLI for `create`, `import`, and `open` remains available for deterministic foundation debugging.
 - Automated evidence covers original-byte immutability, reopen, invalid-batch rollback, duplicate rejection and probe failure rollback.
+
+Implemented desktop path in `2026-10-17-gpui-project-import.md`:
+
+- Feature-gated `laputa-desktop` GPUI binary, separate from the existing CLI.
+- GPUI launcher for creating a project directory or opening an existing Laputa project.
+- System multi-file picker for importing local media; Story A intentionally satisfies the picker **and/or** drag-and-drop requirement via picker only.
+- Import work runs off the UI thread and reuses `ProjectStore::import_media` + `FfprobeMediaProbe` rather than duplicating media rules in the GUI.
+- Low-density Asset Browser renders persisted imported items with `全部 / 照片 / 视频` filters, media kind, filename and available duration/dimension metadata.
+- Opening a persisted project projects its existing `ProjectManifest` inventory directly into the Asset Browser without re-importing originals.
+- Import/probe failures return the desktop state to idle while preserving the already-visible project inventory and surfacing an explicit recoverable error.
+- Presentation-state tests cover reopened inventory projection/filtering, recoverable failure state and prevention of overlapping desktop operations.
+- GPUI dependencies are pinned to the same Zed/GPUI revision used by the currently pinned Talos desktop stack; GPUI remains isolated to the app presentation boundary.
 
 Remaining before this Story can be Complete:
 
-- GPUI desktop file picker and/or drag-and-drop import path.
-- Asset Browser rendering of imported items.
-- Manual desktop import/reopen smoke evidence through the GUI path.
+- Manual desktop import + close/relaunch + reopen smoke evidence on a real graphical desktop.
+
+The Story therefore remains **In Progress** even after automated desktop build/test validation. A headless build or CI compile is not substituted for the required manual GUI evidence.
 
 ## GUI implementation guidance
 
-The remaining GPUI work must read `docs/design/UI-UX-VISION-v0.1.md` before implementation.
+Consumer UI work must read `docs/design/UI-UX-VISION-v0.1.md` before implementation.
 
 - Use the **Empty project / media import** mockup (`docs/design/assets/v0.1/02-import.jpg`) as the primary visual reference for create/import behavior.
-- Use the **First-cut workspace** mockup (`docs/design/assets/v0.1/03-workspace.jpg`) for the persistent workspace hierarchy into which the Asset Browser should evolve.
+- Use the **First-cut workspace** mockup (`docs/design/assets/v0.1/03-workspace.jpg`) for the persistent workspace hierarchy into which the Asset Browser evolves.
 - Preserve the approved low-density, flat Nordic visual direction and keep the central Stage visually dominant.
 - Mockups are hierarchy/interaction references, not pixel-perfect acceptance criteria; this Story's acceptance and `PRODUCT-REQUIREMENTS-v0.1.md` remain behavior owners.
 - Do not add setup wizards, model/provider selection, professional timeline controls or other visible configuration to satisfy this Story.
 
 ## Validation evidence
 
-GitHub Actions `Foundation bootstrap validation` run `38860507105` passed on Rust 1.95 with:
+Foundation validation: GitHub Actions run `38860507105` passed on Rust 1.95 with workspace format/check/clippy/test/governance gates.
 
-- `cargo fmt --all -- --check`
-- `cargo check --workspace --locked`
-- `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`
-- `cargo test --workspace --locked`
-- `scripts/validate_project_governance.sh .`
+`laputa-media` has four focused tests for safe import/reopen and rollback semantics:
 
-`laputa-media` currently has four passing focused tests for safe import/reopen and rollback semantics.
+- `import_preserves_original_bytes_and_reopens_inventory`
+- `invalid_batch_does_not_partially_mutate_manifest`
+- `duplicate_import_is_rejected_without_manifest_change`
+- `probe_failure_does_not_mutate_manifest_or_original`
+
+The GPUI closure iteration records the desktop-specific build/test run after the final clean CI configuration is validated.
 
 ## State owners to synchronize
 

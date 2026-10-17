@@ -4,14 +4,28 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+[features]
+default = []
+desktop-ui = ["dep:gpui", "dep:gpui_platform"]
+
+[[bin]]
+name = "laputa-desktop"
+path = "src/bin/laputa-desktop.rs"
+required-features = ["desktop-ui"]
+
 [dependencies]
 anyhow.workspace = true
+gpui = { workspace = true, optional = true }
+gpui_platform = { workspace = true, optional = true }
 laputa-domain = { path = "../laputa-domain" }
 laputa-agent = { path = "../laputa-agent" }
 laputa-media = { path = "../laputa-media" }
 laputa-timeline = { path = "../laputa-timeline" }
 serde_json.workspace = true
 tokio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

@@ -24,9 +24,39 @@ Laputa 不希望把传统专业剪辑软件简单“套一层 AI”，也不希�
 
 ## 当前状态
 
-产品治理、架构和 V0.1 需求基线已经完成。当前 `LAPUTA-001-A` 处于 **In Progress**：项目持久化、非破坏性混合媒体导入、媒体探测边界和自动化安全测试等底层基础已经实现并通过 CI；剩余的是 GPUI 文件选择/拖拽导入、Asset Browser 展示和桌面 GUI smoke 验收。
+产品治理、架构、V0.1 需求与 UI/UX 视觉基线已经建立。当前 `LAPUTA-001-A` 处于 **In Progress**：项目持久化、非破坏性混合媒体导入、媒体探测边界、自动化安全测试，以及 GPUI 项目创建/打开、系统文件选择导入和 Asset Browser 展示路径已经实现。
 
-当前底层基础暂时提供一个很薄的开发 CLI，避免在 Project/Asset 边界尚未稳定前就提前固化最终 GPUI 交互：
+Story A 目前唯一没有证据闭环的必需项是：在真实图形桌面上完成一次 **导入 → 关闭/重启 → 打开同一项目 → 素材清单仍可见** 的人工 smoke。因此不会仅因为 CI 能编译桌面程序就提前把 Story 标记为 Complete。
+
+### 桌面 GUI
+
+桌面产品入口是独立、feature-gated 的 `laputa-desktop` binary；底层 CLI 仍保留用于确定性调试。
+
+启动项目首页：
+
+```sh
+cargo run -p laputa-app --features desktop-ui --bin laputa-desktop
+```
+
+直接创建项目：
+
+```sh
+cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- \
+  create ./demo-project "我的 Vlog"
+```
+
+直接打开已有项目：
+
+```sh
+cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- \
+  open ./demo-project
+```
+
+桌面导入使用系统多文件选择器，媒体 probe 继续复用 `ffprobe`，因此需要安装 FFmpeg。导入工作在 UI 线程之外运行；成功后 Asset Browser 会直接从最新 `ProjectManifest` 展示素材，失败则保留已有项目状态并显示可恢复错误。
+
+当前 Asset Browser 先展示媒体类型、文件名以及可用的时长/尺寸元数据，不以缩略图生成扩大 Story A 范围。视觉层级遵循 [Laputa V0.1 UI/UX 基线](docs/design/UI-UX-VISION-v0.1.md)。
+
+### 开发 CLI
 
 ```sh
 cargo run -p laputa-app -- create ./demo-project "我的 Vlog"
@@ -34,9 +64,9 @@ cargo run -p laputa-app -- import ./demo-project /path/to/photo.jpg /path/to/cli
 cargo run -p laputa-app -- open ./demo-project
 ```
 
-`import` 使用 `ffprobe` 获取确定性媒体元数据，因此开发 smoke path 需要安装 FFmpeg。Laputa 只读引用导入的原始素材；项目元数据、缓存以及后续派生文件均保存在 `<project>/.laputa/` 下，不覆盖原文件。
+`import` 同样使用 `ffprobe` 获取确定性媒体元数据。Laputa 只读引用导入的原始素材；项目元数据、缓存以及后续派生文件均保存在 `<project>/.laputa/` 下，不覆盖原文件。
 
-当前尚未进入的能力包括素材 AI 理解、Talos First Cut、生成式媒体、Scene Strip、Critic 和最终 GPUI 产品交互，它们仍按 `LAPUTA-001` 的 A→H 任务链渐进实现。
+当前尚未进入的能力包括素材 AI 理解、Talos First Cut、生成式媒体、可播放 Preview、真实 Scene Strip 编辑、Critic 和最终导出交互，它们仍按 `LAPUTA-001` 的 A→H 任务链渐进实现。
 
 ## 核心产品原则
 
@@ -110,7 +140,7 @@ Talos 不应感知 `Shot`、`Timeline`、Vlog、FFmpeg 或具体生成模型等 
 
 ## Workspace 结构
 
-- `crates/laputa-app`：桌面应用与 GUI 壳；当前同时承载基础开发 CLI。
+- `crates/laputa-app`：桌面应用与 GUI 壳；同时保留基础开发 CLI。
 - `crates/laputa-domain`：Project World 与领域模型。
 - `crates/laputa-agent`：Talos Runtime 组合与 Laputa Tools。
 - `crates/laputa-provider`：按功能定义的 Provider Contracts。
@@ -120,6 +150,7 @@ Talos 不应感知 `Shot`、`Timeline`、Vlog、FFmpeg 或具体生成模型等 
 ## 需求与开发入口
 
 - [V0.1 产品需求](docs/reference/PRODUCT-REQUIREMENTS-v0.1.md)
+- [UI/UX 视觉基线](docs/design/UI-UX-VISION-v0.1.md)
 - [架构基线](docs/reference/ARCHITECTURE.md)
 - [产品愿景](docs/reference/PRODUCT-VISION.md)
 - [LAPUTA-001 MVP Epic](docs/backlog/active/LAPUTA-001-agentic-vlog-mvp.md)
@@ -130,7 +161,7 @@ Talos 不应感知 `Shot`、`Timeline`、Vlog、FFmpeg 或具体生成模型等 
 ## 当前 MVP 任务链
 
 - #1 `LAPUTA-001`：Agentic Consumer Vlog MVP
-- #2 `LAPUTA-001-A`：项目创建与非破坏性混合媒体导入（In Progress；基础实现已完成）
+- #2 `LAPUTA-001-A`：项目创建与非破坏性混合媒体导入（In Progress；基础与 GPUI 路径已实现，待人工桌面 smoke）
 - #3 `LAPUTA-001-B`：素材结构化理解与功能型 Provider
 - #4 `LAPUTA-001-C`：Talos 驱动的一句话 First Cut
 - #5 `LAPUTA-001-D`：Preview + Scene Strip + Selection 上下文
