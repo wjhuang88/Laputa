@@ -9,8 +9,8 @@ use std::{
 };
 
 use gpui::{
-    App, Bounds, Context, Render, Window, WindowBounds, WindowOptions, div, prelude::*, px, rgb,
-    size,
+    App, Bounds, Context, InteractiveElement, Render, Window, WindowBounds, WindowOptions, div,
+    prelude::*, px, rgb, size,
 };
 use laputa_app::desktop_state::{AssetCard, AssetFilter, DesktopOperation, DesktopState};
 use laputa_domain::MediaKind;
@@ -253,9 +253,11 @@ impl DesktopWindow {
                 .border_color(rgb(HAIRLINE))
                 .text_color(rgb(TEXT))
         };
-        button.on_click(cx.listener(move |this, _, _, cx| {
-            this.execute(command, cx);
-        }))
+        button
+            .child(label)
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.execute(command, cx);
+            }))
     }
 
     fn filter_button(
