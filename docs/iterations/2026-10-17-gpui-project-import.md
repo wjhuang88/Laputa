@@ -1,6 +1,6 @@
 # Iteration — GPUI Project Import Closure
 
-Status: planned  
+Status: partial  
 Date: 2026-10-17  
 Selected Story: `LAPUTA-001-A`  
 Issue: #2
@@ -21,59 +21,74 @@ Expected user-visible path at closure:
 
 The implementation follows `docs/design/UI-UX-VISION-v0.1.md`; the Empty Project / Import mockup is the primary reference and the First-cut Workspace mockup defines the persistent workspace hierarchy. The mockups are hierarchy/interaction references, not pixel-perfect acceptance contracts.
 
-## Dependency order
+## Delivered
 
-1. Add a feature-gated GPUI desktop binary without breaking the existing developer CLI.
-2. Introduce a small presentation/state boundary that can be tested without an interactive display.
-3. Render the approved flat Nordic project/import shell and Asset Browser from `ProjectManifest` state.
-4. Wire GPUI multi-file picker to the existing `ProjectStore::import_media` + `FfprobeMediaProbe` path off the UI thread.
-5. Support create/open project startup arguments so reopen can reconstruct the same inventory deterministically.
-6. Add focused state/presentation tests plus Linux feature-build CI coverage.
-7. Run workspace/governance validation and record actual evidence.
+- Added a separate, feature-gated `laputa-desktop` binary under `laputa-app`; the existing CLI is unchanged and remains usable.
+- Pinned `gpui` / `gpui_platform` to the same Zed revision used by the currently pinned Talos desktop stack.
+- Added a testable application presentation boundary (`DesktopState`) that does not depend on a graphical renderer.
+- Implemented the Simplified-Chinese flat-Nordic launcher and import workspace with a visually dominant Stage, secondary Asset Browser and contextual Laputa panel.
+- Implemented native project-folder selection for create/open and native multi-file selection for importing media.
+- Moved project creation/opening and media probe/import work to GPUI background execution so synchronous filesystem/`ffprobe` work does not run on the UI thread.
+- Reused `ProjectStore::import_media` and `FfprobeMediaProbe`; the GUI owns no duplicate import/provenance rules.
+- Implemented Asset Browser projection from persisted `ProjectManifest` data with `全部 / 照片 / 视频` filters plus type/name/duration/dimension presentation.
+- Opening an existing project restores and renders its persisted inventory without re-importing original media.
+- Recoverable import/probe errors preserve the current visible project inventory and return desktop operation state to idle.
+- Added focused tests for reopened inventory projection/filtering, recoverable failure state and overlapping-operation prevention.
+- Added Linux CI native dependencies needed to compile the pinned GPUI renderer path while retaining the normal repository gates.
 
-## Success criteria
+## Success criteria status
 
-- `laputa-desktop` builds behind an explicit `desktop-ui` feature and leaves existing CLI behavior available.
-- A new/empty project shows the approved import-oriented Stage with a primary `添加素材` action.
-- File selection allows multiple media files and sends them through the existing non-destructive importer.
-- Imported assets become visible in a left-side Asset Browser without requiring a restart.
-- Opening an existing project renders its persisted Asset inventory from `ProjectManifest` without re-importing originals.
-- Import/probe errors remain explicit and recoverable; the UI never reports success when `ProjectStore::import_media` failed.
-- No model/provider selector, setup wizard, multi-track timeline, or unrelated V0.1 feature is introduced.
+- [x] `laputa-desktop` builds behind an explicit `desktop-ui` feature and leaves existing CLI behavior available.
+- [x] A new/empty project renders the import-oriented Stage with a primary `添加素材` action.
+- [x] File selection supports multiple media files and routes them through the existing non-destructive importer.
+- [x] Successful import state immediately projects the updated `ProjectManifest` into Asset Browser cards.
+- [x] Opening an existing project projects its persisted Asset inventory without re-importing originals.
+- [x] Import/probe errors are explicit and recoverable in the presentation state.
+- [x] No model/provider selector, setup wizard, multi-track timeline, first-cut behavior or unrelated V0.1 feature was introduced.
+- [ ] Real-desktop manual import/reopen smoke recorded.
 
-## Validation plan
+## Validation evidence
 
-Automated:
+Final clean branch CI: GitHub Actions run `39010083863`, job `117330603266`, Rust 1.95, **success**.
+
+It ran with `contents: read` and no CI source mutation:
 
 ```sh
 cargo fmt --all -- --check
 cargo check --workspace --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --locked
+cargo test -p laputa-app --features desktop-ui --bin laputa-desktop --locked
 scripts/validate_project_governance.sh .
 ```
 
-Desktop-specific CI must additionally compile/check the GPUI feature on Linux with the native packages required by the pinned GPUI renderer stack.
+The full-feature validation includes the pinned GPUI desktop binary and the new `DesktopState` tests. An earlier compiler-driven run (`39009748674`) also completed successfully while materializing the final scroll-state fix; it is not used as the final clean evidence because that temporary branch-bootstrap step was removed before closure.
 
-Focused tests will verify presentation projection from persisted assets, empty/imported/reopen states, and recoverable import error state without requiring a graphical display.
+The existing `laputa-media` non-destructive import tests remain part of the workspace test gate and continue to protect original-byte immutability, rollback semantics and reopen behavior.
 
-Manual/visual:
+## Manual/visual residual
 
-- launch the GPUI binary on a real desktop;
-- create/open a project;
-- select mixed supported media;
-- verify imported inventory appears;
-- close/relaunch/open the same project and verify inventory remains visible.
+The current execution environment cannot provide an interactive user desktop with a real native file-picker session. The following required Story A evidence has therefore **not** been fabricated or replaced by headless CI:
 
-If the current execution environment cannot provide an interactive desktop, record that exact smoke row as residual and keep Story closure `partial` rather than inventing evidence.
+1. launch `laputa-desktop` on a real graphical desktop;
+2. create/open a project;
+3. select a mixed set of supported photos/videos;
+4. verify imported items appear in Asset Browser;
+5. close the app;
+6. relaunch and open the same project;
+7. verify the same inventory is visible without re-importing originals.
 
-## Risks and assumptions
+Until this row is recorded, `LAPUTA-001-A` remains **In Progress** and this iteration remains **partial**.
 
-- GPUI file selection is sufficient for Story A because acceptance permits file picker **and/or** drag-and-drop; drag-and-drop is intentionally not required in this iteration.
-- Asset Browser may initially use designed media cards with type/filename/technical metadata rather than generated thumbnails; thumbnail generation is not required by Story A acceptance.
-- `ffprobe` remains the probe backend; a missing local FFmpeg installation must surface as a recoverable import error.
-- GPUI remains isolated in the application presentation boundary; Laputa domain/media crates must not depend on it.
+## Risks and assumptions resolved
+
+- GPUI file picker is sufficient for Story A because acceptance says picker **and/or** drag-and-drop. Drag-and-drop remains intentionally unimplemented here.
+- Thumbnail generation is not required by Story A; the first Asset Browser uses designed media cards with type/name/technical metadata and does not expand the media pipeline.
+- `ffprobe` remains the probe backend. Missing FFmpeg is surfaced as an import error rather than invented success.
+- GPUI remains isolated to `laputa-app`; domain/media crates do not acquire a GUI dependency.
 
 ## Closure
 
-Result: pending.
+Result: **partial**.
+
+Implementation and automated validation are complete for this bounded iteration. The sole required residual is the real-desktop manual import/reopen smoke listed above.
