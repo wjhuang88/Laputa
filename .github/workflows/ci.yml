@@ -30,18 +30,35 @@ jobs:
             libx11-dev libx11-xcb-dev libxcb1-dev libxcb-shape0-dev libxcb-xfixes0-dev \
             libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libvulkan-dev
 
-      # Temporary branch bootstrap: removed after Cargo.lock and rustfmt output are committed.
-      - name: Materialize lockfile and rustfmt output
+      # Temporary branch bootstrap: apply exact compiler-driven source fixes and remove this step before merge.
+      - name: Materialize compiler-driven GPUI fixes
         shell: bash
         run: |
           set -euo pipefail
-          cargo generate-lockfile
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("crates/laputa-app/src/bin/laputa-desktop.rs")
+          text = path.read_text()
+          old_import = "    App, Bounds, Context, Render, Window, WindowBounds, WindowOptions, div, prelude::*, px, rgb,\n"
+          new_import = "    App, Bounds, Context, InteractiveElement, Render, Window, WindowBounds, WindowOptions, div,\n    prelude::*, px, rgb,\n"
+          if old_import not in text:
+              raise SystemExit("expected GPUI import pattern not found")
+          text = text.replace(old_import, new_import, 1)
+
+          old_button = "        button.on_click(cx.listener(move |this, _, _, cx| {\n            this.execute(command, cx);\n        }))\n"
+          new_button = "        button.child(label).on_click(cx.listener(move |this, _, _, cx| {\n            this.execute(command, cx);\n        }))\n"
+          if old_button not in text:
+              raise SystemExit("expected action button pattern not found")
+          text = text.replace(old_button, new_button, 1)
+          path.write_text(text)
+          PY
           cargo fmt --all
-          if ! git diff --quiet -- Cargo.lock crates/laputa-app/src/desktop_state.rs crates/laputa-app/src/bin/laputa-desktop.rs; then
+          if ! git diff --quiet -- crates/laputa-app/src/bin/laputa-desktop.rs; then
             git config user.name "Laputa CI"
             git config user.email "actions@users.noreply.github.com"
-            git add Cargo.lock crates/laputa-app/src/desktop_state.rs crates/laputa-app/src/bin/laputa-desktop.rs
-            git commit -m "build(app): materialize GPUI lock and format (#LAPUTA-001-A) [model:GPT-5.6 Sol]"
+            git add crates/laputa-app/src/bin/laputa-desktop.rs
+            git commit -m "fix(app): align desktop shell with pinned GPUI API (#LAPUTA-001-A) [model:GPT-5.6 Sol]"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
