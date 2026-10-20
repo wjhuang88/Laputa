@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result, anyhow, bail};
 use laputa_domain::{AssetAnalysis, AssetAnalysisState, AssetId};
-use laputa_media::ProjectStore;
+use laputa_media::{ProjectStore, sha256_file};
 use laputa_provider::MediaUnderstandingProvider;
 
 pub use talos_runtime as runtime;
@@ -29,6 +29,15 @@ pub async fn inspect_asset(
         .asset(asset_id)
         .cloned()
         .with_context(|| format!("asset {asset_id} does not exist in the project"))?;
+    let current_source_sha256 = sha256_file(&asset.original_path)
+        .context("failed to verify imported media source revision")?;
+    if current_source_sha256 != asset.source_sha256 {
+        bail!(
+            "asset source revision changed since import; expected {}, current {}",
+            asset.source_sha256,
+            current_source_sha256
+        );
+    }
 
     if let Some(AssetAnalysisState::Ready(record)) = store.load_understanding_state(&asset)? {
         return Ok(InspectionResult {
@@ -242,6 +251,21 @@ mod tests {
         let result = store.record_understanding_ready(&asset, "stale-revision", image_analysis());
 
         assert!(result.is_err());
+        assert!(!store.understanding_state_path(asset.id).exists());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn externally_changed_source_is_rejected_before_provider_or_cache() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let (store, asset) = imported_asset(&temp, "photo.jpg")?;
+        let provider = FakeProvider::ready(image_analysis());
+        fs::write(&asset.original_path, b"externally-changed-media")?;
+
+        let result = inspect_asset(&store, &provider, asset.id).await;
+
+        assert!(result.is_err());
+        assert_eq!(provider.calls(), 0);
         assert!(!store.understanding_state_path(asset.id).exists());
         Ok(())
     }
