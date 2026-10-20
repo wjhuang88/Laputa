@@ -8,8 +8,7 @@ use std::{fmt, path::PathBuf};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub const PROJECT_SCHEMA_VERSION: u32 = 2;
-pub const MIN_SUPPORTED_PROJECT_SCHEMA_VERSION: u32 = 1;
+pub const PROJECT_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -212,8 +211,6 @@ pub struct Asset {
     pub source_sha256: String,
     pub byte_len: u64,
     pub technical: AssetTechnicalMetadata,
-    #[serde(default)]
-    pub analysis: Option<AssetAnalysisState>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -262,7 +259,6 @@ mod tests {
                 duration_ms,
                 ..AssetTechnicalMetadata::default()
             },
-            analysis: None,
         }
     }
 
