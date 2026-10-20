@@ -10,7 +10,6 @@ laputa-domain = { path = "../laputa-domain" }
 laputa-provider = { path = "../laputa-provider" }
 laputa-media = { path = "../laputa-media" }
 laputa-timeline = { path = "../laputa-timeline" }
-serde_json.workspace = true
 talos-runtime.workspace = true
 
 [dev-dependencies]
