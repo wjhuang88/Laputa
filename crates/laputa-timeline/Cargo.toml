@@ -7,3 +7,7 @@ rust-version.workspace = true
 [dependencies]
 laputa-domain = { path = "../laputa-domain" }
 serde.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true
