@@ -1,12 +1,20 @@
 //! Laputa-owned editorial state and timeline intermediate representation.
 
-use std::{collections::{HashMap, HashSet}, fmt};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+    fs::{self, File},
+    path::{Path, PathBuf},
+};
 
+use anyhow::{Context, Result as AnyResult};
 use laputa_domain::{AssetId, MediaKind, ProjectManifest};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub const FILM_SCHEMA_VERSION: u32 = 1;
+const STATE_DIRECTORY: &str = ".laputa";
+const FILM_STATE_FILE: &str = "film.json";
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -72,9 +80,9 @@ pub struct Timeline {
 impl Timeline {
     #[must_use]
     pub fn duration_ms(&self) -> u64 {
-        self.scenes
-            .iter()
-            .fold(0_u64, |total, scene| total.saturating_add(scene.source.duration_ms()))
+        self.scenes.iter().fold(0_u64, |total, scene| {
+            total.saturating_add(scene.source.duration_ms())
+        })
     }
 }
 
@@ -233,7 +241,12 @@ impl FilmState {
                     scene.asset_id
                 ))
             })?;
-            validate_scene_source(index, &scene.source, asset.media_kind, asset.technical.duration_ms)?;
+            validate_scene_source(
+                index,
+                &scene.source,
+                asset.media_kind,
+                asset.technical.duration_ms,
+            )?;
         }
 
         if used_beats.len() != beat_ids.len() {
@@ -279,6 +292,79 @@ pub struct SceneDraft {
     pub asset_id: AssetId,
     pub title: String,
     pub source: SceneSource,
+}
+
+#[derive(Clone, Debug)]
+pub struct FilmStore {
+    project_root: PathBuf,
+}
+
+impl FilmStore {
+    #[must_use]
+    pub fn at(project_root: impl Into<PathBuf>) -> Self {
+        Self {
+            project_root: project_root.into(),
+        }
+    }
+
+    #[must_use]
+    pub fn path(&self) -> PathBuf {
+        self.project_root.join(STATE_DIRECTORY).join(FILM_STATE_FILE)
+    }
+
+    pub fn load(&self, project: &ProjectManifest) -> AnyResult<Option<FilmState>> {
+        let path = self.path();
+        if !path.exists() {
+            return Ok(None);
+        }
+        let bytes = fs::read(&path)
+            .with_context(|| format!("failed to read film state {}", path.display()))?;
+        let state: FilmState = serde_json::from_slice(&bytes)
+            .with_context(|| format!("invalid film state {}", path.display()))?;
+        state
+            .validate_for(project)
+            .context("persisted film state is invalid for the current project")?;
+        Ok(Some(state))
+    }
+
+    pub fn save(&self, project: &ProjectManifest, state: &FilmState) -> AnyResult<()> {
+        state
+            .validate_for(project)
+            .context("cannot persist invalid film state")?;
+        let path = self.path();
+        let parent = path
+            .parent()
+            .context("film state path has no parent directory")?;
+        fs::create_dir_all(parent).with_context(|| {
+            format!("failed to create film state directory {}", parent.display())
+        })?;
+        let bytes = serde_json::to_vec_pretty(state).context("failed to serialize film state")?;
+        let temporary = parent.join(format!(
+            ".{FILM_STATE_FILE}.tmp-{}",
+            std::process::id()
+        ));
+        fs::write(&temporary, bytes)
+            .with_context(|| format!("failed to write temporary film state {}", temporary.display()))?;
+        File::open(&temporary)
+            .and_then(|file| file.sync_all())
+            .with_context(|| format!("failed to sync temporary film state {}", temporary.display()))?;
+        install_replacement(&temporary, &path)
+    }
+}
+
+fn install_replacement(temporary: &Path, destination: &Path) -> AnyResult<()> {
+    match fs::rename(temporary, destination) {
+        Ok(()) => Ok(()),
+        Err(error) if destination.exists() => {
+            fs::remove_file(destination).with_context(|| {
+                format!(
+                    "failed to replace film state after rename error: {error}"
+                )
+            })?;
+            fs::rename(temporary, destination).context("failed to install replacement film state")
+        }
+        Err(error) => Err(error).context("failed to install film state"),
+    }
 }
 
 fn validate_scene_source(
@@ -365,12 +451,13 @@ impl std::error::Error for FilmValidationError {}
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{fs, path::PathBuf};
 
     use laputa_domain::{Asset, AssetId, AssetTechnicalMetadata, MediaKind, ProjectManifest};
 
     use super::{
-        FilmDraft, FilmState, IntentDraft, SceneDraft, SceneSource, StoryBeatDraft, StoryDraft,
+        FilmDraft, FilmState, FilmStore, IntentDraft, SceneDraft, SceneSource, StoryBeatDraft,
+        StoryDraft,
     };
 
     fn project() -> ProjectManifest {
@@ -500,5 +587,39 @@ mod tests {
         let error = FilmState::from_draft("Trip", draft, &project)
             .expect_err("unused story beat must be rejected");
         assert!(error.to_string().contains("every story beat"));
+    }
+
+    #[test]
+    fn film_store_round_trips_without_touching_project_manifest_file() -> anyhow::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let project = project();
+        let state = FilmState::from_draft("Trip", valid_draft(&project), &project)?;
+        let state_dir = temp.path().join(".laputa");
+        fs::create_dir_all(&state_dir)?;
+        let manifest_path = state_dir.join("project.json");
+        fs::write(&manifest_path, b"story-a-manifest-sentinel")?;
+        let store = FilmStore::at(temp.path());
+
+        store.save(&project, &state)?;
+        let reopened = store.load(&project)?.expect("film state should reopen");
+
+        assert_eq!(reopened, state);
+        assert_eq!(fs::read(&manifest_path)?, b"story-a-manifest-sentinel");
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_state_does_not_replace_valid_persisted_state() -> anyhow::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let project = project();
+        let valid = FilmState::from_draft("Trip", valid_draft(&project), &project)?;
+        let store = FilmStore::at(temp.path());
+        store.save(&project, &valid)?;
+
+        let mut invalid = valid.clone();
+        invalid.intent.summary.clear();
+        assert!(store.save(&project, &invalid).is_err());
+        assert_eq!(store.load(&project)?, Some(valid));
+        Ok(())
     }
 }
