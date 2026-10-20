@@ -243,8 +243,8 @@ mod tests {
     use std::path::PathBuf;
 
     use super::{
-        AnalysisSegment, AnalysisTimeRange, Asset, AssetAnalysis, AssetId,
-        AssetTechnicalMetadata, MediaKind, ProjectManifest,
+        AnalysisSegment, AnalysisTimeRange, Asset, AssetAnalysis, AssetId, AssetTechnicalMetadata,
+        MediaKind, ProjectManifest,
     };
 
     fn fixture_asset(kind: MediaKind, duration_ms: Option<u64>) -> Asset {
