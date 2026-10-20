@@ -20,8 +20,8 @@ Hard constraints and assumptions are owned by `docs/reference/PRODUCT-REQUIREMEN
 
 | Child | Outcome | Status | Depends on | Iteration |
 | --- | --- | --- | --- | --- |
-| LAPUTA-001-A | Project creation + non-destructive mixed-media import | In Progress | None | `2026-10-16-project-media-foundation.md`; `2026-10-17-gpui-project-import.md` |
-| LAPUTA-001-B | Structured asset understanding via functional provider | Proposed | LAPUTA-001-A | - |
+| LAPUTA-001-A | Project creation + non-destructive mixed-media import | Complete | None | `2026-10-16-project-media-foundation.md`; `2026-10-17-gpui-project-import.md` |
+| LAPUTA-001-B | Structured asset understanding via functional provider | In Progress | LAPUTA-001-A | `2026-10-20-asset-understanding-foundation.md` |
 | LAPUTA-001-C | Talos-driven first-cut loop using Laputa tools | Proposed | LAPUTA-001-A, LAPUTA-001-B | - |
 | LAPUTA-001-D | Playable preview + scene-strip representation | Proposed | LAPUTA-001-C | - |
 | LAPUTA-001-E | Generative derived-media job/provider path | Proposed | LAPUTA-001-A, LAPUTA-001-C | - |
@@ -29,7 +29,7 @@ Hard constraints and assumptions are owned by `docs/reference/PRODUCT-REQUIREMEN
 | LAPUTA-001-G | Structured critic + bounded repair loop | Proposed | LAPUTA-001-C, LAPUTA-001-D | - |
 | LAPUTA-001-H | Reopen/continue + final MP4 export | Proposed | LAPUTA-001-A through LAPUTA-001-G as required for integrated path | - |
 
-Story A now has its storage/import foundation plus an implemented GPUI file-picker/Asset Browser path. It remains In Progress until the required real-desktop import/reopen smoke is recorded; downstream Stories must not treat code existence alone as dependency closure.
+Story A is dependency-closed: automated branch/PR/main validation passed and the previously outstanding real-desktop import/reopen smoke was confirmed by the user on 2026-10-20. Story B is now the only selected implementation slice; First Cut work remains blocked on B.
 
 ## Epic completion condition
 
