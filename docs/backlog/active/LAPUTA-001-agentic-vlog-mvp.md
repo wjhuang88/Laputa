@@ -21,7 +21,7 @@ Hard constraints and assumptions are owned by `docs/reference/PRODUCT-REQUIREMEN
 | Child | Outcome | Status | Depends on | Iteration |
 | --- | --- | --- | --- | --- |
 | LAPUTA-001-A | Project creation + non-destructive mixed-media import | Complete | None | `2026-10-16-project-media-foundation.md`; `2026-10-17-gpui-project-import.md` |
-| LAPUTA-001-B | Structured asset understanding via functional provider | In Progress | LAPUTA-001-A | `2026-10-20-asset-understanding-foundation.md` |
+| LAPUTA-001-B | Structured asset understanding via functional provider | Complete | LAPUTA-001-A | `2026-10-20-asset-understanding-foundation.md` |
 | LAPUTA-001-C | Talos-driven first-cut loop using Laputa tools | Proposed | LAPUTA-001-A, LAPUTA-001-B | - |
 | LAPUTA-001-D | Playable preview + scene-strip representation | Proposed | LAPUTA-001-C | - |
 | LAPUTA-001-E | Generative derived-media job/provider path | Proposed | LAPUTA-001-A, LAPUTA-001-C | - |
@@ -29,7 +29,7 @@ Hard constraints and assumptions are owned by `docs/reference/PRODUCT-REQUIREMEN
 | LAPUTA-001-G | Structured critic + bounded repair loop | Proposed | LAPUTA-001-C, LAPUTA-001-D | - |
 | LAPUTA-001-H | Reopen/continue + final MP4 export | Proposed | LAPUTA-001-A through LAPUTA-001-G as required for integrated path | - |
 
-Story A is dependency-closed: automated branch/PR/main validation passed and the previously outstanding real-desktop import/reopen smoke was confirmed by the user on 2026-10-20. Story B is now the only selected implementation slice; First Cut work remains blocked on B.
+Stories A and B are dependency-closed. Story A has user-confirmed real-desktop import/reopen evidence; Story B has canonical provider-neutral understanding, revision-bound derived state, deterministic fake-provider coverage and clean CI evidence. `LAPUTA-001-C` is now dependency-unblocked but remains Proposed until a new iteration explicitly selects it; no First Cut work is included in the B branch.
 
 ## Epic completion condition
 

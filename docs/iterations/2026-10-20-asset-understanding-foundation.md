@@ -1,6 +1,6 @@
 # Iteration — Structured Asset Understanding Foundation
 
-Status: in progress  
+Status: complete  
 Date: 2026-10-20  
 Selected Story: `LAPUTA-001-B`  
 Issue: #3
@@ -13,13 +13,13 @@ Deliver the smallest reusable structured-understanding slice on top of the compl
 
 `LAPUTA-001-A` is complete: the user confirmed the real desktop import/reopen path behaves as expected, complementing the already-passing automated validation.
 
-This iteration selects only `LAPUTA-001-B`. It does **not** start Talos First Cut, embeddings/vector search, face-identity resolution, local VLM deployment, Scene Strip, generative media, or editing behavior.
+This iteration selected only `LAPUTA-001-B`. It did **not** start Talos First Cut, embeddings/vector search, face-identity resolution, local VLM deployment, Scene Strip, generative media, or editing behavior.
 
-Expected technical/user-visible outcome:
+Delivered technical flow:
 
-`persisted Asset -> inspect through functional provider -> validate canonical analysis -> cache success/failure -> reopen/reinspect -> reuse valid analysis`
+`persisted Asset -> verify source revision -> inspect through functional provider -> validate canonical analysis -> cache success/failure -> reopen/reinspect -> reuse valid analysis`
 
-No vendor/model selector is added to the consumer GUI.
+No vendor/model selector was added to the consumer GUI.
 
 ## Storage boundary
 
@@ -27,70 +27,83 @@ Structured understanding is reconstructible derived data, so it does **not** cha
 
 `<project>/.laputa/cache/<asset-id>/understanding.json`
 
-The cache record embeds the `source_sha256` that produced it. A mismatch is treated as a cache miss / stale-revision rejection rather than silently reusing analysis. Vendor raw responses, upload IDs and model-specific metadata are not persisted as canonical state.
+The cache record embeds the `source_sha256` that produced it. Inspection also verifies the current original file hash against the imported provenance before consulting cache or provider. A mismatch is rejected explicitly rather than silently accepting stale analysis. Vendor raw responses, upload IDs and model-specific metadata are not persisted as canonical state.
 
 This keeps `PROJECT_SCHEMA_VERSION` at 1 and makes existing Story A projects compatible without a manifest migration.
 
-## Dependency order
+## Delivered dependency order
 
-1. Close/synchronize `LAPUTA-001-A` documentation and dependency state from the accepted real-desktop smoke.
-2. Define canonical `AssetAnalysis` / temporal segment / analysis-state types in `laputa-domain` without changing `Asset`/`ProjectManifest` persistence shape.
-3. Define `MediaUnderstandingProvider` in `laputa-provider`; the contract consumes Laputa asset context and returns Laputa-owned candidate analysis rather than a vendor schema.
-4. Add derived-cache persistence for validated ready/failure analysis against an expected source SHA-256 revision.
-5. Add a provider-independent inspection coordinator in the composition layer; valid cached analysis must bypass the provider.
-6. Add fake-provider contract/orchestration tests for image/video, invalid output rejection, failure persistence, stale-source protection, and cache reuse.
-7. Implement the first external API adapter as a separate bounded checkpoint; Gemini is the current candidate because its official API supports image/video inputs plus JSON-Schema structured output.
-8. Run deterministic validation; live external smoke remains opt-in when credentials are available.
+1. Synchronized the completed `LAPUTA-001-A` dependency state.
+2. Added canonical `AssetAnalysis`, temporal segment and ready/failed analysis-state types to `laputa-domain` without changing `Asset`/`ProjectManifest` persistence shape.
+3. Added `MediaUnderstandingProvider` to `laputa-provider`; the contract consumes Laputa asset context and returns Laputa-owned candidate analysis rather than a vendor schema.
+4. Added derived-cache persistence for validated ready/failure analysis against an expected source SHA-256 revision in `ProjectStore`.
+5. Added provider-independent inspection orchestration in `laputa-agent`; valid cached analysis bypasses the provider.
+6. Added deterministic fake-provider tests for image/video, invalid output rejection, provider failure/retry, stale source protection and cache reuse.
+7. Added the first external adapter as isolated `laputa-provider-gemini`, using current Gemini Files + Interactions REST shapes and structured JSON output.
+8. Added Story A manifest compatibility and opt-in Gemini live-smoke integration tests.
+9. Added current-file SHA-256 verification before inspect; hashing runs via Tokio `spawn_blocking` so large files do not block the async executor.
+10. Audited the dependency lockfile and removed unrelated version drift before final validation.
 
 ## Success criteria
 
-- Canonical analysis is owned by Laputa domain types and contains an asset-level summary/tags plus temporal segments for video where applicable.
-- Analysis validation rejects empty/invalid structures and invalid video ranges before they can be persisted as ready.
-- Existing Story A manifests remain unchanged/openable because understanding state is stored outside `project.json`.
-- `MediaUnderstandingProvider` has no vendor/model choice in its consumer-facing call contract.
-- Derived cache records ready or explicit failed analysis against the expected `source_sha256`; a stale source revision cannot be silently accepted.
-- Repeated inspection of an unchanged asset returns cached ready analysis without invoking the provider again.
-- Fake-provider tests cover both image and video paths plus malformed/failure/cache behavior.
-- The first external adapter remains isolated from domain/tool schema; if live credentials are unavailable, live smoke is opt-in and recorded as residual rather than fabricated.
+- [x] Canonical analysis is owned by Laputa domain types and contains an asset-level summary/tags plus temporal segments for video where applicable.
+- [x] Analysis validation rejects empty/invalid structures and invalid video ranges before they can be persisted as Ready.
+- [x] Existing Story A manifests remain unchanged/openable because understanding state is stored outside `project.json`.
+- [x] `MediaUnderstandingProvider` has no vendor/model choice in its consumer-facing call contract.
+- [x] Derived cache records Ready or explicit Failed analysis against the expected `source_sha256`; stale or externally changed source revisions cannot be silently accepted.
+- [x] Repeated inspection of an unchanged asset returns cached Ready analysis without invoking the provider again.
+- [x] Fake-provider tests cover both image and video paths plus malformed/failure/cache/revision behavior.
+- [x] The first external adapter remains isolated from domain/tool schema.
 
-## Validation plan
+## Validation evidence
+
+Final code validation run `39379788027` passed the complete read-only CI gate:
 
 ```sh
 cargo fmt --all -- --check
 cargo check --workspace --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --locked
+cargo test -p laputa-app --features desktop-ui --bin laputa-desktop --locked
 scripts/validate_project_governance.sh .
 ```
 
-Focused tests must additionally prove:
+Additional focused evidence includes:
 
-- Story A project manifest stays openable without migration;
-- image analysis can be validated/cached;
-- video temporal segments are ordered, bounded and non-empty;
-- malformed candidate analysis is not persisted as `Ready`;
-- provider failure is explicit and retryable;
-- cached ready analysis prevents a second provider call;
-- expected source hash mismatch rejects the cache mutation.
+- fixture image analysis validation/cache path;
+- fixture video temporal analysis validation/cache path;
+- malformed candidate analysis persisted as Failed, never Ready;
+- provider failure explicit and retryable;
+- cache hit prevents a second provider call;
+- stale expected source hash rejects persistence;
+- externally changed original source rejects inspection before cache/provider use;
+- Story A schema-v1 project manifest opens without migration;
+- Gemini adapter response/MIME/schema translation unit coverage.
+
+Earlier clean checkpoints: core/provider-independent run `39354940570` and read-only adapter integration run `39356515502`.
 
 ## External adapter checkpoint
 
-Current official Gemini API evidence supports the intended adapter shape:
+The Gemini adapter owns upload/poll/request/response mechanics and translates only validated canonical `AssetAnalysis` across the functional provider boundary. Model names and Gemini resource URIs remain adapter configuration/state, not project/domain schema.
 
-- Files API supports reusable uploads for image/video media.
-- Video understanding supports temporal inspection and timestamps.
-- Interactions API supports response JSON constrained by JSON Schema.
+An opt-in ignored live smoke is provided at `crates/laputa-provider-gemini/tests/live_smoke.rs`. No Gemini credential or user-provided live-media fixture was available during this iteration, so the live external smoke was **not executed** and no live evidence is claimed.
 
-The adapter will own upload/poll/request/response mechanics and translate only the validated canonical `AssetAnalysis` across the functional provider boundary. Model names and Gemini resource URIs remain adapter configuration/state, not project/domain schema.
+Manual live-smoke command:
 
-## Risks and assumptions
+```sh
+GEMINI_API_KEY=... \
+LAPUTA_GEMINI_MODEL=... \
+LAPUTA_GEMINI_SMOKE_MEDIA=/path/to/media \
+cargo test -p laputa-provider-gemini --test live_smoke -- --ignored --nocapture
+```
+
+## Risks and residuals
 
 - The first canonical schema intentionally stays small: summary, tags and temporal segments. Characters/locations/events may be projected later when concrete First Cut requirements justify richer fields.
-- `source_sha256` is the Story B source revision key because Story A already persists it and original assets are immutable by contract.
-- Analysis cache is disposable/rebuildable; deleting `.laputa/cache/<asset-id>/understanding.json` must not corrupt `project.json` or imported Asset inventory.
-- Vendor raw JSON/SDK types are adapter-local and are never persisted as the canonical project schema.
-- A live external API smoke may require credentials unavailable to CI; deterministic fake-adapter coverage remains mandatory.
+- Analysis cache is disposable/rebuildable; deleting `.laputa/cache/<asset-id>/understanding.json` does not corrupt `project.json` or imported Asset inventory.
+- The first Gemini adapter explicitly rejects imported containers it cannot currently submit rather than changing the Story A import contract; proxy/transcode routing can be added when justified.
+- Live external behavior remains a separately executable smoke because normal CI is intentionally credential-free.
 
 ## Closure
 
-Result: pending.
+Result: Complete. `LAPUTA-001-B` is dependency-closed and `LAPUTA-001-C` is unblocked for selection by a new iteration. No First Cut work was started in this iteration.
