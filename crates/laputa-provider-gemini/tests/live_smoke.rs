@@ -19,7 +19,10 @@ async fn live_media_understanding_smoke() {
             .expect("LAPUTA_GEMINI_SMOKE_MEDIA must point to a local image or video"),
     );
     let metadata = fs::metadata(&source).expect("live smoke media must exist");
-    assert!(metadata.is_file(), "live smoke media must be a regular file");
+    assert!(
+        metadata.is_file(),
+        "live smoke media must be a regular file"
+    );
 
     let media_kind = media_kind_for_smoke(&source);
     let display_name = source
