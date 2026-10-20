@@ -1,20 +1,11 @@
 //! Talos runtime composition and Laputa Agent tools.
 
-use std::{
-    fs::{self, File},
-    path::PathBuf,
-};
-
-use anyhow::{Context, Result, anyhow, bail, ensure};
-use laputa_domain::{
-    Asset, AssetAnalysis, AssetAnalysisFailure, AssetAnalysisRecord, AssetAnalysisState, AssetId,
-};
+use anyhow::{Context, Result, anyhow, bail};
+use laputa_domain::{AssetAnalysis, AssetAnalysisState, AssetId};
 use laputa_media::ProjectStore;
 use laputa_provider::MediaUnderstandingProvider;
 
 pub use talos_runtime as runtime;
-
-const UNDERSTANDING_CACHE_FILE: &str = "understanding.json";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InspectionSource {
@@ -28,145 +19,6 @@ pub struct InspectionResult {
     pub source: InspectionSource,
 }
 
-#[derive(Clone, Debug)]
-pub struct AssetUnderstandingCache {
-    store: ProjectStore,
-}
-
-impl AssetUnderstandingCache {
-    #[must_use]
-    pub fn new(store: ProjectStore) -> Self {
-        Self { store }
-    }
-
-    #[must_use]
-    pub fn state_path(&self, asset_id: AssetId) -> PathBuf {
-        self.store
-            .asset_cache_dir(asset_id)
-            .join(UNDERSTANDING_CACHE_FILE)
-    }
-
-    pub fn load_state(&self, asset: &Asset) -> Result<Option<AssetAnalysisState>> {
-        let path = self.state_path(asset.id);
-        if !path.exists() {
-            return Ok(None);
-        }
-
-        let bytes = fs::read(&path)
-            .with_context(|| format!("failed to read analysis cache {}", path.display()))?;
-        let state: AssetAnalysisState = serde_json::from_slice(&bytes)
-            .with_context(|| format!("invalid analysis cache {}", path.display()))?;
-
-        let source_sha256 = match &state {
-            AssetAnalysisState::Ready(record) => &record.source_sha256,
-            AssetAnalysisState::Failed(failure) => &failure.source_sha256,
-        };
-        if source_sha256 != &asset.source_sha256 {
-            return Ok(None);
-        }
-
-        if let AssetAnalysisState::Ready(record) = &state {
-            record
-                .analysis
-                .validate_for(asset)
-                .context("cached analysis is invalid for the current asset")?;
-        }
-
-        Ok(Some(state))
-    }
-
-    pub fn record_ready(
-        &self,
-        asset: &Asset,
-        expected_source_sha256: &str,
-        analysis: AssetAnalysis,
-    ) -> Result<()> {
-        self.ensure_revision(asset, expected_source_sha256)?;
-        analysis
-            .validate_for(asset)
-            .context("cannot persist invalid asset analysis")?;
-        self.write_state(
-            asset.id,
-            &AssetAnalysisState::Ready(AssetAnalysisRecord {
-                source_sha256: expected_source_sha256.to_owned(),
-                analysis,
-            }),
-        )
-    }
-
-    pub fn record_failure(
-        &self,
-        asset: &Asset,
-        expected_source_sha256: &str,
-        message: impl Into<String>,
-    ) -> Result<()> {
-        self.ensure_revision(asset, expected_source_sha256)?;
-        let message = message.into();
-        ensure!(
-            !message.trim().is_empty(),
-            "analysis failure message must not be empty"
-        );
-        self.write_state(
-            asset.id,
-            &AssetAnalysisState::Failed(AssetAnalysisFailure {
-                source_sha256: expected_source_sha256.to_owned(),
-                message,
-            }),
-        )
-    }
-
-    fn ensure_revision(&self, asset: &Asset, expected_source_sha256: &str) -> Result<()> {
-        ensure!(
-            asset.source_sha256 == expected_source_sha256,
-            "asset source revision changed; expected {expected_source_sha256}, current {}",
-            asset.source_sha256
-        );
-        Ok(())
-    }
-
-    fn write_state(&self, asset_id: AssetId, state: &AssetAnalysisState) -> Result<()> {
-        let path = self.state_path(asset_id);
-        let parent = path
-            .parent()
-            .context("analysis cache path has no parent directory")?;
-        fs::create_dir_all(parent)
-            .with_context(|| format!("failed to create analysis cache at {}", parent.display()))?;
-
-        let bytes =
-            serde_json::to_vec_pretty(state).context("failed to serialize analysis cache")?;
-        let temporary = parent.join(format!(
-            ".{UNDERSTANDING_CACHE_FILE}.tmp-{}",
-            std::process::id()
-        ));
-        fs::write(&temporary, bytes).with_context(|| {
-            format!(
-                "failed to write temporary analysis cache {}",
-                temporary.display()
-            )
-        })?;
-        File::open(&temporary)
-            .and_then(|file| file.sync_all())
-            .with_context(|| {
-                format!(
-                    "failed to sync temporary analysis cache {}",
-                    temporary.display()
-                )
-            })?;
-
-        match fs::rename(&temporary, &path) {
-            Ok(()) => Ok(()),
-            Err(error) if path.exists() => {
-                fs::remove_file(&path).with_context(|| {
-                    format!("failed to replace analysis cache after rename error: {error}")
-                })?;
-                fs::rename(&temporary, &path)
-                    .context("failed to install replacement analysis cache")
-            }
-            Err(error) => Err(error).context("failed to install analysis cache"),
-        }
-    }
-}
-
 pub async fn inspect_asset(
     store: &ProjectStore,
     provider: &dyn MediaUnderstandingProvider,
@@ -177,9 +29,8 @@ pub async fn inspect_asset(
         .asset(asset_id)
         .cloned()
         .with_context(|| format!("asset {asset_id} does not exist in the project"))?;
-    let cache = AssetUnderstandingCache::new(store.clone());
 
-    if let Some(AssetAnalysisState::Ready(record)) = cache.load_state(&asset)? {
+    if let Some(AssetAnalysisState::Ready(record)) = store.load_understanding_state(&asset)? {
         return Ok(InspectionResult {
             analysis: record.analysis,
             source: InspectionSource::Cache,
@@ -190,18 +41,18 @@ pub async fn inspect_asset(
         Ok(analysis) => analysis,
         Err(error) => {
             let message = format!("media understanding provider failed: {error}");
-            cache.record_failure(&asset, &asset.source_sha256, message.clone())?;
+            store.record_understanding_failure(&asset, &asset.source_sha256, message.clone())?;
             return Err(anyhow!(message));
         }
     };
 
     if let Err(error) = analysis.validate_for(&asset) {
         let message = format!("media understanding provider returned invalid analysis: {error}");
-        cache.record_failure(&asset, &asset.source_sha256, message.clone())?;
+        store.record_understanding_failure(&asset, &asset.source_sha256, message.clone())?;
         bail!(message);
     }
 
-    cache.record_ready(&asset, &asset.source_sha256, analysis.clone())?;
+    store.record_understanding_ready(&asset, &asset.source_sha256, analysis.clone())?;
     Ok(InspectionResult {
         analysis,
         source: InspectionSource::Provider,
@@ -228,7 +79,7 @@ mod tests {
     };
     use tempfile::TempDir;
 
-    use super::{AssetUnderstandingCache, InspectionSource, inspect_asset};
+    use super::{InspectionSource, inspect_asset};
 
     #[derive(Debug)]
     struct FixtureProbe;
@@ -343,8 +194,7 @@ mod tests {
         let provider = FakeProvider::ready(video_analysis(2_000));
 
         let result = inspect_asset(&store, &provider, asset.id).await?;
-        let cache = AssetUnderstandingCache::new(store);
-        let state = cache.load_state(&asset)?;
+        let state = store.load_understanding_state(&asset)?;
 
         assert_eq!(result.source, InspectionSource::Provider);
         assert!(matches!(state, Some(AssetAnalysisState::Ready(_))));
@@ -358,8 +208,7 @@ mod tests {
         let provider = FakeProvider::ready(video_analysis(3_000));
 
         let result = inspect_asset(&store, &provider, asset.id).await;
-        let cache = AssetUnderstandingCache::new(store);
-        let state = cache.load_state(&asset)?;
+        let state = store.load_understanding_state(&asset)?;
 
         assert!(result.is_err());
         assert!(matches!(state, Some(AssetAnalysisState::Failed(_))));
@@ -373,8 +222,7 @@ mod tests {
         let provider = FakeProvider::failing("fixture provider unavailable");
 
         let result = inspect_asset(&store, &provider, asset.id).await;
-        let cache = AssetUnderstandingCache::new(store.clone());
-        let state = cache.load_state(&asset)?;
+        let state = store.load_understanding_state(&asset)?;
 
         assert!(result.is_err());
         assert!(matches!(state, Some(AssetAnalysisState::Failed(_))));
@@ -390,12 +238,11 @@ mod tests {
     fn cache_rejects_stale_expected_source_revision() -> Result<()> {
         let temp = tempfile::tempdir()?;
         let (store, asset) = imported_asset(&temp, "photo.jpg")?;
-        let cache = AssetUnderstandingCache::new(store);
 
-        let result = cache.record_ready(&asset, "stale-revision", image_analysis());
+        let result = store.record_understanding_ready(&asset, "stale-revision", image_analysis());
 
         assert!(result.is_err());
-        assert!(!cache.state_path(asset.id).exists());
+        assert!(!store.understanding_state_path(asset.id).exists());
         Ok(())
     }
 }
