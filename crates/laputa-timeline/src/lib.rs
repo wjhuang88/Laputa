@@ -309,7 +309,9 @@ impl FilmStore {
 
     #[must_use]
     pub fn path(&self) -> PathBuf {
-        self.project_root.join(STATE_DIRECTORY).join(FILM_STATE_FILE)
+        self.project_root
+            .join(STATE_DIRECTORY)
+            .join(FILM_STATE_FILE)
     }
 
     pub fn load(&self, project: &ProjectManifest) -> AnyResult<Option<FilmState>> {
@@ -339,15 +341,21 @@ impl FilmStore {
             format!("failed to create film state directory {}", parent.display())
         })?;
         let bytes = serde_json::to_vec_pretty(state).context("failed to serialize film state")?;
-        let temporary = parent.join(format!(
-            ".{FILM_STATE_FILE}.tmp-{}",
-            std::process::id()
-        ));
-        fs::write(&temporary, bytes)
-            .with_context(|| format!("failed to write temporary film state {}", temporary.display()))?;
+        let temporary = parent.join(format!(".{FILM_STATE_FILE}.tmp-{}", std::process::id()));
+        fs::write(&temporary, bytes).with_context(|| {
+            format!(
+                "failed to write temporary film state {}",
+                temporary.display()
+            )
+        })?;
         File::open(&temporary)
             .and_then(|file| file.sync_all())
-            .with_context(|| format!("failed to sync temporary film state {}", temporary.display()))?;
+            .with_context(|| {
+                format!(
+                    "failed to sync temporary film state {}",
+                    temporary.display()
+                )
+            })?;
         install_replacement(&temporary, &path)
     }
 }
@@ -357,9 +365,7 @@ fn install_replacement(temporary: &Path, destination: &Path) -> AnyResult<()> {
         Ok(()) => Ok(()),
         Err(error) if destination.exists() => {
             fs::remove_file(destination).with_context(|| {
-                format!(
-                    "failed to replace film state after rename error: {error}"
-                )
+                format!("failed to replace film state after rename error: {error}")
             })?;
             fs::rename(temporary, destination).context("failed to install replacement film state")
         }
