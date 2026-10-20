@@ -3416,6 +3416,8 @@ dependencies = [
  "laputa-media",
  "laputa-provider",
  "laputa-timeline",
+ "serde",
+ "serde_json",
  "talos-runtime",
  "tempfile",
  "tokio",
@@ -3483,8 +3485,12 @@ dependencies = [
 name = "laputa-timeline"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "laputa-domain",
  "serde",
+ "serde_json",
+ "tempfile",
+ "uuid",
 ]
 
 [[package]]
