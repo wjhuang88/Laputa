@@ -16,7 +16,7 @@ Before implementing current MVP work, read:
 | ID | Type | Outcome | Status | Decision Context | Required Reads |
 | --- | --- | --- | --- | --- | --- |
 | LAPUTA-001 | Epic | Prove the end-to-end agentic consumer Vlog MVP | Refined | Validate the simple “add → intent → first cut → revise → export” interaction before local-model deployment | `active/LAPUTA-001-agentic-vlog-mvp.md`, product requirements, architecture |
-| LAPUTA-001-C | Story | Talos can produce a first-cut project state using Laputa tools | Proposed | A+B are Complete; next selectable slice, but not started by the B iteration | `active/LAPUTA-001-C-talos-first-cut.md`, ADR-0001, ADR-0002 |
+| LAPUTA-001-C | Story | Talos can produce a first-cut project state using Laputa tools | Ready | A+B are Complete; selected by the planned `2026-10-21-talos-first-cut` iteration | `active/LAPUTA-001-C-talos-first-cut.md`, ADR-0001, ADR-0002 |
 | LAPUTA-001-D | Story | User can preview and inspect the first cut as a scene strip | Proposed | Requires C timeline state | `active/LAPUTA-001-D-preview-scene-strip.md`, ADR-0003 |
 | LAPUTA-001-E | Story | Talos can request generative derived media without vendor coupling | Proposed | Requires artifact/job contract and C tool path | `active/LAPUTA-001-E-generative-media.md`, ADR-0002 |
 | LAPUTA-001-F | Story | User can revise selected content with language/direct manipulation and locks | Proposed | Requires D selection/scene-strip interaction | `active/LAPUTA-001-F-selection-revision.md`, ADR-0003 |
