@@ -59,7 +59,9 @@ impl AgentTool for ProjectInspectTool {
         match self.snapshot() {
             Ok(snapshot) => match serde_json::to_string(&snapshot) {
                 Ok(content) => ToolResult::success(content),
-                Err(error) => ToolResult::error(format!("failed to serialize project snapshot: {error}")),
+                Err(error) => {
+                    ToolResult::error(format!("failed to serialize project snapshot: {error}"))
+                }
             },
             Err(error) => ToolResult::error(error.to_string()),
         }
@@ -387,7 +389,10 @@ mod tests {
         let persisted = FilmStore::at(store.root())
             .load(&project)?
             .expect("film state should be persisted");
-        assert_eq!(persisted.intent.request, "Make a warm one-minute Kyoto vlog");
+        assert_eq!(
+            persisted.intent.request,
+            "Make a warm one-minute Kyoto vlog"
+        );
         assert_eq!(persisted.timeline.scenes.len(), 2);
         Ok(())
     }
