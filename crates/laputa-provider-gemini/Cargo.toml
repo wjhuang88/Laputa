@@ -1,0 +1,20 @@
+[package]
+name = "laputa-provider-gemini"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+laputa-domain = { path = "../laputa-domain" }
+laputa-provider = { path = "../laputa-provider" }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

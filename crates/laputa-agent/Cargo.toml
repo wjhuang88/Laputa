@@ -5,8 +5,17 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+anyhow.workspace = true
 laputa-domain = { path = "../laputa-domain" }
 laputa-provider = { path = "../laputa-provider" }
 laputa-media = { path = "../laputa-media" }
 laputa-timeline = { path = "../laputa-timeline" }
 talos-runtime.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

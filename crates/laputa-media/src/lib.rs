@@ -10,13 +10,15 @@ use std::{
 
 use anyhow::{Context, Result, bail, ensure};
 use laputa_domain::{
-    Asset, AssetId, AssetTechnicalMetadata, MediaKind, PROJECT_SCHEMA_VERSION, ProjectManifest,
+    Asset, AssetAnalysis, AssetAnalysisFailure, AssetAnalysisRecord, AssetAnalysisState, AssetId,
+    AssetTechnicalMetadata, MediaKind, PROJECT_SCHEMA_VERSION, ProjectManifest,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 const STATE_DIRECTORY: &str = ".laputa";
 const MANIFEST_FILE: &str = "project.json";
+const UNDERSTANDING_CACHE_FILE: &str = "understanding.json";
 
 pub trait MediaProbe: Send + Sync {
     fn probe(&self, source: &Path, kind: MediaKind) -> Result<AssetTechnicalMetadata>;
@@ -141,6 +143,12 @@ impl ProjectStore {
         self.derivatives_dir().join(asset_id.to_string())
     }
 
+    #[must_use]
+    pub fn understanding_state_path(&self, asset_id: AssetId) -> PathBuf {
+        self.asset_cache_dir(asset_id)
+            .join(UNDERSTANDING_CACHE_FILE)
+    }
+
     pub fn create(&self, name: &str) -> Result<ProjectManifest> {
         ensure!(!name.trim().is_empty(), "project name must not be empty");
         ensure!(
@@ -262,6 +270,134 @@ impl ProjectStore {
             project: candidate,
             imported,
         })
+    }
+
+    pub fn load_understanding_state(&self, asset: &Asset) -> Result<Option<AssetAnalysisState>> {
+        let path = self.understanding_state_path(asset.id);
+        if !path.exists() {
+            return Ok(None);
+        }
+
+        let bytes = fs::read(&path)
+            .with_context(|| format!("failed to read understanding cache {}", path.display()))?;
+        let state: AssetAnalysisState = serde_json::from_slice(&bytes)
+            .with_context(|| format!("invalid understanding cache {}", path.display()))?;
+        let source_sha256 = match &state {
+            AssetAnalysisState::Ready(record) => &record.source_sha256,
+            AssetAnalysisState::Failed(failure) => &failure.source_sha256,
+        };
+        if source_sha256 != &asset.source_sha256 {
+            return Ok(None);
+        }
+        if let AssetAnalysisState::Ready(record) = &state {
+            record
+                .analysis
+                .validate_for(asset)
+                .context("cached analysis is invalid for the current asset")?;
+        }
+        Ok(Some(state))
+    }
+
+    pub fn record_understanding_ready(
+        &self,
+        asset: &Asset,
+        expected_source_sha256: &str,
+        analysis: AssetAnalysis,
+    ) -> Result<()> {
+        self.ensure_understanding_revision(asset, expected_source_sha256)?;
+        analysis
+            .validate_for(asset)
+            .context("cannot persist invalid asset analysis")?;
+        self.write_understanding_state(
+            asset.id,
+            &AssetAnalysisState::Ready(AssetAnalysisRecord {
+                source_sha256: expected_source_sha256.to_owned(),
+                analysis,
+            }),
+        )
+    }
+
+    pub fn record_understanding_failure(
+        &self,
+        asset: &Asset,
+        expected_source_sha256: &str,
+        message: impl Into<String>,
+    ) -> Result<()> {
+        self.ensure_understanding_revision(asset, expected_source_sha256)?;
+        let message = message.into();
+        ensure!(
+            !message.trim().is_empty(),
+            "analysis failure message must not be empty"
+        );
+        self.write_understanding_state(
+            asset.id,
+            &AssetAnalysisState::Failed(AssetAnalysisFailure {
+                source_sha256: expected_source_sha256.to_owned(),
+                message,
+            }),
+        )
+    }
+
+    fn ensure_understanding_revision(
+        &self,
+        asset: &Asset,
+        expected_source_sha256: &str,
+    ) -> Result<()> {
+        ensure!(
+            asset.source_sha256 == expected_source_sha256,
+            "asset source revision changed; expected {expected_source_sha256}, current {}",
+            asset.source_sha256
+        );
+        Ok(())
+    }
+
+    fn write_understanding_state(
+        &self,
+        asset_id: AssetId,
+        state: &AssetAnalysisState,
+    ) -> Result<()> {
+        let path = self.understanding_state_path(asset_id);
+        let parent = path
+            .parent()
+            .context("understanding cache path has no parent directory")?;
+        fs::create_dir_all(parent).with_context(|| {
+            format!(
+                "failed to create understanding cache directory {}",
+                parent.display()
+            )
+        })?;
+        let bytes =
+            serde_json::to_vec_pretty(state).context("failed to serialize understanding cache")?;
+        let temporary = parent.join(format!(
+            ".{UNDERSTANDING_CACHE_FILE}.tmp-{}",
+            std::process::id()
+        ));
+        fs::write(&temporary, bytes).with_context(|| {
+            format!(
+                "failed to write temporary understanding cache {}",
+                temporary.display()
+            )
+        })?;
+        File::open(&temporary)
+            .and_then(|file| file.sync_all())
+            .with_context(|| {
+                format!(
+                    "failed to sync temporary understanding cache {}",
+                    temporary.display()
+                )
+            })?;
+
+        match fs::rename(&temporary, &path) {
+            Ok(()) => Ok(()),
+            Err(error) if path.exists() => {
+                fs::remove_file(&path).with_context(|| {
+                    format!("failed to replace understanding cache after rename error: {error}")
+                })?;
+                fs::rename(&temporary, &path)
+                    .context("failed to install replacement understanding cache")
+            }
+            Err(error) => Err(error).context("failed to install understanding cache"),
+        }
     }
 
     fn save(&self, manifest: &ProjectManifest) -> Result<()> {
