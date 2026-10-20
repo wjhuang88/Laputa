@@ -102,7 +102,10 @@ impl AssetUnderstandingCache {
     ) -> Result<()> {
         self.ensure_revision(asset, expected_source_sha256)?;
         let message = message.into();
-        ensure!(!message.trim().is_empty(), "analysis failure message must not be empty");
+        ensure!(
+            !message.trim().is_empty(),
+            "analysis failure message must not be empty"
+        );
         self.write_state(
             asset.id,
             &AssetAnalysisState::Failed(AssetAnalysisFailure {
@@ -129,18 +132,25 @@ impl AssetUnderstandingCache {
         fs::create_dir_all(parent)
             .with_context(|| format!("failed to create analysis cache at {}", parent.display()))?;
 
-        let bytes = serde_json::to_vec_pretty(state).context("failed to serialize analysis cache")?;
+        let bytes =
+            serde_json::to_vec_pretty(state).context("failed to serialize analysis cache")?;
         let temporary = parent.join(format!(
             ".{UNDERSTANDING_CACHE_FILE}.tmp-{}",
             std::process::id()
         ));
         fs::write(&temporary, bytes).with_context(|| {
-            format!("failed to write temporary analysis cache {}", temporary.display())
+            format!(
+                "failed to write temporary analysis cache {}",
+                temporary.display()
+            )
         })?;
         File::open(&temporary)
             .and_then(|file| file.sync_all())
             .with_context(|| {
-                format!("failed to sync temporary analysis cache {}", temporary.display())
+                format!(
+                    "failed to sync temporary analysis cache {}",
+                    temporary.display()
+                )
             })?;
 
         match fs::rename(&temporary, &path) {
