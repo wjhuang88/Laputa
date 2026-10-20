@@ -145,7 +145,8 @@ impl ProjectStore {
 
     #[must_use]
     pub fn understanding_state_path(&self, asset_id: AssetId) -> PathBuf {
-        self.asset_cache_dir(asset_id).join(UNDERSTANDING_CACHE_FILE)
+        self.asset_cache_dir(asset_id)
+            .join(UNDERSTANDING_CACHE_FILE)
     }
 
     pub fn create(&self, name: &str) -> Result<ProjectManifest> {

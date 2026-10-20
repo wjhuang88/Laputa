@@ -4,7 +4,7 @@
 //! this crate. The rest of Laputa only sees `MediaUnderstandingProvider` and the
 //! canonical `AssetAnalysis` domain type.
 
-use std::{path::Path, time::Duration};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use laputa_domain::{Asset, AssetAnalysis, MediaKind};

@@ -3439,7 +3439,6 @@ dependencies = [
  "laputa-media",
  "laputa-provider",
  "laputa-timeline",
- "serde_json",
  "talos-runtime",
  "tempfile",
  "tokio",
