@@ -77,15 +77,17 @@ impl GeminiMediaUnderstandingProvider {
             return Err(rejected("Gemini base URL must not be empty"));
         }
         if config.processing_timeout.is_zero() {
-            return Err(rejected("Gemini processing timeout must be greater than zero"));
+            return Err(rejected(
+                "Gemini processing timeout must be greater than zero",
+            ));
         }
         if config.poll_interval.is_zero() {
             return Err(rejected("Gemini poll interval must be greater than zero"));
         }
 
-        let client = Client::builder()
-            .build()
-            .map_err(|error| unavailable(format!("failed to create Gemini HTTP client: {error}")))?;
+        let client = Client::builder().build().map_err(|error| {
+            unavailable(format!("failed to create Gemini HTTP client: {error}"))
+        })?;
         Ok(Self { client, config })
     }
 
@@ -352,7 +354,9 @@ fn mime_type_for_asset(asset: &Asset) -> Result<&'static str, MediaUnderstanding
     };
 
     if kind != asset.media_kind {
-        return Err(rejected("asset media kind does not match its source extension"));
+        return Err(rejected(
+            "asset media kind does not match its source extension",
+        ));
     }
     Ok(mime_type)
 }
@@ -487,7 +491,9 @@ mod tests {
     use laputa_domain::{Asset, AssetId, AssetTechnicalMetadata, MediaKind};
     use serde_json::json;
 
-    use super::{InteractionResponse, analysis_schema, mime_type_for_asset, parse_interaction_analysis};
+    use super::{
+        InteractionResponse, analysis_schema, mime_type_for_asset, parse_interaction_analysis,
+    };
 
     fn asset(filename: &str, kind: MediaKind) -> Asset {
         Asset {
