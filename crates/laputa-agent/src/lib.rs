@@ -29,7 +29,10 @@ pub async fn inspect_asset(
         .asset(asset_id)
         .cloned()
         .with_context(|| format!("asset {asset_id} does not exist in the project"))?;
-    let current_source_sha256 = sha256_file(&asset.original_path)
+    let source_path = asset.original_path.clone();
+    let current_source_sha256 = tokio::task::spawn_blocking(move || sha256_file(&source_path))
+        .await
+        .context("source revision hashing task failed")?
         .context("failed to verify imported media source revision")?;
     if current_source_sha256 != asset.source_sha256 {
         bail!(
