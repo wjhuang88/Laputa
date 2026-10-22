@@ -1,6 +1,6 @@
 # Iteration — Talos First Cut
 
-Status: planned  
+Status: in progress  
 Date: 2026-10-21  
 Selected Story: `LAPUTA-001-C`  
 Issue: #4
@@ -20,11 +20,11 @@ This iteration proves Agent control over Laputa state. It does **not** add playa
 - Story A is Complete via PR #12 and Issue #2, including user-confirmed GPUI import/reopen smoke.
 - Story B is Complete via PR #13 and Issue #3, providing provider-neutral validated analysis, revision-bound derived cache state, and deterministic fake-provider coverage.
 - The 2026-10-16 Story A foundation iteration remains historically marked `partial` because it was a checkpoint before desktop UI closure; `2026-10-17-gpui-project-import.md` explicitly closes that same Story A residual. It is not concurrent unfinished work.
-- Story C dependencies A+B are closed. Story C is promoted from Proposed to Ready by this plan.
+- Story C dependencies A+B are closed. Story C was promoted from Proposed to Ready by this plan and is now In Progress on PR #14.
 - Talos remains pinned to commit `0ef5a532930642d730bcc6d974f2a79605efaaee`; no Talos pin upgrade is part of this iteration.
 - `project.json` remains schema v1 and continues to own the existing Project/Asset manifest.
 
-The B squash merge landed as main commit `2d4b9ab80d13c32de54232e55c194a5000939753`. Production implementation for C must not be considered validated until the post-merge main CI lineage is green.
+The B squash merge landed as main commit `2d4b9ab80d13c32de54232e55c194a5000939753`. Post-merge main CI `39457065822` is green, so C is executing on a validated dependency baseline.
 
 ## Canonical state boundary
 
@@ -57,7 +57,7 @@ Only the known Laputa domain commit tool may be auto-authorized by the compositi
 
 ## Progress boundary
 
-The application must not receive raw model/provider orchestration as its normal progress model. `laputa-agent` will translate Talos session/tool events into a small product-level progress contract, initially equivalent to:
+The application must not receive raw model/provider orchestration as its normal progress model. `laputa-agent` translates authoritative Talos session/tool events into a small product-level progress contract:
 
 - Starting;
 - Understanding moments;
@@ -69,13 +69,25 @@ Raw Talos events may remain available internally for diagnostics, but normal app
 
 ## Dependency order
 
-1. Verify post-merge B main validation is green and keep the Talos pin unchanged.
-2. Define and validate canonical FilmState / Story / Timeline IR.
-3. Add atomic FilmState persistence to the existing `ProjectStore` boundary without changing `project.json` schema v1.
-4. Add read-only `project.inspect` and atomic `film.commit_first_cut` Talos tools.
-5. Add a First Cut runtime composition wrapper that registers only the required tools, submits one user goal, projects progress, and returns committed FilmState or explicit failure.
-6. Prove the loop deterministically with a fake Talos language-model provider that emits the tool sequence; do not require external credentials in CI.
+1. Verify post-merge B main validation is green and keep the Talos pin unchanged. **Done.**
+2. Define and validate canonical FilmState / Story / Timeline IR. **Done.**
+3. Add atomic FilmState persistence at the timeline/domain boundary without changing `project.json` schema v1. **Done.**
+4. Add read-only `project.inspect` and atomic `film.commit_first_cut` Talos tools. **Done.**
+5. Add a First Cut runtime composition wrapper that registers only the required tools, submits one user goal, projects progress, and returns committed FilmState or explicit failure. **Implemented; CI validation pending.**
+6. Prove the loop deterministically with a fake Talos language-model provider that emits the tool sequence; do not require external credentials in CI. **Implemented; CI validation pending.**
 7. Add an optional configured live Talos-provider smoke only if credentials are available; lack of credentials remains an explicit residual.
+
+## Implementation checkpoint
+
+The state/tool checkpoint at branch head `e59be121c56021be7ec67a79a5315cf251518d8b` passed full PR CI run `39808560339`, including format, workspace check, clippy with warnings denied, workspace tests, desktop UI test target, and governance validation.
+
+The current runtime checkpoint adds `FirstCutRunner` with these invariants:
+
+- only `project.inspect` and `film.commit_first_cut` are registered; no coding preset is enabled;
+- write permission is an exact tool-name allow for `film.commit_first_cut`, not a general `Write` allow;
+- product progress is projected from authoritative `TurnEvent` ToolCall/ToolResult boundaries, not provider text or reasoning;
+- runtime success is insufficient by itself: the runner reloads FilmState and requires a newly committed state whose original request matches the submitted request;
+- deterministic tests cover inspect → commit → persisted FilmState, progress ordering, invalid commit failure, and rejection of a successful end-turn that merely reuses old FilmState.
 
 ## Validation plan
 
@@ -100,16 +112,24 @@ Focused tests must additionally prove:
 
 ## Expected user-visible outcome
 
-No new full editor screen is required in Story C. The application/runtime integration will have a callable one-request First Cut operation and a compact progress stream that Story D can bind to the approved Stage / Scene Strip UI.
+No new full editor screen is required in Story C. The application/runtime integration exposes a callable one-request First Cut operation and a compact progress stream that Story D can bind to the approved Stage / Scene Strip UI.
 
 ## Risks and assumptions
 
 - The first FilmState schema must stay deliberately small; transitions, effects, audio mixing, generated artifacts, locks and critic metadata belong to later Stories unless required to keep the initial state valid.
 - C assumes fixture media is already analyzed. It does not silently call a remote understanding provider from `project.inspect`.
 - Atomic First Cut commit is preferred over multiple model-visible mutation tools because C needs a trustworthy initial state, not partial edit-session semantics.
-- The existing `ProjectStore` remains the persistence owner for this iteration; introducing a new project-storage crate would be architectural churn without current evidence.
+- `ProjectStore` remains the owner of Story A Project/Asset/understanding state. `FilmStore` is intentionally colocated with the FilmState IR in `laputa-timeline`; introducing another project-storage crate would be architectural churn without current evidence.
 - Talos write permission must be scoped to Laputa's known domain mutation, not broad filesystem/process writes.
+
+## Change control
+
+### Film persistence owner
+
+The published plan originally described FilmState persistence as an addition to the existing `ProjectStore` boundary. During implementation, that direction would have introduced a `laputa-media -> laputa-timeline` dependency even though FilmState is editorial/timeline truth rather than media-import state.
+
+The implementation therefore keeps `ProjectStore` unchanged and places `FilmStore` beside the FilmState IR in `laputa-timeline`, still rooted at the same project directory and still writing `.laputa/film.json`. This is a boundary correction, not a product/schema change: `project.json` remains schema v1, no new crate is introduced, and callers compose `ProjectStore` + `FilmStore` at the Agent boundary.
 
 ## Closure
 
-Result: pending.
+Result: pending final runtime validation and governance synchronization.
