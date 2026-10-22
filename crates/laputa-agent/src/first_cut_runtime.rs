@@ -94,7 +94,10 @@ impl FirstCutRunner {
     where
         F: FnMut(FirstCutProgress),
     {
-        ensure!(!request.trim().is_empty(), "first-cut request must not be empty");
+        ensure!(
+            !request.trim().is_empty(),
+            "first-cut request must not be empty"
+        );
 
         let project_before = self.project_store.open()?;
         let film_store = FilmStore::at(self.project_store.root());
@@ -104,7 +107,9 @@ impl FirstCutRunner {
             .provider(self.provider.clone())
             .workspace_root(self.project_store.root())
             .custom_prompt(FIRST_CUT_SYSTEM_PROMPT)
-            .tool(Arc::new(ProjectInspectTool::new(self.project_store.clone())))
+            .tool(Arc::new(ProjectInspectTool::new(
+                self.project_store.clone(),
+            )))
             .tool(Arc::new(CommitFirstCutTool::new(
                 self.project_store.clone(),
                 request,
@@ -189,20 +194,12 @@ where
                         if !result.is_error
                             && inspect_call_id.as_deref() == Some(&result.tool_use_id) =>
                     {
-                        emit_progress(
-                            on_progress,
-                            last_progress,
-                            FirstCutProgress::FindingStory,
-                        );
+                        emit_progress(on_progress, last_progress, FirstCutProgress::FindingStory);
                     }
                     AgentEvent::ToolCall { call, .. }
                         if call.name == FILM_COMMIT_FIRST_CUT_TOOL =>
                     {
-                        emit_progress(
-                            on_progress,
-                            last_progress,
-                            FirstCutProgress::BuildingScenes,
-                        );
+                        emit_progress(on_progress, last_progress, FirstCutProgress::BuildingScenes);
                     }
                     _ => {}
                 },
