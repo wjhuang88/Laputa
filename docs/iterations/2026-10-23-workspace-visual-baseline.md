@@ -1,6 +1,6 @@
 # Iteration — Film Workspace Visual Baseline
 
-Status: planned  
+Status: in progress  
 Date: 2026-10-23  
 Selected Story: `LAPUTA-001-D` (visual checkpoint only; Story remains incomplete)  
 Issue: #5
@@ -58,6 +58,14 @@ Static/demo presentation state may be used where necessary to reproduce the appr
 5. Keep existing project/import behavior intact.
 6. Run fmt/check/clippy/workspace tests/desktop-ui/governance CI.
 7. Record screenshots or user review outcome before treating this visual baseline as accepted.
+
+## Current implementation checkpoint
+
+- Branch: `feature/laputa-workspace-visual-baseline`.
+- Added dedicated `laputa-workspace-visual` GPUI binary so visual calibration is isolated from the existing project/import desktop flow.
+- The visual binary already encodes the approved hierarchy: 208 px Moments rail, dominant center Stage, 266 px Laputa rail and 112 px Scene Strip at the baseline desktop composition.
+- Minimal demo interactions are intentionally limited to play/pause appearance and selected scene projection; they exist only to make the visual state reviewable.
+- Existing `laputa-desktop` behavior remains unchanged in this checkpoint.
 
 ## Validation plan
 
