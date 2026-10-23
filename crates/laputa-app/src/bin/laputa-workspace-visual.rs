@@ -26,6 +26,7 @@ const FJORD: u32 = 0x30464b;
 const SAND: u32 = 0xd8c9b6;
 const SKY_BLOCK: u32 = 0xc9d9e3;
 const WARM: u32 = 0xe3b995;
+const PERSON: u32 = 0xbd806a;
 
 #[derive(Clone, Copy)]
 struct SceneDemo {
@@ -121,7 +122,12 @@ impl VisualWorkspace {
             .child(label)
     }
 
-    fn moment_card(index: usize, title: &'static str, kind: &'static str, tone: u32) -> impl IntoElement {
+    fn moment_card(
+        index: usize,
+        title: &'static str,
+        kind: &'static str,
+        tone: u32,
+    ) -> impl IntoElement {
         div()
             .id(("moment", index))
             .w_full()
@@ -136,7 +142,6 @@ impl VisualWorkspace {
                     .bg(rgb(tone))
                     .flex()
                     .items_end()
-                    .justify_between()
                     .p_2()
                     .child(
                         div()
@@ -192,8 +197,22 @@ impl VisualWorkspace {
                                     .text_color(rgb(BLUE))
                                     .child("全部"),
                             )
-                            .child(div().px_2().py_1().text_sm().text_color(rgb(MUTED)).child("照片"))
-                            .child(div().px_2().py_1().text_sm().text_color(rgb(MUTED)).child("视频")),
+                            .child(
+                                div()
+                                    .px_2()
+                                    .py_1()
+                                    .text_sm()
+                                    .text_color(rgb(MUTED))
+                                    .child("照片"),
+                            )
+                            .child(
+                                div()
+                                    .px_2()
+                                    .py_1()
+                                    .text_sm()
+                                    .text_color(rgb(MUTED))
+                                    .child("视频"),
+                            ),
                     )
                     .child(
                         div()
@@ -259,7 +278,7 @@ impl VisualWorkspace {
                                     .flex_col()
                                     .gap_1()
                                     .text_color(rgb(0xffffff))
-                                    .child(div().text_sm().child("SCENE 04"))
+                                    .child(div().text_sm().child("场景 04"))
                                     .child(div().text_2xl().child("京都街景")),
                             )
                             .child(
@@ -267,7 +286,7 @@ impl VisualWorkspace {
                                     .w(px(72.))
                                     .h(px(92.))
                                     .rounded_lg()
-                                    .bg(rgb(CLay_PERSON))
+                                    .bg(rgb(PERSON))
                                     .border_1()
                                     .border_color(rgb(0xe7cbb8)),
                             ),
@@ -298,7 +317,6 @@ impl VisualWorkspace {
                             .w_full()
                             .max_w(px(940.))
                             .h_full()
-                            .max_h(px(610.))
                             .flex()
                             .flex_col()
                             .gap_3()
@@ -362,7 +380,12 @@ impl VisualWorkspace {
                             .items_center()
                             .gap_2()
                             .child(div().w(px(7.)).h(px(7.)).rounded_full().bg(rgb(SAGE)))
-                            .child(div().text_sm().text_color(rgb(MUTED)).child("初剪已完成 · 4 分 32 秒 · 6 个片段")),
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(rgb(MUTED))
+                                    .child("初剪已完成 · 4 分 32 秒 · 6 个片段"),
+                            ),
                     )
                     .child(div().text_sm().text_color(rgb(BLUE)).child("观看完整视频")),
             )
@@ -397,7 +420,11 @@ impl VisualWorkspace {
                     .flex_col()
                     .gap_2()
                     .child(div().text_sm().text_color(rgb(MUTED)).child("当前片段"))
-                    .child(div().text_xl().child(format!("片段 {} · {}", scene.number, scene.title)))
+                    .child(
+                        div()
+                            .text_xl()
+                            .child(format!("片段 {} · {}", scene.number, scene.title)),
+                    )
                     .child(div().text_sm().text_color(rgb(MUTED)).child(scene.duration))
                     .child(
                         div()
@@ -409,7 +436,7 @@ impl VisualWorkspace {
             )
             .child(
                 div()
-                    .min_h(px(76.))
+                    .h(px(76.))
                     .rounded_lg()
                     .border_1()
                     .border_color(rgb(HAIRLINE))
@@ -428,9 +455,9 @@ impl VisualWorkspace {
                     .child(Self::chip("换一个镜头"))
                     .child(Self::chip("增加动感")),
             )
+            .child(div().flex_1())
             .child(
                 div()
-                    .mt_auto()
                     .pt_3()
                     .border_t_1()
                     .border_color(rgb(HAIRLINE))
@@ -480,7 +507,12 @@ impl VisualWorkspace {
                 .flex_col()
                 .justify_between()
                 .child(div().text_sm().child(scene.title))
-                .child(div().text_sm().text_color(rgb(MUTED)).child(scene.duration)),
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(rgb(MUTED))
+                        .child(scene.duration),
+                ),
         )
         .on_click(cx.listener(move |this, _, _, cx| {
             this.selected_scene = index;
@@ -586,7 +618,9 @@ fn has_display() -> bool {
 fn main() -> std::process::ExitCode {
     #[cfg(target_os = "linux")]
     if !has_display() {
-        eprintln!("Laputa workspace visual unavailable: neither DISPLAY nor WAYLAND_DISPLAY is configured");
+        eprintln!(
+            "Laputa workspace visual unavailable: neither DISPLAY nor WAYLAND_DISPLAY is configured"
+        );
         return std::process::ExitCode::FAILURE;
     }
 
@@ -626,5 +660,3 @@ fn main() -> std::process::ExitCode {
         std::process::ExitCode::SUCCESS
     }
 }
-
-const CLay_PERSON: u32 = 0xbd806a;
