@@ -3,7 +3,7 @@
 Status: approved visual direction  
 Date: 2026-10-16  
 Behavior owner: `docs/reference/PRODUCT-REQUIREMENTS-v0.1.md`  
-Current implementation Story: `docs/backlog/active/LAPUTA-001-A-project-media-import.md`
+Current implementation focus: `LAPUTA-001-D` Film Workspace visual baseline checkpoint
 
 ## Purpose
 
@@ -54,7 +54,7 @@ Preferred product vocabulary includes:
 
 ## Typical page baselines
 
-These screenshots are approved reference states. They define visual hierarchy, density, composition and interaction intent; they are **not pixel-perfect implementation contracts**.
+These screenshots are approved reference states. They define visual hierarchy, density, composition and interaction intent. In normal feature work they are not raster-identical contracts; however, during the current Film Workspace calibration checkpoint, `03-workspace.jpg` is intentionally treated as a **high-fidelity implementation target** so one production page can establish the visual tone for subsequent work.
 
 ### 1. Home / project launcher
 
@@ -79,8 +79,6 @@ Intent:
 - Laputa can suggest intent examples, but it should not force a setup wizard or configuration form;
 - the Scene Strip stays quiet/empty until project state exists.
 
-This page is the primary visual reference for the remaining GUI acceptance in `LAPUTA-001-A`.
-
 ### 3. First-cut film workspace
 
 ![Laputa V0.1 workspace](assets/v0.1/03-workspace.jpg)
@@ -93,14 +91,31 @@ Intent:
 - one selected scene is sufficient to establish editing scope;
 - contextual actions are few, obvious and reversible.
 
+Current calibration emphasis:
+
+- use the Simplified-Chinese workspace mockup as the baseline;
+- remove unnecessary density before adding controls;
+- make the Stage materially larger than either side rail;
+- keep side rails narrow and visually quiet;
+- use large flat surfaces and near-zero shadow rather than card-on-card chrome;
+- keep the Scene Strip shallow, with only enough information to communicate order and selection;
+- treat typography scale, alignment, whitespace and panel proportions as first-class implementation requirements during this checkpoint.
+
 ## Implementation interpretation
 
-When implementing these screens in GPUI:
+For the current Film Workspace calibration checkpoint:
 
-- preserve the hierarchy and interaction model before pursuing pixel fidelity;
+- **pursue high visual fidelity to `03-workspace.jpg` first**, while preserving the approved interaction hierarchy;
+- prefer structural subtraction over squeezing more controls into the same canvas;
+- keep the Stage large even if secondary panels need to become narrower, simpler or temporarily static;
+- isolate demo/presentation data so the visual structure can later bind to real FilmState without being redesigned;
+- do not use unfinished Story D functionality as a reason to compromise the approved composition.
+
+For subsequent feature work:
+
+- preserve the hierarchy and interaction model before adding new behavior;
 - prefer fewer controls and more whitespace when a choice exists;
 - do not add visible technical options merely because the underlying runtime/provider exposes them;
-- keep the preview larger rather than shrinking it to accommodate secondary panels;
 - side panels may collapse or adapt at smaller window sizes, but the Stage remains the primary content region;
 - direct manipulation (select, reorder, trim, delete) and language operate on the same project state;
 - use design tokens/components for spacing, typography, surfaces, accent and selection rather than one-off styling.
