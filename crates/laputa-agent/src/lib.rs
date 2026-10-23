@@ -1,5 +1,8 @@
 //! Talos runtime composition and Laputa Agent tools.
 
+pub mod first_cut;
+pub mod first_cut_runtime;
+
 use anyhow::{Context, Result, anyhow, bail};
 use laputa_domain::{AssetAnalysis, AssetAnalysisState, AssetId};
 use laputa_media::{ProjectStore, sha256_file};
