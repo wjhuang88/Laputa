@@ -3,6 +3,7 @@ name = "laputa-app"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+autobins = false
 
 [features]
 default = []

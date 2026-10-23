@@ -30,7 +30,7 @@ Story A 目前唯一没有证据闭环的必需项是：在真实图形桌面上
 
 ### 桌面 GUI
 
-桌面产品入口是独立、feature-gated 的 `laputa-desktop` binary；底层 CLI 仍保留用于确定性调试。
+桌面产品入口收敛为唯一显式声明的 `laputa-desktop` binary，并通过 `desktop-ui` feature 启用。
 
 启动项目首页：
 
@@ -52,19 +52,9 @@ cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- \
   open ./demo-project
 ```
 
-桌面导入使用系统多文件选择器，媒体 probe 继续复用 `ffprobe`，因此需要安装 FFmpeg。导入工作在 UI 线程之外运行；成功后 Asset Browser 会直接从最新 `ProjectManifest` 展示素材，失败则保留已有项目状态并显示可恢复错误。
+桌面导入使用系统多文件选择器，媒体 probe 继续复用 `ffprobe`，因此需要安装 FFmpeg。导入工作在 UI 线程之外运行；成功后 Asset Browser 会直接从最新 `ProjectManifest` 展示素材，失败则保留已有项目状态并显示可恢复错误。Laputa 只读引用导入的原始素材；项目元数据、缓存以及后续派生文件均保存在 `<project>/.laputa/` 下，不覆盖原文件。
 
 当前 Asset Browser 先展示媒体类型、文件名以及可用的时长/尺寸元数据，不以缩略图生成扩大 Story A 范围。视觉层级遵循 [Laputa V0.1 UI/UX 基线](docs/design/UI-UX-VISION-v0.1.md)。
-
-### 开发 CLI
-
-```sh
-cargo run -p laputa-app -- create ./demo-project "我的 Vlog"
-cargo run -p laputa-app -- import ./demo-project /path/to/photo.jpg /path/to/clip.mp4
-cargo run -p laputa-app -- open ./demo-project
-```
-
-`import` 同样使用 `ffprobe` 获取确定性媒体元数据。Laputa 只读引用导入的原始素材；项目元数据、缓存以及后续派生文件均保存在 `<project>/.laputa/` 下，不覆盖原文件。
 
 当前尚未进入的能力包括素材 AI 理解、Talos First Cut、生成式媒体、可播放 Preview、真实 Scene Strip 编辑、Critic 和最终导出交互，它们仍按 `LAPUTA-001` 的 A→H 任务链渐进实现。
 
@@ -140,7 +130,7 @@ Talos 不应感知 `Shot`、`Timeline`、Vlog、FFmpeg 或具体生成模型等 
 
 ## Workspace 结构
 
-- `crates/laputa-app`：桌面应用与 GUI 壳；同时保留基础开发 CLI。
+- `crates/laputa-app`：桌面应用与 GPUI 产品入口。
 - `crates/laputa-domain`：Project World 与领域模型。
 - `crates/laputa-agent`：Talos Runtime 组合与 Laputa Tools。
 - `crates/laputa-provider`：按功能定义的 Provider Contracts。

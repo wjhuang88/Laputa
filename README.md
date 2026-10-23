@@ -16,7 +16,7 @@ The one required Story A evidence row still missing is a real graphical-desktop 
 
 ### Desktop GUI
 
-The consumer desktop entrypoint is a separate feature-gated `laputa-desktop` binary; the thin CLI remains available for deterministic foundation debugging.
+The consumer desktop entrypoint is the single explicitly declared `laputa-desktop` binary, gated by the `desktop-ui` feature.
 
 Launch the project home:
 
@@ -38,19 +38,9 @@ cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- \
   open ./demo-project
 ```
 
-Desktop import uses the native multi-file picker and reuses `ffprobe` through the existing `ProjectStore` import path, so install FFmpeg before importing media. Import/probe work runs off the UI thread. Successful imports update the Asset Browser from the committed `ProjectManifest`; failures preserve the visible project inventory and surface a recoverable error.
+Desktop import uses the native multi-file picker and reuses `ffprobe` through the existing `ProjectStore` import path, so install FFmpeg before importing media. Import/probe work runs off the UI thread. Successful imports update the Asset Browser from the committed `ProjectManifest`; failures preserve the visible project inventory and surface a recoverable error. Imported originals remain read-only; project metadata, caches, and future derivatives live under `<project>/.laputa/`.
 
 The first Asset Browser intentionally shows media kind, filename, and available duration/dimension metadata instead of expanding Story A into thumbnail-generation work. The visual hierarchy follows the [Laputa V0.1 UI/UX baseline](docs/design/UI-UX-VISION-v0.1.md).
-
-### Developer CLI
-
-```sh
-cargo run -p laputa-app -- create ./demo-project "My Vlog"
-cargo run -p laputa-app -- import ./demo-project /path/to/photo.jpg /path/to/clip.mp4
-cargo run -p laputa-app -- open ./demo-project
-```
-
-`import` also uses `ffprobe` for deterministic media metadata. Imported originals are referenced read-only; project metadata, caches, and future derivatives live under `<project>/.laputa/`.
 
 Media AI understanding, the Talos First Cut, generated media, playable Preview, real Scene Strip editing, Critic, and final export interaction remain later Stories in the `LAPUTA-001` A→H chain.
 
@@ -65,7 +55,7 @@ Media AI understanding, the Talos First Cut, generated media, playable Preview, 
 
 ## Repository map
 
-- `crates/laputa-app`: desktop application shell plus the foundation CLI.
+- `crates/laputa-app`: desktop application shell and GPUI product entrypoint.
 - `crates/laputa-domain`: project-world domain model.
 - `crates/laputa-agent`: Talos runtime composition and Laputa tools.
 - `crates/laputa-provider`: functional provider contracts.
