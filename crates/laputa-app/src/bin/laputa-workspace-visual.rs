@@ -544,7 +544,12 @@ impl VisualWorkspace {
                     .overflow_x_scroll()
                     .flex()
                     .gap_3()
-                    .children((0..SCENES.len()).map(|index| self.scene_card(index, cx))),
+                    .child(self.scene_card(0, cx))
+                    .child(self.scene_card(1, cx))
+                    .child(self.scene_card(2, cx))
+                    .child(self.scene_card(3, cx))
+                    .child(self.scene_card(4, cx))
+                    .child(self.scene_card(5, cx)),
             )
     }
 
