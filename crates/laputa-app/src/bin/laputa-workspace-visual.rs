@@ -507,12 +507,7 @@ impl VisualWorkspace {
                 .flex_col()
                 .justify_between()
                 .child(div().text_sm().child(scene.title))
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(rgb(MUTED))
-                        .child(scene.duration),
-                ),
+                .child(div().text_sm().text_color(rgb(MUTED)).child(scene.duration)),
         )
         .on_click(cx.listener(move |this, _, _, cx| {
             this.selected_scene = index;
@@ -609,10 +604,13 @@ impl Render for VisualWorkspace {
 
 #[cfg(target_os = "linux")]
 fn has_display() -> bool {
-    [std::env::var_os("DISPLAY"), std::env::var_os("WAYLAND_DISPLAY")]
-        .into_iter()
-        .flatten()
-        .any(|value| !value.is_empty())
+    [
+        std::env::var_os("DISPLAY"),
+        std::env::var_os("WAYLAND_DISPLAY"),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|value| !value.is_empty())
 }
 
 fn main() -> std::process::ExitCode {
