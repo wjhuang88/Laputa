@@ -13,6 +13,16 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --locked
 ```
 
-The repository currently contains initialization scaffolding only. As runtime/GUI dependencies are wired, update this document with verified launch commands rather than inventing them in advance.
+## Desktop application
+
+`laputa-desktop` is the only application binary exposed by the `laputa-app` package. It is enabled through the `desktop-ui` feature.
+
+Launch the desktop application with:
+
+```sh
+cargo run -p laputa-app --features desktop-ui --bin laputa-desktop
+```
+
+The desktop import path requires `ffprobe`, so install FFmpeg before exercising mixed-media import locally.
 
 Never place provider credentials in tracked files. Use environment/OS-secret facilities selected by the implementation Story.
