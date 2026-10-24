@@ -14,11 +14,6 @@ name = "laputa-desktop"
 path = "src/bin/laputa-desktop.rs"
 required-features = ["desktop-ui"]
 
-[[bin]]
-name = "laputa-workspace-visual"
-path = "src/bin/laputa-workspace-visual.rs"
-required-features = ["desktop-ui"]
-
 [dependencies]
 anyhow.workspace = true
 gpui = { workspace = true, optional = true }
