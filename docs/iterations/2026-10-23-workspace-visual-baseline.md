@@ -62,10 +62,18 @@ Static/demo presentation state may be used where necessary to reproduce the appr
 ## Current implementation checkpoint
 
 - Branch: `feature/laputa-workspace-visual-baseline`.
-- Added dedicated `laputa-workspace-visual` GPUI binary so visual calibration is isolated from the existing project/import desktop flow.
-- The visual binary already encodes the approved hierarchy: 208 px Moments rail, dominant center Stage, 266 px Laputa rail and 112 px Scene Strip at the baseline desktop composition.
+- A development-only Cargo example `workspace_visual` hosts the deterministic calibration page; `laputa-desktop` remains the **only product binary**, preserving maintenance #15/#16.
+- The calibration page encodes the approved hierarchy: 208 px Moments rail, dominant center Stage, 266 px Laputa rail and 112 px Scene Strip at the baseline desktop composition.
 - Minimal demo interactions are intentionally limited to play/pause appearance and selected scene projection; they exist only to make the visual state reviewable.
-- Existing `laputa-desktop` behavior remains unchanged in this checkpoint.
+- Existing `laputa-desktop` project/import behavior remains unchanged in this checkpoint.
+
+Run the visual calibration page with:
+
+```sh
+cargo run -p laputa-app --features desktop-ui --example workspace_visual
+```
+
+This example is development tooling, not a second user-facing application entrypoint.
 
 ## Validation plan
 
@@ -77,6 +85,8 @@ Automated:
 - `cargo test --workspace --locked`
 - `cargo test -p laputa-app --features desktop-ui --bin laputa-desktop --locked`
 - `scripts/validate_project_governance.sh .`
+
+Because the calibration page is a Cargo example, `cargo clippy --all-targets --all-features` also compiles/lints it while keeping product binary topology unchanged.
 
 Visual/manual:
 
