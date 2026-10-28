@@ -1,0 +1,67 @@
+name: Workspace visual snapshot
+
+on:
+  push:
+    branches:
+      - feature/laputa-workspace-visual-baseline
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup default 1.95.0
+
+      - name: Install desktop and screenshot dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y clang imagemagick libclang-dev pkg-config libfontconfig1-dev libfreetype6-dev \
+            libx11-dev libx11-xcb-dev libxcb1-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libvulkan-dev xvfb
+
+      - name: Build visual calibration example
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build -p laputa-app --features desktop-ui --example workspace_visual --locked
+
+      - name: Capture GPUI workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p visual-artifacts
+          xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
+            set -euo pipefail
+            target/debug/examples/workspace_visual >visual-artifacts/workspace-visual.log 2>&1 &
+            app_pid=$!
+            cleanup() {
+              kill "$app_pid" 2>/dev/null || true
+              wait "$app_pid" 2>/dev/null || true
+            }
+            trap cleanup EXIT
+            sleep 5
+            import -window root visual-artifacts/workspace-visual.png
+          '
+          test -s visual-artifacts/workspace-visual.png
+
+      - name: Upload visual review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-visual-snapshot
+          path: |
+            visual-artifacts/workspace-visual.png
+            visual-artifacts/workspace-visual.log
+          if-no-files-found: error
+          retention-days: 14

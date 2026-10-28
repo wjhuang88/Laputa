@@ -16,7 +16,7 @@ Before implementing current MVP work, read:
 | ID | Type | Outcome | Status | Decision Context | Required Reads |
 | --- | --- | --- | --- | --- | --- |
 | LAPUTA-001 | Epic | Prove the end-to-end agentic consumer Vlog MVP | Refined | Validate the simple “add → intent → first cut → revise → export” interaction before local-model deployment | `active/LAPUTA-001-agentic-vlog-mvp.md`, product requirements, architecture |
-| LAPUTA-001-D | Story | User can preview and inspect the first cut as a scene strip | Ready | C is Complete; next dependency-closed MVP slice | `active/LAPUTA-001-D-preview-scene-strip.md`, ADR-0003 |
+| LAPUTA-001-D | Story | User can preview and inspect the first cut as a scene strip | In Progress | First checkpoint is a high-fidelity Film Workspace visual baseline against `03-workspace.jpg`; behavioral playback/selection acceptance follows after visual calibration | `active/LAPUTA-001-D-preview-scene-strip.md`, ADR-0003, `../design/UI-UX-VISION-v0.1.md` |
 | LAPUTA-001-E | Story | Talos can request generative derived media without vendor coupling | Proposed | Requires artifact/job contract and C tool path | `active/LAPUTA-001-E-generative-media.md`, ADR-0002 |
 | LAPUTA-001-F | Story | User can revise selected content with language/direct manipulation and locks | Proposed | Requires D selection/scene-strip interaction | `active/LAPUTA-001-F-selection-revision.md`, ADR-0003 |
 | LAPUTA-001-G | Story | Laputa can critique a preview and apply bounded repair | Proposed | Requires C+D and analysis provider | `active/LAPUTA-001-G-critic-repair.md`, ADR-0001, ADR-0002 |
