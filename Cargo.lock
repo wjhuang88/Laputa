@@ -3433,6 +3433,7 @@ dependencies = [
  "laputa-agent",
  "laputa-domain",
  "laputa-media",
+ "laputa-render",
  "laputa-timeline",
  "serde_json",
  "tempfile",
@@ -3479,6 +3480,14 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "laputa-render"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "tempfile",
 ]
 
 [[package]]
