@@ -59,6 +59,8 @@ FFmpeg and native Rust media/timeline logic handle probing, trimming, compositio
 
 Preview proxies are reconstructable cache artifacts, not durable project truth. Story D initially renders a silent video proxy because the current FilmState does not yet define canonical audio-mix semantics; later audio behavior must be driven by explicit timeline state rather than inferred from source tracks.
 
+The Story D preview checkpoint keeps this boundary deliberately narrow: `WorkspaceState` is translated into `PreviewRenderRequest` in `laputa-app`, while `laputa-render` sees only generic deterministic clip/raster concerns. Playback/controller state is layered above the render engine rather than pushed into canonical FilmState or Talos.
+
 ## Dependency direction
 
 ```text
