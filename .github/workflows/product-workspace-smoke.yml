@@ -76,8 +76,19 @@ jobs:
 
             import -window root product-workspace-artifacts/product-workspace-before-selection.png
 
-            active_window=$(xdotool getactivewindow)
-            xdotool getwindowgeometry --shell "$active_window" >product-workspace-artifacts/window-geometry.env
+            # Bare Xvfb has no EWMH window manager, so discover the GPUI window by process id.
+            product_window=""
+            for _ in $(seq 1 10); do
+              product_window=$(xdotool search --onlyvisible --pid "$app_pid" 2>/dev/null | head -n1 || true)
+              if test -n "$product_window"; then
+                break
+              fi
+              kill -0 "$app_pid"
+              sleep 1
+            done
+            test -n "$product_window"
+            printf "WINDOW_ID=%s\n" "$product_window" >product-workspace-artifacts/window-id.env
+            xdotool getwindowgeometry --shell "$product_window" >product-workspace-artifacts/window-geometry.env
             . product-workspace-artifacts/window-geometry.env
 
             # Scene Strip is 112 px high. Click the center of the second 154 px scene card.
@@ -92,16 +103,19 @@ jobs:
 
           test -s product-workspace-artifacts/product-workspace-before-selection.png
           test -s product-workspace-artifacts/product-workspace-after-selection.png
+          test -s product-workspace-artifacts/window-id.env
           test -s product-workspace-artifacts/window-geometry.env
 
       - name: Upload product workspace evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: product-workspace-smoke
           path: |
             product-workspace-artifacts/product-workspace-before-selection.png
             product-workspace-artifacts/product-workspace-after-selection.png
+            product-workspace-artifacts/window-id.env
             product-workspace-artifacts/window-geometry.env
             product-workspace-artifacts/laputa-desktop.log
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
