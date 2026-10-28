@@ -1,0 +1,107 @@
+name: Product workspace smoke
+
+on:
+  push:
+    branches:
+      - feature/laputa-001-d-product-workspace
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup default 1.95.0
+
+      - name: Install media, desktop and interaction dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y clang ffmpeg imagemagick libclang-dev pkg-config libfontconfig1-dev libfreetype6-dev \
+            libx11-dev libx11-xcb-dev libxcb1-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libvulkan-dev xdotool xvfb
+
+      - name: Build persisted fixture and product binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build -p laputa-app --example workspace_fixture --locked
+          cargo build -p laputa-app --features desktop-ui --bin laputa-desktop --locked
+
+      - name: Generate persisted FilmState project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/laputa-product-fixture /tmp/laputa-product-fixture.sources
+          target/debug/examples/workspace_fixture /tmp/laputa-product-fixture
+          test -s /tmp/laputa-product-fixture/.laputa/project.json
+          test -s /tmp/laputa-product-fixture/.laputa/film.json
+
+      - name: Launch product binary and exercise Scene Strip selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p product-workspace-artifacts
+          xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
+            set -euo pipefail
+            target/debug/laputa-desktop /tmp/laputa-product-fixture >product-workspace-artifacts/laputa-desktop.log 2>&1 &
+            app_pid=$!
+            cleanup() {
+              kill "$app_pid" 2>/dev/null || true
+              wait "$app_pid" 2>/dev/null || true
+            }
+            trap cleanup EXIT
+
+            for _ in $(seq 1 45); do
+              if test -s /tmp/laputa-product-fixture/.laputa/cache/preview/current.mp4; then
+                break
+              fi
+              kill -0 "$app_pid"
+              sleep 1
+            done
+            test -s /tmp/laputa-product-fixture/.laputa/cache/preview/current.mp4
+            kill -0 "$app_pid"
+            sleep 3
+
+            import -window root product-workspace-artifacts/product-workspace-before-selection.png
+
+            active_window=$(xdotool getactivewindow)
+            xdotool getwindowgeometry --shell "$active_window" >product-workspace-artifacts/window-geometry.env
+            . product-workspace-artifacts/window-geometry.env
+
+            # Scene Strip is 112 px high. Click the center of the second 154 px scene card.
+            scene_x=$((X + 342))
+            scene_y=$((Y + HEIGHT - 56))
+            xdotool mousemove --sync "$scene_x" "$scene_y" click 1
+            sleep 2
+
+            import -window root product-workspace-artifacts/product-workspace-after-selection.png
+            kill -0 "$app_pid"
+          '
+
+          test -s product-workspace-artifacts/product-workspace-before-selection.png
+          test -s product-workspace-artifacts/product-workspace-after-selection.png
+          test -s product-workspace-artifacts/window-geometry.env
+
+      - name: Upload product workspace evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-workspace-smoke
+          path: |
+            product-workspace-artifacts/product-workspace-before-selection.png
+            product-workspace-artifacts/product-workspace-after-selection.png
+            product-workspace-artifacts/window-geometry.env
+            product-workspace-artifacts/laputa-desktop.log
+          if-no-files-found: error
+          retention-days: 14
