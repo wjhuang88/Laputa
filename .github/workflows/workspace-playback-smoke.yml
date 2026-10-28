@@ -1,0 +1,85 @@
+name: Workspace playback smoke
+
+on:
+  push:
+    branches:
+      - feature/laputa-001-d-player-binding
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup default 1.95.0
+
+      - name: Install media, desktop and screenshot dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y clang ffmpeg imagemagick libclang-dev pkg-config libfontconfig1-dev libfreetype6-dev \
+            libx11-dev libx11-xcb-dev libxcb1-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libvulkan-dev xvfb
+
+      - name: Build playback fixture and GPUI calibration
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build -p laputa-app --example workspace_fixture --locked
+          cargo build -p laputa-app --features desktop-ui --example workspace_playback --locked
+
+      - name: Generate persisted project fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/laputa-playback-fixture /tmp/laputa-playback-fixture.sources
+          target/debug/examples/workspace_fixture /tmp/laputa-playback-fixture
+          test -s /tmp/laputa-playback-fixture/.laputa/project.json
+          test -s /tmp/laputa-playback-fixture/.laputa/film.json
+
+      - name: Capture persisted GPUI playback workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p playback-artifacts
+          xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
+            set -euo pipefail
+            target/debug/examples/workspace_playback /tmp/laputa-playback-fixture >playback-artifacts/workspace-playback.log 2>&1 &
+            app_pid=$!
+            cleanup() {
+              kill "$app_pid" 2>/dev/null || true
+              wait "$app_pid" 2>/dev/null || true
+            }
+            trap cleanup EXIT
+            for _ in $(seq 1 30); do
+              if test -s /tmp/laputa-playback-fixture/.laputa/cache/preview/current.mp4; then
+                break
+              fi
+              sleep 1
+            done
+            test -s /tmp/laputa-playback-fixture/.laputa/cache/preview/current.mp4
+            sleep 3
+            import -window root playback-artifacts/workspace-playback.png
+          '
+          test -s playback-artifacts/workspace-playback.png
+
+      - name: Upload playback smoke artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-playback-smoke
+          path: |
+            playback-artifacts/workspace-playback.png
+            playback-artifacts/workspace-playback.log
+          if-no-files-found: error
+          retention-days: 14

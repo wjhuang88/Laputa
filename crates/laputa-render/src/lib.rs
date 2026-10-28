@@ -3,6 +3,10 @@
 //! This crate deliberately knows nothing about Talos, providers, FilmState, or GPUI. Callers
 //! translate canonical Laputa state into simple media clip requests before invoking it.
 
+mod decode;
+
+pub use decode::{FfmpegPreviewDecoder, PreviewDecodeRequest, PreviewDecodeSession, PreviewFrame};
+
 use std::{
     fs,
     path::{Path, PathBuf},
