@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use gpui::{
     App, Bounds, Context, InteractiveElement, ObjectFit, Render, Window, WindowBounds,
     WindowOptions, div, img, prelude::*, px, rgb, size,
