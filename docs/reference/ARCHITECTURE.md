@@ -55,6 +55,10 @@ Vendor adapters implement one or more functional interfaces. Normal users and Ta
 
 FFmpeg and native Rust media/timeline logic handle probing, trimming, composition, deterministic transitions/effects, audio mixing, preview and final encoding. Generative models are used only where semantic generation/rewriting is needed.
 
+`laputa-render` is the deterministic Preview/Export engine boundary. It accepts generic media clip requests and produces derived media artifacts; it does not depend on Talos, functional providers, GPUI, or canonical FilmState types. `laputa-app` translates validated workspace/timeline presentation state into render requests. This keeps Preview/Export reusable for both GUI commands and later Agent tools without introducing a reverse dependency from media/render code into the application or timeline layers.
+
+Preview proxies are reconstructable cache artifacts, not durable project truth. Story D initially renders a silent video proxy because the current FilmState does not yet define canonical audio-mix semantics; later audio behavior must be driven by explicit timeline state rather than inferred from source tracks.
+
 ## Dependency direction
 
 ```text
@@ -62,19 +66,24 @@ laputa-app
   -> laputa-agent
   -> laputa-domain
   -> laputa-media
+  -> laputa-render
   -> laputa-timeline
   -> laputa-provider
 
 laputa-agent -> talos-runtime
 
-provider adapters (future crates) -> laputa-provider
+laputa-render -> deterministic process/media primitives only
+
+provider adapters -> laputa-provider
 ```
 
-Domain and provider contracts must not depend on vendor SDKs.
+Domain and provider contracts must not depend on vendor SDKs. `laputa-render` must not depend on Talos, provider adapters, GPUI, or `laputa-app`.
 
 ## Asynchronous generation contract
 
 External generation follows `submit -> job -> terminal state -> artifact`. Submission success does not authorize timeline mutation. A generated asset becomes eligible for timeline use only after terminal success and artifact verification/materialization.
+
+Long-running deterministic render work must also remain cancellable/responsive at the application boundary. The synchronous engine primitive may be executed on a worker/background task; UI code must not block the GPUI event loop while FFmpeg is running.
 
 ## Original-media contract
 

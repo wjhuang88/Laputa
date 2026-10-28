@@ -7,6 +7,7 @@ members = [
   "crates/laputa-provider",
   "crates/laputa-provider-gemini",
   "crates/laputa-media",
+  "crates/laputa-render",
   "crates/laputa-timeline",
 ]
 
