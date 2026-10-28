@@ -11,7 +11,7 @@ desktop-ui = ["dep:gpui", "dep:gpui_platform", "dep:image"]
 
 [[bin]]
 name = "laputa-desktop"
-path = "src/bin/laputa-desktop.rs"
+path = "src/bin/laputa-desktop-product.rs"
 required-features = ["desktop-ui"]
 
 [[example]]
