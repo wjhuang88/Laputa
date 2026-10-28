@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use laputa_domain::{Asset, AssetId, MediaKind, ProjectManifest};
-use laputa_timeline::FilmState;
+use laputa_timeline::{FilmState, FilmStore};
 
 use crate::workspace_state::WorkspaceState;
 
@@ -106,11 +106,26 @@ impl DesktopState {
 
     #[must_use]
     pub fn from_project(root: impl Into<PathBuf>, project: ProjectManifest) -> Self {
-        Self {
-            project_root: Some(root.into()),
-            project: Some(project),
+        let root = root.into();
+        let mut state = Self {
+            project_root: Some(root.clone()),
+            project: Some(project.clone()),
             ..Self::default()
+        };
+
+        match FilmStore::at(&root).load(&project) {
+            Ok(Some(film)) => match WorkspaceState::from_film(&project, film) {
+                Ok(workspace) => state.workspace = Some(workspace),
+                Err(error) => {
+                    state.error = Some(format!("无法恢复影片工作区：{error}"));
+                }
+            },
+            Ok(None) => {}
+            Err(error) => {
+                state.error = Some(format!("无法读取影片状态：{error}"));
+            }
         }
+        state
     }
 
     pub fn from_project_with_film(
@@ -203,13 +218,7 @@ impl DesktopState {
     }
 
     pub fn project_loaded(&mut self, root: PathBuf, project: ProjectManifest) {
-        self.project_root = Some(root);
-        self.project = Some(project);
-        self.workspace = None;
-        self.filter = AssetFilter::All;
-        self.operation = DesktopOperation::Idle;
-        self.error = None;
-        self.notice = None;
+        *self = Self::from_project(root, project);
     }
 
     pub fn project_loaded_with_film(
@@ -272,7 +281,8 @@ mod tests {
     use laputa_domain::{AssetTechnicalMetadata, MediaKind};
     use laputa_media::{MediaProbe, ProjectStore};
     use laputa_timeline::{
-        FilmDraft, FilmState, IntentDraft, SceneDraft, SceneSource, StoryBeatDraft, StoryDraft,
+        FilmDraft, FilmState, FilmStore, IntentDraft, SceneDraft, SceneSource, StoryBeatDraft,
+        StoryDraft,
     };
     use tempfile::tempdir;
 
@@ -380,6 +390,83 @@ mod tests {
                 .workspace()
                 .map(|workspace| workspace.scene_strip().len()),
             Some(1)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn normal_project_open_automatically_restores_persisted_film_workspace() -> Result<()> {
+        let temp = tempdir()?;
+        let image = temp.path().join("temple.jpg");
+        fs::write(&image, b"image")?;
+        let root = temp.path().join("Kyoto Trip");
+        let store = ProjectStore::at(&root);
+        store.create("京都之旅")?;
+        let report = store.import_media(&[image], &FixtureProbe)?;
+        let project = report.project;
+        let asset_id = project.assets[0].id;
+        let film = FilmState::from_draft(
+            "做一个温暖的京都短片",
+            FilmDraft {
+                intent: IntentDraft {
+                    summary: "温暖的京都短片".to_owned(),
+                    target_duration_ms: Some(3_000),
+                    tone_tags: vec!["温暖".to_owned()],
+                },
+                story: StoryDraft {
+                    summary: "从寺院开始".to_owned(),
+                    beats: vec![StoryBeatDraft {
+                        key: "opening".to_owned(),
+                        title: "开场".to_owned(),
+                        purpose: "建立地点".to_owned(),
+                    }],
+                },
+                scenes: vec![SceneDraft {
+                    beat_key: "opening".to_owned(),
+                    asset_id,
+                    title: "寺院".to_owned(),
+                    source: SceneSource::Image { duration_ms: 3_000 },
+                }],
+            },
+            &project,
+        )?;
+        FilmStore::at(&root).save(&project, &film)?;
+
+        let state = DesktopState::from_project(&root, project);
+
+        assert!(state.error().is_none());
+        assert_eq!(
+            state
+                .workspace()
+                .map(|workspace| workspace.scene_strip().len()),
+            Some(1)
+        );
+        assert_eq!(
+            state.workspace().map(|workspace| workspace.duration_ms()),
+            Some(3_000)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_persisted_film_keeps_project_open_and_surfaces_workspace_error() -> Result<()> {
+        let temp = tempdir()?;
+        let root = temp.path().join("Kyoto Trip");
+        let store = ProjectStore::at(&root);
+        let project = store.create("京都之旅")?;
+        fs::write(root.join(".laputa/film.json"), b"{ invalid film json")?;
+
+        let state = DesktopState::from_project(&root, project);
+
+        assert_eq!(
+            state.project().map(|project| project.name.as_str()),
+            Some("京都之旅")
+        );
+        assert!(state.workspace().is_none());
+        assert!(
+            state
+                .error()
+                .is_some_and(|error| error.contains("无法读取影片状态"))
         );
         Ok(())
     }

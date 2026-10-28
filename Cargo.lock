@@ -3430,6 +3430,7 @@ dependencies = [
  "anyhow",
  "gpui",
  "gpui_platform",
+ "image",
  "laputa-agent",
  "laputa-domain",
  "laputa-media",
