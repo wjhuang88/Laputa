@@ -1,6 +1,10 @@
 use std::path::{Path, PathBuf};
 
+use anyhow::Result;
 use laputa_domain::{Asset, AssetId, MediaKind, ProjectManifest};
+use laputa_timeline::FilmState;
+
+use crate::workspace_state::WorkspaceState;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum AssetFilter {
@@ -87,6 +91,7 @@ impl AssetCard {
 pub struct DesktopState {
     project_root: Option<PathBuf>,
     project: Option<ProjectManifest>,
+    workspace: Option<WorkspaceState>,
     filter: AssetFilter,
     operation: DesktopOperation,
     notice: Option<String>,
@@ -108,6 +113,20 @@ impl DesktopState {
         }
     }
 
+    pub fn from_project_with_film(
+        root: impl Into<PathBuf>,
+        project: ProjectManifest,
+        film: FilmState,
+    ) -> Result<Self> {
+        let workspace = WorkspaceState::from_film(&project, film)?;
+        Ok(Self {
+            project_root: Some(root.into()),
+            project: Some(project),
+            workspace: Some(workspace),
+            ..Self::default()
+        })
+    }
+
     #[must_use]
     pub fn project(&self) -> Option<&ProjectManifest> {
         self.project.as_ref()
@@ -116,6 +135,15 @@ impl DesktopState {
     #[must_use]
     pub fn project_root(&self) -> Option<&Path> {
         self.project_root.as_deref()
+    }
+
+    #[must_use]
+    pub fn workspace(&self) -> Option<&WorkspaceState> {
+        self.workspace.as_ref()
+    }
+
+    pub fn workspace_mut(&mut self) -> Option<&mut WorkspaceState> {
+        self.workspace.as_mut()
     }
 
     #[must_use]
@@ -177,10 +205,28 @@ impl DesktopState {
     pub fn project_loaded(&mut self, root: PathBuf, project: ProjectManifest) {
         self.project_root = Some(root);
         self.project = Some(project);
+        self.workspace = None;
         self.filter = AssetFilter::All;
         self.operation = DesktopOperation::Idle;
         self.error = None;
         self.notice = None;
+    }
+
+    pub fn project_loaded_with_film(
+        &mut self,
+        root: PathBuf,
+        project: ProjectManifest,
+        film: FilmState,
+    ) -> Result<()> {
+        let workspace = WorkspaceState::from_film(&project, film)?;
+        self.project_root = Some(root);
+        self.project = Some(project);
+        self.workspace = Some(workspace);
+        self.filter = AssetFilter::All;
+        self.operation = DesktopOperation::Idle;
+        self.error = None;
+        self.notice = None;
+        Ok(())
     }
 
     pub fn import_completed(&mut self, project: ProjectManifest, imported: usize) {
@@ -225,6 +271,9 @@ mod tests {
     use anyhow::Result;
     use laputa_domain::{AssetTechnicalMetadata, MediaKind};
     use laputa_media::{MediaProbe, ProjectStore};
+    use laputa_timeline::{
+        FilmDraft, FilmState, IntentDraft, SceneDraft, SceneSource, StoryBeatDraft, StoryDraft,
+    };
     use tempfile::tempdir;
 
     use super::{AssetFilter, DesktopOperation, DesktopState};
@@ -280,6 +329,58 @@ mod tests {
         assert_eq!(state.asset_cards().len(), 1);
         state.set_filter(AssetFilter::Videos);
         assert_eq!(state.asset_cards().len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn desktop_state_can_bind_valid_first_cut_for_workspace_projection() -> Result<()> {
+        let temp = tempdir()?;
+        let image = temp.path().join("temple.jpg");
+        fs::write(&image, b"image")?;
+        let root = temp.path().join("Kyoto Trip");
+        let store = ProjectStore::at(&root);
+        store.create("京都之旅")?;
+        let report = store.import_media(&[image], &FixtureProbe)?;
+        let project = report.project;
+        let asset_id = project.assets[0].id;
+        let film = FilmState::from_draft(
+            "做一个温暖的京都短片",
+            FilmDraft {
+                intent: IntentDraft {
+                    summary: "温暖的京都短片".to_owned(),
+                    target_duration_ms: Some(3_000),
+                    tone_tags: vec!["温暖".to_owned()],
+                },
+                story: StoryDraft {
+                    summary: "从寺院开始".to_owned(),
+                    beats: vec![StoryBeatDraft {
+                        key: "opening".to_owned(),
+                        title: "开场".to_owned(),
+                        purpose: "建立地点".to_owned(),
+                    }],
+                },
+                scenes: vec![SceneDraft {
+                    beat_key: "opening".to_owned(),
+                    asset_id,
+                    title: "寺院".to_owned(),
+                    source: SceneSource::Image { duration_ms: 3_000 },
+                }],
+            },
+            &project,
+        )?;
+
+        let state = DesktopState::from_project_with_film(&root, project, film)?;
+
+        assert_eq!(
+            state.workspace().map(|workspace| workspace.duration_ms()),
+            Some(3_000)
+        );
+        assert_eq!(
+            state
+                .workspace()
+                .map(|workspace| workspace.scene_strip().len()),
+            Some(1)
+        );
         Ok(())
     }
 
