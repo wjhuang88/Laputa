@@ -338,7 +338,10 @@ impl DesktopWindow {
         .detach();
     }
 
-    fn decode_one_frame(&self, request: PreviewDecodeRequest) -> Result<Option<RenderedPreviewFrame>> {
+    fn decode_one_frame(
+        &self,
+        request: PreviewDecodeRequest,
+    ) -> Result<Option<RenderedPreviewFrame>> {
         let mut session = self.decoder.open(request)?;
         let frame = session
             .read_frame()?
@@ -594,18 +597,20 @@ impl DesktopWindow {
                             .justify_center()
                             .gap_5()
                             .child(div().text_3xl().child("把片段变成故事"))
-                            .child(
-                                div()
-                                    .text_color(rgb(MUTED))
-                                    .child("从照片和视频开始，用一句话得到初剪，再从预览里继续塑造故事。"),
-                            )
+                            .child(div().text_color(rgb(MUTED)).child(
+                                "从照片和视频开始，用一句话得到初剪，再从预览里继续塑造故事。",
+                            ))
                             .child(
                                 div()
                                     .flex()
                                     .gap_3()
                                     .child(self.action_button(
                                         "new-project",
-                                        if busy { "处理中…" } else { "＋ 新建影片" },
+                                        if busy {
+                                            "处理中…"
+                                        } else {
+                                            "＋ 新建影片"
+                                        },
                                         UiCommand::NewProject,
                                         true,
                                         cx,
@@ -722,14 +727,10 @@ impl DesktopWindow {
                                     } else {
                                         "素材已经准备好"
                                     }))
-                                    .child(
-                                        div()
-                                            .text_color(rgb(MUTED))
-                                            .child(format!(
-                                                "{} · {} 个素材 · 原始文件保持只读引用",
-                                                project.name, asset_count
-                                            )),
-                                    )
+                                    .child(div().text_color(rgb(MUTED)).child(format!(
+                                        "{} · {} 个素材 · 原始文件保持只读引用",
+                                        project.name, asset_count
+                                    )))
                                     .child(self.action_button(
                                         "add-media-stage",
                                         if self.state.operation().is_busy() {
@@ -1107,7 +1108,12 @@ impl DesktopWindow {
                             ),
                     )
                     .when_some(self.preview_error.as_deref(), |view, error| {
-                        view.child(div().text_sm().text_color(rgb(ERROR)).child(error.to_owned()))
+                        view.child(
+                            div()
+                                .text_sm()
+                                .text_color(rgb(ERROR))
+                                .child(error.to_owned()),
+                        )
                     }),
             )
     }
@@ -1126,10 +1132,12 @@ impl DesktopWindow {
                 .unwrap_or_else(|| workspace.scene_at_playhead())
         });
         let target = workspace
-            .map(|workspace| match workspace.command_context().default_target {
-                DefaultEditTarget::Project => "整部影片".to_owned(),
-                DefaultEditTarget::Scene(_) => "当前选中片段".to_owned(),
-            })
+            .map(
+                |workspace| match workspace.command_context().default_target {
+                    DefaultEditTarget::Project => "整部影片".to_owned(),
+                    DefaultEditTarget::Scene(_) => "当前选中片段".to_owned(),
+                },
+            )
             .unwrap_or_else(|| "整部影片".to_owned());
 
         div()
@@ -1161,16 +1169,11 @@ impl DesktopWindow {
                         .gap_2()
                         .child(div().text_sm().text_color(rgb(MUTED)).child("当前片段"))
                         .child(div().text_xl().child(scene.title.clone()))
-                        .child(
-                            div()
-                                .text_sm()
-                                .text_color(rgb(MUTED))
-                                .child(format!(
-                                    "{} · {}",
-                                    scene.display_name,
-                                    format_time(scene.duration_ms())
-                                )),
-                        ),
+                        .child(div().text_sm().text_color(rgb(MUTED)).child(format!(
+                            "{} · {}",
+                            scene.display_name,
+                            format_time(scene.duration_ms())
+                        ))),
                 )
             })
             .child(
