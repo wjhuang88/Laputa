@@ -102,9 +102,9 @@ mod tests {
 
     use anyhow::Result;
     use laputa_domain::{
-        Asset, AssetId, AssetTechnicalMetadata, DerivedArtifact, GenerationJob,
-        GenerationJobState, GenerationOperation, GenerationProviderOutput, GenerationRequest,
-        GenerationSource, GenerationState, MediaKind, ProjectManifest, ProviderProvenance,
+        Asset, AssetId, AssetTechnicalMetadata, DerivedArtifact, GenerationJob, GenerationJobState,
+        GenerationOperation, GenerationProviderOutput, GenerationRequest, GenerationSource,
+        GenerationState, MediaKind, ProjectManifest, ProviderProvenance,
     };
     use tempfile::tempdir;
 
@@ -166,7 +166,9 @@ mod tests {
 
         let store = GenerationStore::at(temp.path().join("project"));
         store.save(&project, &state)?;
-        let reopened = store.load(&project)?.expect("generation state should exist");
+        let reopened = store
+            .load(&project)?
+            .expect("generation state should exist");
 
         assert_eq!(reopened, state);
         assert_eq!(sha256_file(&original)?, original_hash);
@@ -209,7 +211,9 @@ mod tests {
 
         let store = GenerationStore::at(temp.path().join("project"));
         store.save(&project, &state)?;
-        let reopened = store.load(&project)?.expect("generation state should exist");
+        let reopened = store
+            .load(&project)?
+            .expect("generation state should exist");
 
         assert_eq!(reopened, state);
         assert_eq!(sha256_file(&original)?, original_hash);
