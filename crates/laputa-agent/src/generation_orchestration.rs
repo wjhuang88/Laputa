@@ -32,7 +32,10 @@ impl GenerationOutputMaterializer for LocalFileGenerationOutputMaterializer {
         output
             .validate()
             .context("provider output is invalid before materialization")?;
-        let locator = output.locator.strip_prefix("file://").unwrap_or(&output.locator);
+        let locator = output
+            .locator
+            .strip_prefix("file://")
+            .unwrap_or(&output.locator);
         let source = Path::new(locator);
         ensure!(
             source.is_file(),
@@ -86,8 +89,14 @@ impl GenerationOutputValidator for FfprobeGenerationOutputValidator {
     fn validate(&self, path: &Path, expected_kind: MediaKind) -> Result<()> {
         let metadata = fs::metadata(path)
             .with_context(|| format!("failed to inspect materialized output {}", path.display()))?;
-        ensure!(metadata.is_file(), "materialized generation output is not a file");
-        ensure!(metadata.len() > 0, "materialized generation output is empty");
+        ensure!(
+            metadata.is_file(),
+            "materialized generation output is not a file"
+        );
+        ensure!(
+            metadata.len() > 0,
+            "materialized generation output is empty"
+        );
 
         let technical = FfprobeMediaProbe
             .probe(path, expected_kind)
@@ -133,7 +142,10 @@ impl GenerationOrchestrator {
     }
 
     pub fn with_max_polls(mut self, max_polls: usize) -> Result<Self> {
-        ensure!(max_polls > 0, "generation max_polls must be greater than zero");
+        ensure!(
+            max_polls > 0,
+            "generation max_polls must be greater than zero"
+        );
         self.max_polls = max_polls;
         Ok(self)
     }
@@ -457,9 +469,9 @@ impl GenerationOrchestrator {
                     asset_id,
                     source_sha256,
                 } => {
-                    let asset = project
-                        .asset(*asset_id)
-                        .with_context(|| format!("generation source asset {asset_id} is missing"))?;
+                    let asset = project.asset(*asset_id).with_context(|| {
+                        format!("generation source asset {asset_id} is missing")
+                    })?;
                     ensure!(
                         &asset.source_sha256 == source_sha256,
                         "generation source asset {asset_id} revision is stale"
@@ -492,11 +504,7 @@ impl GenerationOrchestrator {
                         "generation source artifact file is missing: {}",
                         path.display()
                     );
-                    GenerationMediaInput::new(
-                        path,
-                        artifact.media_kind(),
-                        source_sha256.clone(),
-                    )
+                    GenerationMediaInput::new(path, artifact.media_kind(), source_sha256.clone())
                 }
             }
             .map_err(anyhow::Error::new)
@@ -536,7 +544,9 @@ impl GenerationOrchestrator {
                 )?;
                 bail!("generation provider status regressed from running to submitted")
             }
-            _ => bail!("generation provider returned non-terminal status after job became terminal"),
+            _ => {
+                bail!("generation provider returned non-terminal status after job became terminal")
+            }
         }
     }
 
@@ -627,7 +637,10 @@ impl GenerationOrchestrator {
                 destination.display()
             )
         })?;
-        ensure!(metadata.is_file(), "verified generation output is not a file");
+        ensure!(
+            metadata.is_file(),
+            "verified generation output is not a file"
+        );
         ensure!(metadata.len() > 0, "verified generation output is empty");
         let sha256 = sha256_file(&destination)?;
         let job = state
@@ -671,7 +684,9 @@ fn install_replacement(temporary: &Path, destination: &Path) -> Result<()> {
         Ok(()) => Ok(()),
         Err(error) if destination.exists() => {
             fs::remove_file(destination).with_context(|| {
-                format!("failed to replace materialized generation output after rename error: {error}")
+                format!(
+                    "failed to replace materialized generation output after rename error: {error}"
+                )
             })?;
             fs::rename(temporary, destination)
                 .context("failed to install replacement materialized generation output")
@@ -875,9 +890,8 @@ mod tests {
             &provider,
         ))?;
 
-        let status = block_on_ready(orchestrator.cancel_video_generation(
-            &project, job_id, &provider,
-        ))?;
+        let status =
+            block_on_ready(orchestrator.cancel_video_generation(&project, job_id, &provider))?;
         assert_eq!(status, GenerationProviderStatus::Cancelled);
         assert_eq!(sha256_file(&original)?, original_hash);
         let state = GenerationStore::at(&project_root)
