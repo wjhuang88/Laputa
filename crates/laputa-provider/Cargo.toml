@@ -7,6 +7,3 @@ rust-version.workspace = true
 [dependencies]
 async-trait.workspace = true
 laputa-domain = { path = "../laputa-domain" }
-
-[dev-dependencies]
-tokio.workspace = true
