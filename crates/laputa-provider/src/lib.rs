@@ -3,6 +3,10 @@
 //! Stable provider traits are capability-oriented. Vendor SDK/request/response types
 //! stay inside adapters and must not leak into Laputa domain or tool contracts.
 
+mod generation;
+
+pub use generation::*;
+
 use std::fmt;
 
 use async_trait::async_trait;
