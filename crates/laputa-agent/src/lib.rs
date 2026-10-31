@@ -2,9 +2,11 @@
 
 pub mod first_cut;
 pub mod first_cut_runtime;
+pub mod generation_orchestration;
 
 use anyhow::{Context, Result, anyhow, bail};
 use laputa_domain::{AssetAnalysis, AssetAnalysisState, AssetId};
+pub(crate) use laputa_media::{FfprobeMediaProbe, GenerationStore, MediaProbe};
 use laputa_media::{ProjectStore, sha256_file};
 use laputa_provider::MediaUnderstandingProvider;
 
