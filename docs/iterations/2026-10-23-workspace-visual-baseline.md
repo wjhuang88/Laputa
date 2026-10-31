@@ -1,8 +1,9 @@
 # Iteration — Film Workspace Visual Baseline
 
-Status: in progress  
+Status: complete  
 Date: 2026-10-23  
-Selected Story: `LAPUTA-001-D` (visual checkpoint only; Story remains incomplete)  
+Closed: 2026-10-31  
+Selected Story: `LAPUTA-001-D` (visual checkpoint only; Story remains incomplete pending final real-desktop acceptance)  
 Issue: #5
 
 ## Goal
@@ -59,13 +60,14 @@ Static/demo presentation state may be used where necessary to reproduce the appr
 6. Run fmt/check/clippy/workspace tests/desktop-ui/governance CI.
 7. Record screenshots or user review outcome before treating this visual baseline as accepted.
 
-## Current implementation checkpoint
+## Delivered checkpoint
 
-- Branch: `feature/laputa-workspace-visual-baseline`.
-- A development-only Cargo example `workspace_visual` hosts the deterministic calibration page; `laputa-desktop` remains the **only product binary**, preserving maintenance #15/#16.
-- The calibration page encodes the approved hierarchy: 208 px Moments rail, dominant center Stage, 266 px Laputa rail and 112 px Scene Strip at the baseline desktop composition.
-- Minimal demo interactions are intentionally limited to play/pause appearance and selected scene projection; they exist only to make the visual state reviewable.
-- Existing `laputa-desktop` project/import behavior remains unchanged in this checkpoint.
+- Development branch: `feature/laputa-workspace-visual-baseline`.
+- A development-only Cargo example `workspace_visual` hosted the deterministic calibration page; `laputa-desktop` remained the **only product binary**.
+- The accepted composition uses the intended narrow support rails, dominant Stage and shallow Scene Strip.
+- PR #17 merged the accepted visual baseline as `b8e0c3e355cc43d2b617e71fa311b3e4aa1a6085`.
+- Subsequent Story D slices #18/#19/#20 and canonical product binding #21 preserved this visual direction while wiring real state, FFmpeg preview and playback.
+- PR #21 later merged the canonical product workspace to `main` as `f6b95aadd766502599b8c76dbdc0df695852b989`; post-merge CI `40720360492` succeeded.
 
 Run the visual calibration page with:
 
@@ -75,29 +77,27 @@ cargo run -p laputa-app --features desktop-ui --example workspace_visual
 
 This example is development tooling, not a second user-facing application entrypoint.
 
-## Validation plan
+## Validation evidence
 
-Automated:
+Automated validation for the visual checkpoint and subsequent Story D stack covered:
 
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --locked`
 - `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`
 - `cargo test --workspace --locked`
-- `cargo test -p laputa-app --features desktop-ui --bin laputa-desktop --locked`
-- `scripts/validate_project_governance.sh .`
+- desktop-ui product target validation
+- project governance validation
 
-Because the calibration page is a Cargo example, `cargo clippy --all-targets --all-features` also compiles/lints it while keeping product binary topology unchanged.
+Visual review accepted the `03-workspace.jpg` direction. Later product-level Xvfb smoke in PR #21 also confirmed that the canonical `laputa-desktop` preserved the accepted workspace while showing real preview and Scene Strip state.
 
-Visual/manual:
+## Closure result
 
-- compare the running Film Workspace against `03-workspace.jpg` at approximately the approved 1586×992 / 16:10 composition;
-- Stage must clearly dominate side rails;
-- bottom strip must remain shallow/storyboard-like;
-- no provider/model/workflow/NLE chrome may appear;
-- user review is the acceptance gate for the visual direction.
+**complete** for this iteration's stated visual-baseline goal.
 
-## Risks / assumptions
+This closure does **not** close Story D. Issue #5 still retains one independent residual: real-desktop human interaction acceptance of the canonical product workspace. That residual is tracked by #5 and does not keep this historical visual-baseline iteration open.
 
-- GPUI text metrics/platform fonts will prevent literal pixel equality; fidelity is judged on composition, hierarchy, density and visual language rather than raster-identical glyphs.
-- The mockup contains media imagery; this iteration should not make external media availability a hard runtime dependency. Flat placeholders or repository-local design assets may support visual calibration where appropriate.
-- Existing launcher/import functionality must not regress while the workspace view is refactored.
+## Risks / assumptions disposition
+
+- GPUI text metrics/platform fonts did not require raster-identical glyphs; acceptance was based on composition, hierarchy, density and visual language as planned.
+- External media was not made a visual-baseline runtime dependency.
+- Launcher/import behavior remained intact through the later canonical product binding.
