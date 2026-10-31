@@ -481,6 +481,12 @@ impl GenerationOrchestrator {
                         "generation source asset file is missing: {}",
                         asset.original_path.display()
                     );
+                    let current_source_sha256 = sha256_file(&asset.original_path)
+                        .context("failed to verify generation source asset revision")?;
+                    ensure!(
+                        &current_source_sha256 == source_sha256,
+                        "generation source asset {asset_id} bytes changed after the recorded revision"
+                    );
                     GenerationMediaInput::new(
                         asset.original_path.clone(),
                         asset.media_kind,
@@ -503,6 +509,12 @@ impl GenerationOrchestrator {
                         path.is_file(),
                         "generation source artifact file is missing: {}",
                         path.display()
+                    );
+                    let current_source_sha256 = sha256_file(&path)
+                        .context("failed to verify generation source artifact revision")?;
+                    ensure!(
+                        &current_source_sha256 == source_sha256,
+                        "generation source artifact {artifact_id} bytes changed after publication"
                     );
                     GenerationMediaInput::new(path, artifact.media_kind(), source_sha256.clone())
                 }
@@ -836,6 +848,31 @@ mod tests {
     }
 
     #[test]
+    fn externally_changed_asset_is_rejected_before_job_persistence() -> Result<()> {
+        let temp = tempdir()?;
+        let project_root = temp.path().join("project");
+        let (project, original) = project_with_original(temp.path())?;
+        fs::write(&original, b"externally-changed-after-import")?;
+        let provider = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+            FakeGenerationStep::Completed {
+                locator: "must-not-submit.mp4".to_owned(),
+            },
+        ]));
+        let orchestrator = GenerationOrchestrator::at(&project_root);
+
+        let result = block_on_ready(orchestrator.submit_video_generation(
+            &project,
+            request_for(&project),
+            "Create motion",
+            &provider,
+        ));
+
+        assert!(result.is_err());
+        assert!(GenerationStore::at(&project_root).load(&project)?.is_none());
+        Ok(())
+    }
+
+    #[test]
     fn provider_failure_is_persisted_without_artifact_or_original_mutation() -> Result<()> {
         let temp = tempdir()?;
         let project_root = temp.path().join("project");
@@ -969,6 +1006,60 @@ mod tests {
             state.jobs[0].state(),
             GenerationJobState::Completed { .. }
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn changed_published_artifact_is_rejected_before_followup_job_persistence() -> Result<()> {
+        let temp = tempdir()?;
+        let project_root = temp.path().join("project");
+        let (project, _) = project_with_original(temp.path())?;
+        let first_output = temp.path().join("provider-output.mp4");
+        write_video_fixture(&first_output)?;
+        let first_provider =
+            FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+                FakeGenerationStep::Completed {
+                    locator: first_output.display().to_string(),
+                },
+            ]));
+        let orchestrator = GenerationOrchestrator::at(&project_root);
+        let artifact = block_on_ready(orchestrator.run_video_generation(
+            &project,
+            request_for(&project),
+            "Create motion",
+            &first_provider,
+            &LocalFileGenerationOutputMaterializer,
+            &FfprobeGenerationOutputValidator,
+        ))?;
+        let materialized = project_root.join(artifact.materialized_path());
+        fs::write(&materialized, b"externally-changed-derived-media")?;
+        let followup_request = GenerationRequest::new(
+            GenerationOperation::GenerateBroll,
+            vec![GenerationSource::Artifact {
+                artifact_id: artifact.id(),
+                source_sha256: artifact.sha256().to_owned(),
+            }],
+        );
+        let followup_provider =
+            FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+                FakeGenerationStep::Completed {
+                    locator: "must-not-submit.mp4".to_owned(),
+                },
+            ]));
+
+        let result = block_on_ready(orchestrator.submit_video_generation(
+            &project,
+            followup_request,
+            "Create related B-roll",
+            &followup_provider,
+        ));
+
+        assert!(result.is_err());
+        let state = GenerationStore::at(&project_root)
+            .load(&project)?
+            .expect("generation state should exist");
+        assert_eq!(state.jobs.len(), 1);
+        assert_eq!(state.artifacts.len(), 1);
         Ok(())
     }
 }
