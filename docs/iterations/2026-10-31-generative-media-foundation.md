@@ -16,6 +16,7 @@ This iteration intentionally starts while Story D remains open for one independe
 - planning baseline `main`: `f6b95aadd766502599b8c76dbdc0df695852b989`
 - iteration-start governance merged by PR #22: `32416df6cd173a09b5646062aa8b05ff27a8b278`
 - E1 durable generation state merged by PR #23: `540ca3286f182b46e880c1e817e92e6b1ec3486f`
+- E2 functional generation provider merged by PR #24: `fbd1b06ed43dbc55f3485184074fb734cfccd0e2`
 - LAPUTA-001-A / Issue #2: Complete/Closed
 - LAPUTA-001-C / Issue #4: Complete/Closed
 - LAPUTA-001-D / Issue #5: product implementation and automated smoke complete; one real-desktop human acceptance residual remains
@@ -73,7 +74,7 @@ Success rule: no non-terminal or failed/cancelled state can be converted into a 
 - final branch head `3779d6ef21502849f77622e7f6315cd97252a379`: push CI `41166260806` success, PR CI `41166264802` success;
 - PR #23 squash merged to `540ca3286f182b46e880c1e817e92e6b1ec3486f`; post-merge main CI `41167010539` success.
 
-### E2 — functional provider contract + Fake adapter — In Progress
+### E2 — functional provider contract + Fake adapter — Complete
 
 Add capability-shaped provider contracts and deterministic Fake behavior for:
 
@@ -86,30 +87,18 @@ Add capability-shaped provider contracts and deterministic Fake behavior for:
 
 Success rule: provider submission success is observable as job state only, never as artifact success.
 
-#### Current E2 checkpoint
+#### E2 evidence
 
-Implementation branch: `feature/laputa-001-e2-generation-provider`, based on E1 merge `540ca3286f182b46e880c1e817e92e6b1ec3486f`.
-
-Implemented and pushed:
-
-- provider-neutral `VideoGenerationProvider` and `ImageGenerationProvider` with async `submit / poll / cancel` lifecycle;
-- provider-neutral media inputs and generation requests containing semantic instruction + source media only, with no vendor/model/workflow selection fields;
+- provider-neutral `VideoGenerationProvider` and `ImageGenerationProvider` define async `submit / poll / cancel` lifecycle;
+- provider-neutral media inputs and generation requests contain semantic instruction + source media only, with no vendor/model/workflow selection fields;
 - `GenerationProviderHandle` carries provider/request/job identity only as provenance metadata;
 - explicit provider status `Submitted / Running / Completed / Failed / Cancelled`;
 - stable error kinds for unavailable, rejected, malformed response, unknown job and cancellation unsupported;
-- deterministic Fake Video/Image providers with scripted lifecycle;
-- Fake coverage for submitted -> running -> completed, explicit failure, cancellation, submission error, malformed completion and completed-with-empty-output rejection;
-- Fake async tests use a dependency-free single-poll executor because Fake methods intentionally perform no asynchronous I/O; real adapter/runtime async behavior remains later scope.
+- deterministic Fake Video/Image providers cover submitted -> running -> completed, explicit failure, cancellation, submission error, malformed completion and completed-with-empty-output rejection;
+- final E2 head `0afcaee1518c1484a52c5aeb71a79ecd81bb6ea5`: push CI `41169352895` success and PR CI `41169984609` success;
+- PR #24 squash merged to `fbd1b06ed43dbc55f3485184074fb734cfccd0e2`; post-merge main CI `41170400201` success.
 
-Validation history:
-
-- first E2 CI exposed a `--locked` failure caused only by adding an unnecessary test `tokio` dependency; the dependency was removed instead of creating Cargo.lock churn;
-- next CI exposed only rustfmt differences in Fake tests; those exact formatting changes were applied without semantic changes;
-- final code head `8006c1edc30d00344ca93acc88a394a94f7f8b78`: push CI `41168599043` **success**, covering FFmpeg fixture, fmt, workspace check, all-target/all-feature Clippy, workspace tests, desktop tests and governance.
-
-E2 remains incomplete until this documentation checkpoint, PR-triggered CI, review and post-merge main CI are green. E3 must not begin before that closure.
-
-### E3 — materialization/orchestration
+### E3 — materialization/orchestration — In Review
 
 Implement the boundary that:
 
@@ -121,7 +110,31 @@ Implement the boundary that:
 6. validates the materialized artifact;
 7. only then publishes it as timeline-eligible.
 
-The orchestration may live in Tool code unless independent reuse/lifecycle evidence requires a separate service layer.
+The orchestration is placed in `laputa-agent`, the existing composition layer that already depends on domain, media and provider. `laputa-media` remains provider-independent.
+
+#### Current E3 checkpoint
+
+Implementation branch: `feature/laputa-001-e3-generation-orchestration`, based on E2 merge `fbd1b06ed43dbc55f3485184074fb734cfccd0e2`.
+
+Implemented and validated:
+
+- `GenerationOrchestrator` persists Queued before provider submission, then durable Submitted/Running/Completed/Failed/Cancelled transitions through `GenerationStore`;
+- resumable `resume_video_generation` reconstructs provider provenance from durable state; a temporary Provider `Unavailable` polling error leaves the durable non-terminal job resumable rather than falsely failing it;
+- explicit cancellation persists terminal cancellation and never publishes an Artifact;
+- provider `Completed` is persisted before any Artifact publication, but does not itself authorize an Artifact;
+- `GenerationOutputMaterializer` keeps provider-output transport separate from orchestration; the first deterministic implementation copies local/file output into `.laputa/derivatives/generation/<job-id>/output.mp4` using temporary-file replacement;
+- `GenerationOutputValidator` independently checks the local result; the first implementation uses FFprobe and requires a non-empty visual file, valid dimensions, positive video duration and a video codec;
+- after validation, E3 computes the materialized SHA-256 and byte length and only then enters E1 `DerivedArtifact::from_verified_materialization`;
+- provider Completed with missing/invalid local output remains a Completed Job but publishes no Artifact, preserving the distinction between remote job completion and locally eligible derived media;
+- Provider inputs are derived directly from durable `GenerationRequest` lineage rather than a second caller-provided source list, preventing request/source drift;
+- immediately before provider submission, current Asset and published Artifact bytes are re-hashed and must match the recorded lineage SHA-256, preventing externally modified bytes from being sent under stale lineage;
+- original media remains unchanged across success, provider failure, cancellation, malformed completion and missing-output paths;
+- deterministic tests cover successful real-FFmpeg video materialization/publication, provider failure, cancellation/reopen, malformed completion, missing output, externally changed imported Asset rejection and externally changed published Artifact rejection;
+- an early E3 CI failed only `cargo fmt --check`; formatting was corrected without semantic change;
+- the formatted implementation head `3d347b063bf8ac4e8a09ab805f4c93d827212b40` then passed full push CI `41171624761`;
+- final source-revision-guard head `f098bc77e04b1dcc57f1ba550ed013fbd19cd449` passed full push CI `41172397650`, including real FFmpeg fixture, fmt, workspace check, all-target/all-feature Clippy, workspace tests, desktop tests and governance.
+
+E3 remains incomplete until PR-triggered CI, review and post-merge main CI are green. E4 must not begin before that closure.
 
 ### E4 — coarse-grained Tool path
 
@@ -167,6 +180,7 @@ Minimum deterministic validation:
 - **Confirmed:** D is not a dependency of E; A and C are the declared dependencies and are Complete.
 - **Confirmed:** generation provider identity belongs in adapter/provenance metadata, not the core functional contract or Tool schema.
 - **Confirmed:** submitted external jobs cannot be treated as generated artifacts.
+- **Confirmed by E3:** provider Completed and timeline-eligible Artifact are separate states; local materialization and validation can fail after remote completion without producing an Artifact.
 - **Assumption requiring validation:** one common asynchronous lifecycle shape is sufficient for the selected image/video generation subset. If real adapter semantics materially conflict, record a Spike/ADR update rather than forcing incompatible lifecycle behavior into one interface.
 - **Assumption requiring validation:** the first external adapter can support at least one selected E capability without requiring user-visible model/workflow selection.
 
