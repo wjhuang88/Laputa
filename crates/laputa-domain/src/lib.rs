@@ -3,6 +3,10 @@
 //! The domain deliberately stores references to imported originals. It never takes
 //! ownership of, rewrites, or embeds original media bytes in the project manifest.
 
+mod generation;
+
+pub use generation::*;
+
 use std::{fmt, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
