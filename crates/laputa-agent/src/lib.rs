@@ -3,6 +3,7 @@
 pub mod first_cut;
 pub mod first_cut_runtime;
 pub mod generation_orchestration;
+pub mod generation_tools;
 
 use anyhow::{Context, Result, anyhow, bail};
 use laputa_domain::{AssetAnalysis, AssetAnalysisState, AssetId};
