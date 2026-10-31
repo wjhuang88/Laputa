@@ -546,7 +546,12 @@ fn validate_sha256(field: &str, value: &str) -> Result<(), GenerationProviderErr
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{
+        future::Future,
+        path::PathBuf,
+        pin::pin,
+        task::{Context, Poll, Waker},
+    };
 
     use super::{
         FakeGenerationScenario, FakeGenerationStep, FakeImageGenerationProvider,
@@ -558,6 +563,15 @@ mod tests {
 
     fn digest(character: char) -> String {
         std::iter::repeat_n(character, 64).collect()
+    }
+
+    fn block_on_ready<F: Future>(future: F) -> F::Output {
+        let mut context = Context::from_waker(Waker::noop());
+        let mut future = pin!(future);
+        match future.as_mut().poll(&mut context) {
+            Poll::Ready(output) => output,
+            Poll::Pending => panic!("fake generation provider future unexpectedly yielded pending"),
+        }
     }
 
     fn video_request() -> VideoGenerationRequest {
@@ -573,8 +587,8 @@ mod tests {
         .expect("valid video generation request")
     }
 
-    #[tokio::test]
-    async fn fake_video_provider_progresses_submitted_running_completed() {
+    #[test]
+    fn fake_video_provider_progresses_submitted_running_completed() {
         let provider = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
             FakeGenerationStep::Submitted,
             FakeGenerationStep::Running,
@@ -582,129 +596,114 @@ mod tests {
                 locator: "fixture://generated.mp4".to_owned(),
             },
         ]));
-        let handle = provider
-            .submit(&video_request())
-            .await
-            .expect("fake submission should succeed");
+        let request = video_request();
+        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
 
         assert_eq!(
-            provider.poll(&handle).await.expect("submitted status"),
+            block_on_ready(provider.poll(&handle)).expect("submitted status"),
             GenerationProviderStatus::Submitted
         );
         assert_eq!(
-            provider.poll(&handle).await.expect("running status"),
+            block_on_ready(provider.poll(&handle)).expect("running status"),
             GenerationProviderStatus::Running
         );
         assert!(matches!(
-            provider.poll(&handle).await.expect("completed status"),
+            block_on_ready(provider.poll(&handle)).expect("completed status"),
             GenerationProviderStatus::Completed { .. }
         ));
     }
 
-    #[tokio::test]
-    async fn fake_video_provider_surfaces_terminal_failure() {
+    #[test]
+    fn fake_video_provider_surfaces_terminal_failure() {
         let provider = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
             FakeGenerationStep::Running,
             FakeGenerationStep::Failed {
                 message: "fixture generation failed".to_owned(),
             },
         ]));
-        let handle = provider
-            .submit(&video_request())
-            .await
-            .expect("fake submission should succeed");
+        let request = video_request();
+        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
 
         assert_eq!(
-            provider.poll(&handle).await.expect("running status"),
+            block_on_ready(provider.poll(&handle)).expect("running status"),
             GenerationProviderStatus::Running
         );
         assert_eq!(
-            provider.poll(&handle).await.expect("failed status"),
+            block_on_ready(provider.poll(&handle)).expect("failed status"),
             GenerationProviderStatus::Failed {
                 message: "fixture generation failed".to_owned()
             }
         );
     }
 
-    #[tokio::test]
-    async fn fake_video_provider_cancellation_is_terminal() {
+    #[test]
+    fn fake_video_provider_cancellation_is_terminal() {
         let provider = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
             FakeGenerationStep::Running,
             FakeGenerationStep::Completed {
                 locator: "fixture://must-not-surface.mp4".to_owned(),
             },
         ]));
-        let handle = provider
-            .submit(&video_request())
-            .await
-            .expect("fake submission should succeed");
+        let request = video_request();
+        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
         assert_eq!(
-            provider.poll(&handle).await.expect("running status"),
+            block_on_ready(provider.poll(&handle)).expect("running status"),
             GenerationProviderStatus::Running
         );
 
         assert_eq!(
-            provider.cancel(&handle).await.expect("cancel should succeed"),
+            block_on_ready(provider.cancel(&handle)).expect("cancel should succeed"),
             GenerationProviderStatus::Cancelled
         );
         assert_eq!(
-            provider.poll(&handle).await.expect("cancel remains terminal"),
+            block_on_ready(provider.poll(&handle)).expect("cancel remains terminal"),
             GenerationProviderStatus::Cancelled
         );
     }
 
-    #[tokio::test]
-    async fn malformed_completion_is_rejected() {
+    #[test]
+    fn malformed_completion_is_rejected() {
         let provider = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
             FakeGenerationStep::MalformedCompletion,
         ]));
-        let handle = provider
-            .submit(&video_request())
-            .await
-            .expect("fake submission should succeed");
+        let request = video_request();
+        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
 
-        let error = provider
-            .poll(&handle)
-            .await
+        let error = block_on_ready(provider.poll(&handle))
             .expect_err("malformed completion must fail");
         assert_eq!(error.kind(), GenerationProviderErrorKind::MalformedResponse);
     }
 
-    #[tokio::test]
-    async fn completed_status_with_empty_locator_is_rejected() {
+    #[test]
+    fn completed_status_with_empty_locator_is_rejected() {
         let provider = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
             FakeGenerationStep::Completed {
                 locator: String::new(),
             },
         ]));
-        let handle = provider
-            .submit(&video_request())
-            .await
-            .expect("fake submission should succeed");
+        let request = video_request();
+        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
 
-        let error = provider
-            .poll(&handle)
-            .await
+        let error = block_on_ready(provider.poll(&handle))
             .expect_err("empty output locator must fail");
         assert_eq!(error.kind(), GenerationProviderErrorKind::MalformedResponse);
     }
 
-    #[tokio::test]
-    async fn fake_submission_error_is_explicit() {
+    #[test]
+    fn fake_submission_error_is_explicit() {
         let provider = FakeVideoGenerationProvider::new(FakeGenerationScenario::SubmissionError {
             kind: GenerationProviderErrorKind::Unavailable,
             message: "fixture provider unavailable".to_owned(),
         });
+        let request = video_request();
 
-        let error = provider
-            .submit(&video_request())
-            .await
+        let error = block_on_ready(provider.submit(&request))
             .expect_err("submission should fail explicitly");
         assert_eq!(error.kind(), GenerationProviderErrorKind::Unavailable);
     }
 
-    #[tokio::test]
-    async fn image_provider_uses_same_vendor_neutral_lifecycle() {
+    #[test]
+    fn image_provider_uses_same_vendor_neutral_lifecycle() {
         let provider = FakeImageGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
             FakeGenerationStep::Completed {
                 locator: "fixture://generated.png".to_owned(),
@@ -712,13 +711,10 @@ mod tests {
         ]));
         let request = ImageGenerationRequest::new("Create a clean title card", Vec::new())
             .expect("valid image generation request");
-        let handle = provider
-            .submit(&request)
-            .await
-            .expect("fake submission should succeed");
+        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
 
         assert!(matches!(
-            provider.poll(&handle).await.expect("completed status"),
+            block_on_ready(provider.poll(&handle)).expect("completed status"),
             GenerationProviderStatus::Completed { .. }
         ));
     }
