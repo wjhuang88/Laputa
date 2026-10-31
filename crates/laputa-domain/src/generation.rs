@@ -1,4 +1,8 @@
-use std::{collections::{HashMap, HashSet}, fmt, path::{Component, PathBuf}};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+    path::{Component, Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -290,7 +294,7 @@ impl DerivedArtifact {
         sha256: String,
         byte_len: u64,
     ) -> Result<Self, GenerationValidationError> {
-        if !matches!(job.state, GenerationJobState::Completed { .. }) {
+        if !matches!(&job.state, GenerationJobState::Completed { .. }) {
             return Err(GenerationValidationError::new(
                 "only a completed generation job can publish a derived artifact",
             ));
@@ -397,7 +401,7 @@ impl GenerationState {
                     "derived artifact request id does not match its generation job",
                 ));
             }
-            if !matches!(job.state, GenerationJobState::Completed { .. }) {
+            if !matches!(&job.state, GenerationJobState::Completed { .. }) {
                 return Err(GenerationValidationError::new(
                     "derived artifact references a generation job that is not completed",
                 ));
@@ -502,7 +506,7 @@ fn visit_artifact_lineage(
     Ok(())
 }
 
-fn ensure_project_relative_path(path: &PathBuf) -> Result<(), GenerationValidationError> {
+fn ensure_project_relative_path(path: &Path) -> Result<(), GenerationValidationError> {
     if path.as_os_str().is_empty() || path.is_absolute() {
         return Err(GenerationValidationError::new(
             "derived artifact materialized path must be a non-empty project-relative path",
