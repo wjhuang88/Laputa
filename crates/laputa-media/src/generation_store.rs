@@ -1,4 +1,7 @@
-use std::{fs::{self, File}, path::PathBuf};
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+};
 
 use anyhow::{Context, Result};
 use laputa_domain::{GenerationState, ProjectManifest};
@@ -151,7 +154,7 @@ mod tests {
                 source_sha256: asset.source_sha256.clone(),
             }],
         );
-        let mut job = GenerationJob::new(request);
+        let mut job = GenerationJob::new(request)?;
         job.transition_to(GenerationJobState::Submitted {
             provenance: provenance(),
         })?;
@@ -183,7 +186,7 @@ mod tests {
                 source_sha256: asset.source_sha256.clone(),
             }],
         );
-        let mut job = GenerationJob::new(request);
+        let mut job = GenerationJob::new(request)?;
         job.transition_to(GenerationJobState::Submitted {
             provenance: provenance(),
         })?;
@@ -226,7 +229,7 @@ mod tests {
             }],
         );
         let mut state = GenerationState::new();
-        state.jobs.push(GenerationJob::new(request));
+        state.jobs.push(GenerationJob::new(request)?);
         let store = GenerationStore::at(temp.path().join("project"));
 
         assert!(store.save(&project, &state).is_err());
