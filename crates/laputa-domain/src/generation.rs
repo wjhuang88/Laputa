@@ -225,19 +225,34 @@ impl GenerationJobState {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct GenerationJob {
-    pub id: GenerationJobId,
-    pub request: GenerationRequest,
-    pub state: GenerationJobState,
+    id: GenerationJobId,
+    request: GenerationRequest,
+    state: GenerationJobState,
 }
 
 impl GenerationJob {
-    #[must_use]
-    pub fn new(request: GenerationRequest) -> Self {
-        Self {
+    pub fn new(request: GenerationRequest) -> Result<Self, GenerationValidationError> {
+        request.validate()?;
+        Ok(Self {
             id: GenerationJobId::new(),
             request,
             state: GenerationJobState::Queued,
-        }
+        })
+    }
+
+    #[must_use]
+    pub fn id(&self) -> GenerationJobId {
+        self.id
+    }
+
+    #[must_use]
+    pub fn request(&self) -> &GenerationRequest {
+        &self.request
+    }
+
+    #[must_use]
+    pub fn state(&self) -> &GenerationJobState {
+        &self.state
     }
 
     pub fn transition_to(
@@ -277,13 +292,13 @@ impl GenerationJob {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct DerivedArtifact {
-    pub id: ArtifactId,
-    pub job_id: GenerationJobId,
-    pub request_id: GenerationRequestId,
-    pub media_kind: MediaKind,
-    pub materialized_path: PathBuf,
-    pub sha256: String,
-    pub byte_len: u64,
+    id: ArtifactId,
+    job_id: GenerationJobId,
+    request_id: GenerationRequestId,
+    media_kind: MediaKind,
+    materialized_path: PathBuf,
+    sha256: String,
+    byte_len: u64,
 }
 
 impl DerivedArtifact {
@@ -294,15 +309,15 @@ impl DerivedArtifact {
         sha256: String,
         byte_len: u64,
     ) -> Result<Self, GenerationValidationError> {
-        if !matches!(&job.state, GenerationJobState::Completed { .. }) {
+        if !matches!(job.state(), GenerationJobState::Completed { .. }) {
             return Err(GenerationValidationError::new(
                 "only a completed generation job can publish a derived artifact",
             ));
         }
         let artifact = Self {
             id: ArtifactId::new(),
-            job_id: job.id,
-            request_id: job.request.id,
+            job_id: job.id(),
+            request_id: job.request().id,
             media_kind,
             materialized_path,
             sha256,
@@ -310,6 +325,41 @@ impl DerivedArtifact {
         };
         artifact.validate_basic()?;
         Ok(artifact)
+    }
+
+    #[must_use]
+    pub fn id(&self) -> ArtifactId {
+        self.id
+    }
+
+    #[must_use]
+    pub fn job_id(&self) -> GenerationJobId {
+        self.job_id
+    }
+
+    #[must_use]
+    pub fn request_id(&self) -> GenerationRequestId {
+        self.request_id
+    }
+
+    #[must_use]
+    pub fn media_kind(&self) -> MediaKind {
+        self.media_kind
+    }
+
+    #[must_use]
+    pub fn materialized_path(&self) -> &Path {
+        &self.materialized_path
+    }
+
+    #[must_use]
+    pub fn sha256(&self) -> &str {
+        &self.sha256
+    }
+
+    #[must_use]
+    pub fn byte_len(&self) -> u64 {
+        self.byte_len
     }
 
     fn validate_basic(&self) -> Result<(), GenerationValidationError> {
@@ -345,12 +395,12 @@ impl GenerationState {
 
     #[must_use]
     pub fn job(&self, id: GenerationJobId) -> Option<&GenerationJob> {
-        self.jobs.iter().find(|job| job.id == id)
+        self.jobs.iter().find(|job| job.id() == id)
     }
 
     #[must_use]
     pub fn artifact(&self, id: ArtifactId) -> Option<&DerivedArtifact> {
-        self.artifacts.iter().find(|artifact| artifact.id == id)
+        self.artifacts.iter().find(|artifact| artifact.id() == id)
     }
 
     pub fn validate_for(
@@ -369,48 +419,48 @@ impl GenerationState {
         let mut jobs = HashMap::with_capacity(self.jobs.len());
         for job in &self.jobs {
             job.validate()?;
-            if !job_ids.insert(job.id) {
+            if !job_ids.insert(job.id()) {
                 return Err(GenerationValidationError::new(
                     "generation state contains a duplicate job id",
                 ));
             }
-            if !request_ids.insert(job.request.id) {
+            if !request_ids.insert(job.request().id) {
                 return Err(GenerationValidationError::new(
                     "generation state contains a duplicate request id",
                 ));
             }
-            jobs.insert(job.id, job);
+            jobs.insert(job.id(), job);
         }
 
         let mut artifact_ids = HashSet::with_capacity(self.artifacts.len());
         let mut artifacts = HashMap::with_capacity(self.artifacts.len());
         for artifact in &self.artifacts {
             artifact.validate_basic()?;
-            if !artifact_ids.insert(artifact.id) {
+            if !artifact_ids.insert(artifact.id()) {
                 return Err(GenerationValidationError::new(
                     "generation state contains a duplicate artifact id",
                 ));
             }
-            let job = jobs.get(&artifact.job_id).ok_or_else(|| {
+            let job = jobs.get(&artifact.job_id()).ok_or_else(|| {
                 GenerationValidationError::new(
                     "derived artifact references a generation job that does not exist",
                 )
             })?;
-            if artifact.request_id != job.request.id {
+            if artifact.request_id() != job.request().id {
                 return Err(GenerationValidationError::new(
                     "derived artifact request id does not match its generation job",
                 ));
             }
-            if !matches!(&job.state, GenerationJobState::Completed { .. }) {
+            if !matches!(job.state(), GenerationJobState::Completed { .. }) {
                 return Err(GenerationValidationError::new(
                     "derived artifact references a generation job that is not completed",
                 ));
             }
-            artifacts.insert(artifact.id, artifact);
+            artifacts.insert(artifact.id(), artifact);
         }
 
         for job in &self.jobs {
-            for source in &job.request.sources {
+            for source in &job.request().sources {
                 match source {
                     GenerationSource::Asset {
                         asset_id,
@@ -436,7 +486,7 @@ impl GenerationState {
                                 "generation request references artifact {artifact_id} that is not published"
                             ))
                         })?;
-                        if &source_artifact.sha256 != source_sha256 {
+                        if source_artifact.sha256() != source_sha256 {
                             return Err(GenerationValidationError::new(format!(
                                 "generation request source revision for artifact {artifact_id} does not match the published artifact"
                             )));
@@ -488,10 +538,10 @@ fn visit_artifact_lineage(
     let artifact = artifacts.get(&artifact_id).ok_or_else(|| {
         GenerationValidationError::new("derived artifact lineage references a missing artifact")
     })?;
-    let job = jobs.get(&artifact.job_id).ok_or_else(|| {
+    let job = jobs.get(&artifact.job_id()).ok_or_else(|| {
         GenerationValidationError::new("derived artifact lineage references a missing job")
     })?;
-    for source in &job.request.sources {
+    for source in &job.request().sources {
         if let GenerationSource::Artifact {
             artifact_id: source_artifact_id,
             ..
@@ -622,7 +672,7 @@ mod tests {
                 source_sha256: asset.source_sha256.clone(),
             }],
         );
-        let mut job = GenerationJob::new(request);
+        let mut job = GenerationJob::new(request).expect("valid generation request");
         job.transition_to(GenerationJobState::Submitted {
             provenance: provenance(),
         })
@@ -648,7 +698,7 @@ mod tests {
                 source_sha256: asset.source_sha256.clone(),
             }],
         );
-        let job = GenerationJob::new(request);
+        let job = GenerationJob::new(request).expect("valid generation request");
 
         let result = DerivedArtifact::from_verified_materialization(
             &job,
@@ -705,7 +755,9 @@ mod tests {
             }],
         );
         let mut state = GenerationState::new();
-        state.jobs.push(GenerationJob::new(request));
+        state
+            .jobs
+            .push(GenerationJob::new(request).expect("valid generation request"));
 
         assert!(state.validate_for(&project).is_err());
     }
