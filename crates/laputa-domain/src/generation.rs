@@ -197,9 +197,7 @@ impl GenerationJobState {
     fn validate(&self) -> Result<(), GenerationValidationError> {
         match self {
             Self::Queued => Ok(()),
-            Self::Submitted { provenance } | Self::Running { provenance } => {
-                provenance.validate()
-            }
+            Self::Submitted { provenance } | Self::Running { provenance } => provenance.validate(),
             Self::Completed { provenance, output } => {
                 provenance.validate()?;
                 output.validate()
@@ -403,10 +401,7 @@ impl GenerationState {
         self.artifacts.iter().find(|artifact| artifact.id() == id)
     }
 
-    pub fn validate_for(
-        &self,
-        project: &ProjectManifest,
-    ) -> Result<(), GenerationValidationError> {
+    pub fn validate_for(&self, project: &ProjectManifest) -> Result<(), GenerationValidationError> {
         if self.schema_version != GENERATION_SCHEMA_VERSION {
             return Err(GenerationValidationError::new(format!(
                 "unsupported generation schema {}; expected {}",
@@ -584,10 +579,7 @@ fn ensure_text(field: &str, value: &str) -> Result<(), GenerationValidationError
     Ok(())
 }
 
-fn ensure_optional_text(
-    field: &str,
-    value: Option<&str>,
-) -> Result<(), GenerationValidationError> {
+fn ensure_optional_text(field: &str, value: Option<&str>) -> Result<(), GenerationValidationError> {
     if let Some(value) = value {
         ensure_text(field, value)?;
     }
