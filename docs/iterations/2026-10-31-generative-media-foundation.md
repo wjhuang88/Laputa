@@ -17,6 +17,7 @@ This iteration intentionally starts while Story D remains open for one independe
 - iteration-start governance merged by PR #22: `32416df6cd173a09b5646062aa8b05ff27a8b278`
 - E1 durable generation state merged by PR #23: `540ca3286f182b46e880c1e817e92e6b1ec3486f`
 - E2 functional generation provider merged by PR #24: `fbd1b06ed43dbc55f3485184074fb734cfccd0e2`
+- E3 durable generation orchestration merged by PR #25: `120e68004bde3576ab593c0b8c5eab1693e3f783`
 - LAPUTA-001-A / Issue #2: Complete/Closed
 - LAPUTA-001-C / Issue #4: Complete/Closed
 - LAPUTA-001-D / Issue #5: product implementation and automated smoke complete; one real-desktop human acceptance residual remains
@@ -98,7 +99,7 @@ Success rule: provider submission success is observable as job state only, never
 - final E2 head `0afcaee1518c1484a52c5aeb71a79ecd81bb6ea5`: push CI `41169352895` success and PR CI `41169984609` success;
 - PR #24 squash merged to `fbd1b06ed43dbc55f3485184074fb734cfccd0e2`; post-merge main CI `41170400201` success.
 
-### E3 — materialization/orchestration — In Review
+### E3 — materialization/orchestration — Complete
 
 Implement the boundary that:
 
@@ -112,11 +113,7 @@ Implement the boundary that:
 
 The orchestration is placed in `laputa-agent`, the existing composition layer that already depends on domain, media and provider. `laputa-media` remains provider-independent.
 
-#### Current E3 checkpoint
-
-Implementation branch: `feature/laputa-001-e3-generation-orchestration`, based on E2 merge `fbd1b06ed43dbc55f3485184074fb734cfccd0e2`.
-
-Implemented and validated:
+#### E3 evidence
 
 - `GenerationOrchestrator` persists Queued before provider submission, then durable Submitted/Running/Completed/Failed/Cancelled transitions through `GenerationStore`;
 - resumable `resume_video_generation` reconstructs provider provenance from durable state; a temporary Provider `Unavailable` polling error leaves the durable non-terminal job resumable rather than falsely failing it;
@@ -130,13 +127,12 @@ Implemented and validated:
 - immediately before provider submission, current Asset and published Artifact bytes are re-hashed and must match the recorded lineage SHA-256, preventing externally modified bytes from being sent under stale lineage;
 - original media remains unchanged across success, provider failure, cancellation, malformed completion and missing-output paths;
 - deterministic tests cover successful real-FFmpeg video materialization/publication, provider failure, cancellation/reopen, malformed completion, missing output, externally changed imported Asset rejection and externally changed published Artifact rejection;
-- an early E3 CI failed only `cargo fmt --check`; formatting was corrected without semantic change;
-- the formatted implementation head `3d347b063bf8ac4e8a09ab805f4c93d827212b40` then passed full push CI `41171624761`;
-- final source-revision-guard head `f098bc77e04b1dcc57f1ba550ed013fbd19cd449` passed full push CI `41172397650`, including real FFmpeg fixture, fmt, workspace check, all-target/all-feature Clippy, workspace tests, desktop tests and governance.
+- formatted implementation head `3d347b063bf8ac4e8a09ab805f4c93d827212b40` passed full push CI `41171624761`;
+- source-revision code head `f098bc77e04b1dcc57f1ba550ed013fbd19cd449` passed full push CI `41172397650`;
+- final PR head `f93c9e86d981aa75cb798e28f2408431f54262f5` passed push CI `41173132893` and PR CI `41173151343`, with no review threads;
+- PR #25 squash merged to `120e68004bde3576ab593c0b8c5eab1693e3f783`; post-merge main CI `41183800760` success.
 
-E3 remains incomplete until PR-triggered CI, review and post-merge main CI are green. E4 must not begin before that closure.
-
-### E4 — coarse-grained Tool path
+### E4 — coarse-grained Tool path — In Review
 
 Wire at least:
 
@@ -144,6 +140,26 @@ Wire at least:
 - one `media.create_transition` or `media.generate_broll` path.
 
 Tool public schemas describe product intent only. They must not expose vendor, model, sampler, raw workflow or vendor-specific generation parameters.
+
+#### Current E4 checkpoint
+
+Implementation branch: `feature/laputa-001-e4-generation-tools`, based on E3 merge `120e68004bde3576ab593c0b8c5eab1693e3f783`.
+
+Implemented and validated:
+
+- `AnimatePhotoTool` is a real Talos `AgentTool`; its public input is only an image `asset_id` plus natural-language `instruction`;
+- the Tool resolves the imported image revision, creates `GenerationOperation::AnimatePhoto`, then executes the E3 durable generation/materialization/publication pipeline;
+- `GenerateBrollTool` is a real Talos `AgentTool`; its public input is only a natural-language `instruction`, producing a source-less `GenerationOperation::GenerateBroll` request rather than inventing lineage;
+- both public JSON schemas use `additionalProperties: false` and regression-test that `provider`, `vendor`, `model`, `workflow` and `sampler` do not appear;
+- Tool success results expose only product/domain Artifact, Job and Request identities plus verified materialization metadata; Provider provenance is not exposed;
+- `media.animate_photo` rejects non-image Assets before creating generation state;
+- deterministic Tool execution tests use the Fake video provider plus a real FFmpeg output fixture and verify that the result is a published, independently validated Artifact;
+- the animate-photo Tool test verifies imported original bytes remain unchanged and preserves Asset revision lineage;
+- the B-roll Tool test verifies a verified published Artifact is produced with the correct `GenerateBroll` operation and no fabricated sources;
+- the first E4 CI failed only `cargo fmt --check`; formatting was corrected without semantic change;
+- formatted code head `590b19705b42f03a5813cdef71763b87ed242089` passed full push CI `41184693535`, including real FFmpeg fixture, fmt, workspace check, all-target/all-feature Clippy, workspace tests, desktop tests and governance.
+
+E4 remains incomplete until the docs-synchronized head, PR-triggered CI, review and post-merge main CI are green. E5 must not begin before that closure.
 
 ### E5 — external adapter/live residual
 
@@ -181,6 +197,7 @@ Minimum deterministic validation:
 - **Confirmed:** generation provider identity belongs in adapter/provenance metadata, not the core functional contract or Tool schema.
 - **Confirmed:** submitted external jobs cannot be treated as generated artifacts.
 - **Confirmed by E3:** provider Completed and timeline-eligible Artifact are separate states; local materialization and validation can fail after remote completion without producing an Artifact.
+- **Confirmed by E4 deterministic Tool path:** product-facing generation requests can remain vendor/model/workflow-neutral while still traversing the durable provider lifecycle and verified publication boundary.
 - **Assumption requiring validation:** one common asynchronous lifecycle shape is sufficient for the selected image/video generation subset. If real adapter semantics materially conflict, record a Spike/ADR update rather than forcing incompatible lifecycle behavior into one interface.
 - **Assumption requiring validation:** the first external adapter can support at least one selected E capability without requiring user-visible model/workflow selection.
 
