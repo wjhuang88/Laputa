@@ -1,5 +1,9 @@
 //! Deterministic project storage, media probing, and non-destructive import.
 
+mod generation_store;
+
+pub use generation_store::GenerationStore;
+
 use std::{
     collections::HashSet,
     fs::{self, File},

@@ -1,6 +1,6 @@
 # Iteration — Generative Media Foundation
 
-Status: planned  
+Status: in progress  
 Date: 2026-10-31  
 Selected Story: `LAPUTA-001-E`  
 Issue: #6
@@ -13,7 +13,8 @@ This iteration intentionally starts while Story D remains open for one independe
 
 ## Published baseline
 
-- `main`: `f6b95aadd766502599b8c76dbdc0df695852b989`
+- planning baseline `main`: `f6b95aadd766502599b8c76dbdc0df695852b989`
+- iteration-start governance merged by PR #22: `32416df6cd173a09b5646062aa8b05ff27a8b278`
 - LAPUTA-001-A / Issue #2: Complete/Closed
 - LAPUTA-001-C / Issue #4: Complete/Closed
 - LAPUTA-001-D / Issue #5: product implementation and automated smoke complete; one real-desktop human acceptance residual remains
@@ -56,6 +57,23 @@ Define the smallest domain structures required to represent:
 - lineage from Artifact -> generation job -> request -> source asset/artifact.
 
 Success rule: no non-terminal or failed/cancelled state can be converted into a timeline-eligible Artifact.
+
+#### Current E1 checkpoint
+
+Implementation branch: `feature/laputa-001-e1-generation-state`, based on `32416df6cd173a09b5646062aa8b05ff27a8b278`.
+
+Implemented and pushed:
+
+- `laputa-domain` owns stable `GenerationRequestId`, `GenerationJobId` and `ArtifactId` identities;
+- product-level generation operations and Asset/Artifact source revisions are persisted without vendor routing fields;
+- job lifecycle explicitly represents queued/submitted/running/completed/failed/cancelled with guarded transitions;
+- provider/request/job identifiers are retained only as provenance metadata;
+- `DerivedArtifact::from_verified_materialization` rejects every non-completed job and validates non-empty project-relative paths, SHA-256 and byte length;
+- `GenerationState::validate_for` enforces unique request/job/artifact identities, project/source revision consistency, Artifact -> Job -> Request linkage and acyclic derived-artifact lineage;
+- `laputa-media::GenerationStore` persists `.laputa/generation.json` atomically and validates before save and after reopen;
+- deterministic tests cover non-completed publication rejection, terminal-state restart rejection, stale source rejection, invalid path rejection, running-job reopen, completed-lineage reopen and original-media hash preservation.
+
+Current remote head: `c19af16c09583fedcc1de55141dca5a5219609ee` before this documentation checkpoint. CI is running; E2 must not begin until E1 CI/review/merge is closed.
 
 ### E2 — functional provider contract + Fake adapter
 
