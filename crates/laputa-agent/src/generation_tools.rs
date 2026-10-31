@@ -12,8 +12,7 @@ use serde_json::{Value, json};
 use talos_runtime::{AgentTool, ToolNature, ToolResult};
 
 use crate::generation_orchestration::{
-    FfprobeGenerationOutputValidator, GenerationOrchestrator,
-    LocalFileGenerationOutputMaterializer,
+    FfprobeGenerationOutputValidator, GenerationOrchestrator, LocalFileGenerationOutputMaterializer,
 };
 
 pub const MEDIA_ANIMATE_PHOTO_TOOL: &str = "media.animate_photo";
@@ -229,12 +228,7 @@ fn published_artifact_result(artifact: &DerivedArtifact) -> ToolResult {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        fs,
-        path::Path,
-        process::Command,
-        sync::Arc,
-    };
+    use std::{fs, path::Path, process::Command, sync::Arc};
 
     use anyhow::{Context, Result, ensure};
     use laputa_domain::{AssetTechnicalMetadata, GenerationOperation, GenerationSource, MediaKind};
@@ -336,7 +330,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn animate_photo_tool_publishes_verified_artifact_without_mutating_original() -> Result<()> {
+    async fn animate_photo_tool_publishes_verified_artifact_without_mutating_original() -> Result<()>
+    {
         let (temp, store) = prepared_project()?;
         let project = store.open()?;
         let asset = project.assets[0].clone();
@@ -363,7 +358,10 @@ mod tests {
             .expect("generation state should exist");
         assert_eq!(state.jobs.len(), 1);
         assert_eq!(state.artifacts.len(), 1);
-        assert_eq!(state.jobs[0].request().operation, GenerationOperation::AnimatePhoto);
+        assert_eq!(
+            state.jobs[0].request().operation,
+            GenerationOperation::AnimatePhoto
+        );
         assert!(matches!(
             &state.jobs[0].request().sources[..],
             [GenerationSource::Asset { asset_id, source_sha256 }]
@@ -393,13 +391,17 @@ mod tests {
             .expect("generation state should exist");
         assert_eq!(state.jobs.len(), 1);
         assert_eq!(state.artifacts.len(), 1);
-        assert_eq!(state.jobs[0].request().operation, GenerationOperation::GenerateBroll);
+        assert_eq!(
+            state.jobs[0].request().operation,
+            GenerationOperation::GenerateBroll
+        );
         assert!(state.jobs[0].request().sources.is_empty());
         Ok(())
     }
 
     #[tokio::test]
-    async fn animate_photo_rejects_non_image_asset_without_creating_generation_state() -> Result<()> {
+    async fn animate_photo_rejects_non_image_asset_without_creating_generation_state() -> Result<()>
+    {
         let temp = tempfile::tempdir()?;
         let video = temp.path().join("clip.mp4");
         fs::write(&video, b"fixture-video")?;
