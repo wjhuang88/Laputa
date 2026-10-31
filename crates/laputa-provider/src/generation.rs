@@ -188,7 +188,11 @@ impl GenerationProviderHandle {
                 error.to_string(),
             )
         })?;
-        if provenance.job_id.as_deref().is_none_or(str::is_empty) {
+        if provenance
+            .job_id
+            .as_deref()
+            .is_none_or(|value| value.is_empty())
+        {
             return Err(GenerationProviderError::new(
                 GenerationProviderErrorKind::MalformedResponse,
                 "generation provider submission must include a non-empty job id",
@@ -222,7 +226,10 @@ pub enum GenerationProviderStatus {
 impl GenerationProviderStatus {
     #[must_use]
     pub fn is_terminal(&self) -> bool {
-        matches!(Self::Completed { .. } | Self::Failed { .. } | Self::Cancelled, self)
+        matches!(
+            self,
+            Self::Completed { .. } | Self::Failed { .. } | Self::Cancelled
+        )
     }
 
     fn validate(&self) -> Result<(), GenerationProviderError> {
