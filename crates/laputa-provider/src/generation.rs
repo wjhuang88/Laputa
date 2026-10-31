@@ -577,12 +577,14 @@ mod tests {
     fn video_request() -> VideoGenerationRequest {
         VideoGenerationRequest::new(
             "Create gentle motion from this photo",
-            vec![GenerationMediaInput::new(
-                PathBuf::from("photo.jpg"),
-                MediaKind::Image,
-                digest('a'),
-            )
-            .expect("valid media input")],
+            vec![
+                GenerationMediaInput::new(
+                    PathBuf::from("photo.jpg"),
+                    MediaKind::Image,
+                    digest('a'),
+                )
+                .expect("valid media input"),
+            ],
         )
         .expect("valid video generation request")
     }
@@ -597,7 +599,8 @@ mod tests {
             },
         ]));
         let request = video_request();
-        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
+        let handle =
+            block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
 
         assert_eq!(
             block_on_ready(provider.poll(&handle)).expect("submitted status"),
@@ -622,7 +625,8 @@ mod tests {
             },
         ]));
         let request = video_request();
-        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
+        let handle =
+            block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
 
         assert_eq!(
             block_on_ready(provider.poll(&handle)).expect("running status"),
@@ -645,7 +649,8 @@ mod tests {
             },
         ]));
         let request = video_request();
-        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
+        let handle =
+            block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
         assert_eq!(
             block_on_ready(provider.poll(&handle)).expect("running status"),
             GenerationProviderStatus::Running
@@ -667,10 +672,11 @@ mod tests {
             FakeGenerationStep::MalformedCompletion,
         ]));
         let request = video_request();
-        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
+        let handle =
+            block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
 
-        let error = block_on_ready(provider.poll(&handle))
-            .expect_err("malformed completion must fail");
+        let error =
+            block_on_ready(provider.poll(&handle)).expect_err("malformed completion must fail");
         assert_eq!(error.kind(), GenerationProviderErrorKind::MalformedResponse);
     }
 
@@ -682,10 +688,11 @@ mod tests {
             },
         ]));
         let request = video_request();
-        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
+        let handle =
+            block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
 
-        let error = block_on_ready(provider.poll(&handle))
-            .expect_err("empty output locator must fail");
+        let error =
+            block_on_ready(provider.poll(&handle)).expect_err("empty output locator must fail");
         assert_eq!(error.kind(), GenerationProviderErrorKind::MalformedResponse);
     }
 
@@ -711,7 +718,8 @@ mod tests {
         ]));
         let request = ImageGenerationRequest::new("Create a clean title card", Vec::new())
             .expect("valid image generation request");
-        let handle = block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
+        let handle =
+            block_on_ready(provider.submit(&request)).expect("fake submission should succeed");
 
         assert!(matches!(
             block_on_ready(provider.poll(&handle)).expect("completed status"),
