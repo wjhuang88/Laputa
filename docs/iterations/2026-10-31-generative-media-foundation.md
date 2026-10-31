@@ -15,6 +15,7 @@ This iteration intentionally starts while Story D remains open for one independe
 
 - planning baseline `main`: `f6b95aadd766502599b8c76dbdc0df695852b989`
 - iteration-start governance merged by PR #22: `32416df6cd173a09b5646062aa8b05ff27a8b278`
+- E1 durable generation state merged by PR #23: `540ca3286f182b46e880c1e817e92e6b1ec3486f`
 - LAPUTA-001-A / Issue #2: Complete/Closed
 - LAPUTA-001-C / Issue #4: Complete/Closed
 - LAPUTA-001-D / Issue #5: product implementation and automated smoke complete; one real-desktop human acceptance residual remains
@@ -44,7 +45,7 @@ This iteration intentionally starts while Story D remains open for one independe
 
 ## Implementation order
 
-### E1 — durable job/artifact contract
+### E1 — durable job/artifact contract — Complete
 
 Define the smallest domain structures required to represent:
 
@@ -58,24 +59,21 @@ Define the smallest domain structures required to represent:
 
 Success rule: no non-terminal or failed/cancelled state can be converted into a timeline-eligible Artifact.
 
-#### Current E1 checkpoint
-
-Implementation branch: `feature/laputa-001-e1-generation-state`, based on `32416df6cd173a09b5646062aa8b05ff27a8b278`.
-
-Implemented and pushed:
+#### E1 evidence
 
 - `laputa-domain` owns stable `GenerationRequestId`, `GenerationJobId` and `ArtifactId` identities;
 - product-level generation operations and Asset/Artifact source revisions are persisted without vendor routing fields;
 - job lifecycle explicitly represents queued/submitted/running/completed/failed/cancelled with guarded transitions;
 - provider/request/job identifiers are retained only as provenance metadata;
+- `GenerationJob` state/request and `DerivedArtifact` publication fields are sealed behind validated APIs;
 - `DerivedArtifact::from_verified_materialization` rejects every non-completed job and validates non-empty project-relative paths, SHA-256 and byte length;
 - `GenerationState::validate_for` enforces unique request/job/artifact identities, project/source revision consistency, Artifact -> Job -> Request linkage and acyclic derived-artifact lineage;
 - `laputa-media::GenerationStore` persists `.laputa/generation.json` atomically and validates before save and after reopen;
-- deterministic tests cover non-completed publication rejection, terminal-state restart rejection, stale source rejection, invalid path rejection, running-job reopen, completed-lineage reopen and original-media hash preservation.
+- deterministic tests cover non-completed publication rejection, terminal-state restart rejection, stale source rejection, invalid path rejection, running-job reopen, completed-lineage reopen and original-media hash preservation;
+- final branch head `3779d6ef21502849f77622e7f6315cd97252a379`: push CI `41166260806` success, PR CI `41166264802` success;
+- PR #23 squash merged to `540ca3286f182b46e880c1e817e92e6b1ec3486f`; post-merge main CI `41167010539` success.
 
-Current remote head: `c19af16c09583fedcc1de55141dca5a5219609ee` before this documentation checkpoint. CI is running; E2 must not begin until E1 CI/review/merge is closed.
-
-### E2 — functional provider contract + Fake adapter
+### E2 — functional provider contract + Fake adapter — In Progress
 
 Add capability-shaped provider contracts and deterministic Fake behavior for:
 
@@ -84,9 +82,32 @@ Add capability-shaped provider contracts and deterministic Fake behavior for:
 - failure;
 - cancellation;
 - malformed/invalid completion;
-- provider claims success but materialized output is missing/invalid.
+- provider claims success but returned output reference is absent/invalid.
 
 Success rule: provider submission success is observable as job state only, never as artifact success.
+
+#### Current E2 checkpoint
+
+Implementation branch: `feature/laputa-001-e2-generation-provider`, based on E1 merge `540ca3286f182b46e880c1e817e92e6b1ec3486f`.
+
+Implemented and pushed:
+
+- provider-neutral `VideoGenerationProvider` and `ImageGenerationProvider` with async `submit / poll / cancel` lifecycle;
+- provider-neutral media inputs and generation requests containing semantic instruction + source media only, with no vendor/model/workflow selection fields;
+- `GenerationProviderHandle` carries provider/request/job identity only as provenance metadata;
+- explicit provider status `Submitted / Running / Completed / Failed / Cancelled`;
+- stable error kinds for unavailable, rejected, malformed response, unknown job and cancellation unsupported;
+- deterministic Fake Video/Image providers with scripted lifecycle;
+- Fake coverage for submitted -> running -> completed, explicit failure, cancellation, submission error, malformed completion and completed-with-empty-output rejection;
+- Fake async tests use a dependency-free single-poll executor because Fake methods intentionally perform no asynchronous I/O; real adapter/runtime async behavior remains later scope.
+
+Validation history:
+
+- first E2 CI exposed a `--locked` failure caused only by adding an unnecessary test `tokio` dependency; the dependency was removed instead of creating Cargo.lock churn;
+- next CI exposed only rustfmt differences in Fake tests; those exact formatting changes were applied without semantic changes;
+- final code head `8006c1edc30d00344ca93acc88a394a94f7f8b78`: push CI `41168599043` **success**, covering FFmpeg fixture, fmt, workspace check, all-target/all-feature Clippy, workspace tests, desktop tests and governance.
+
+E2 remains incomplete until this documentation checkpoint, PR-triggered CI, review and post-merge main CI are green. E3 must not begin before that closure.
 
 ### E3 — materialization/orchestration
 
