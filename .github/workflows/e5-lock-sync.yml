@@ -1,0 +1,42 @@
+name: E5 Cargo.lock sync
+
+on:
+  push:
+    branches:
+      - feature/laputa-001-e5-runway-adapter
+    paths:
+      - Cargo.toml
+      - crates/laputa-provider-runway/**
+      - .github/workflows/e5-lock-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup default 1.95.0
+
+      - name: Generate and commit Cargo.lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile
+          if git diff --quiet -- Cargo.lock; then
+            echo "Cargo.lock already synchronized"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock
+          git commit -m "chore: sync Cargo.lock for Runway adapter"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
