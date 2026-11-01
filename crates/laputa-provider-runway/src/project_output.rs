@@ -19,11 +19,8 @@ static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[async_trait]
 pub trait RunwayOutputFetcher: Send + Sync {
-    async fn fetch(
-        &self,
-        locator: &str,
-        destination: &Path,
-    ) -> Result<(), GenerationProviderError>;
+    async fn fetch(&self, locator: &str, destination: &Path)
+    -> Result<(), GenerationProviderError>;
 }
 
 #[derive(Clone, Debug)]
@@ -34,7 +31,9 @@ pub struct ReqwestRunwayOutputFetcher {
 impl ReqwestRunwayOutputFetcher {
     pub fn new() -> Result<Self, GenerationProviderError> {
         let client = Client::builder().build().map_err(|error| {
-            unavailable(format!("failed to create Runway output HTTP client: {error}"))
+            unavailable(format!(
+                "failed to create Runway output HTTP client: {error}"
+            ))
         })?;
         Ok(Self { client })
     }
@@ -130,7 +129,10 @@ pub struct RunwayProjectVideoGenerationProvider<P, F = ReqwestRunwayOutputFetche
 }
 
 impl<P> RunwayProjectVideoGenerationProvider<P, ReqwestRunwayOutputFetcher> {
-    pub fn new(inner: P, project_root: impl Into<PathBuf>) -> Result<Self, GenerationProviderError> {
+    pub fn new(
+        inner: P,
+        project_root: impl Into<PathBuf>,
+    ) -> Result<Self, GenerationProviderError> {
         Self::with_fetcher(inner, project_root, ReqwestRunwayOutputFetcher::new()?)
     }
 }
@@ -273,10 +275,7 @@ fn temporary_path(destination: &Path) -> PathBuf {
         .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or("output.mp4");
-    destination.with_file_name(format!(
-        ".{name}.tmp-{}-{sequence}",
-        std::process::id()
-    ))
+    destination.with_file_name(format!(".{name}.tmp-{}-{sequence}", std::process::id()))
 }
 
 fn install_replacement(
@@ -341,7 +340,9 @@ mod tests {
         GenerationProviderStatus, VideoGenerationProvider, VideoGenerationRequest,
     };
 
-    use super::{RunwayOutputFetcher, RunwayProjectVideoGenerationProvider, provider_task_component};
+    use super::{
+        RunwayOutputFetcher, RunwayProjectVideoGenerationProvider, provider_task_component,
+    };
 
     struct CopyFetcher {
         source: PathBuf,
@@ -431,7 +432,10 @@ mod tests {
             status => panic!("expected completed output, got {status:?}"),
         };
         assert!(Path::new(&locator).starts_with(&root));
-        assert_eq!(fs::read(&locator).expect("staged output should exist"), b"fixture-video-bytes");
+        assert_eq!(
+            fs::read(&locator).expect("staged output should exist"),
+            b"fixture-video-bytes"
+        );
         assert!(matches!(second, GenerationProviderStatus::Completed { .. }));
         assert_eq!(calls.load(Ordering::SeqCst), 1);
         let _ = fs::remove_dir_all(root);
