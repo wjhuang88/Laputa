@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - feature/laputa-001-e5-runway-adapter
+  pull_request:
+    branches:
+      - main
+    types: [synchronize]
 
 permissions:
   contents: write
