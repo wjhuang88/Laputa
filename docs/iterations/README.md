@@ -6,7 +6,7 @@ Use `docs/sop/START-ITERATION.md` to create a new iteration record and `docs/sop
 
 Current/latest records:
 
-- `2026-10-31-generative-media-foundation.md` — planned; LAPUTA-001-E generative job/artifact/provider foundation.
+- `2026-10-31-generative-media-foundation.md` — in progress; LAPUTA-001-E E1-E4 complete, E5 Runway external adapter/live residual in progress.
 - `2026-10-23-workspace-visual-baseline.md` — complete for its visual-baseline goal; Story D retains a separate final real-desktop acceptance residual in Issue #5.
 
 Earlier iteration records are retained in this directory as execution history.
