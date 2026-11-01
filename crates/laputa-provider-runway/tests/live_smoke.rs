@@ -5,9 +5,7 @@
 
 use std::env;
 
-use laputa_provider::{
-    GenerationProviderStatus, VideoGenerationProvider, VideoGenerationRequest,
-};
+use laputa_provider::{GenerationProviderStatus, VideoGenerationProvider, VideoGenerationRequest};
 use laputa_provider_runway::{RunwayConfig, RunwayVideoGenerationProvider};
 
 #[tokio::test]

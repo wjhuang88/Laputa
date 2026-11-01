@@ -5,7 +5,6 @@
 
 use std::{
     collections::BTreeMap,
-    path::Path,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -107,9 +106,9 @@ pub struct RunwayVideoGenerationProvider {
 
 impl RunwayVideoGenerationProvider {
     pub fn new(config: RunwayConfig) -> Result<Self, GenerationProviderError> {
-        let client = Client::builder()
-            .build()
-            .map_err(|error| unavailable(format!("failed to create Runway HTTP client: {error}")))?;
+        let client = Client::builder().build().map_err(|error| {
+            unavailable(format!("failed to create Runway HTTP client: {error}"))
+        })?;
         Ok(Self { client, config })
     }
 
@@ -148,7 +147,9 @@ impl RunwayVideoGenerationProvider {
             })
             .send()
             .await
-            .map_err(|error| unavailable(format!("Runway upload initialization failed: {error}")))?;
+            .map_err(|error| {
+                unavailable(format!("Runway upload initialization failed: {error}"))
+            })?;
         let response = checked_response(response, "Runway upload initialization", false).await?;
         let upload: UploadStartResponse = response
             .json()
@@ -257,7 +258,9 @@ impl VideoGenerationProvider for RunwayVideoGenerationProvider {
             .await
             .map_err(|error| malformed(format!("invalid Runway task detail: {error}")))?;
         if task.id != task_id {
-            return Err(malformed("Runway task detail id does not match requested task"));
+            return Err(malformed(
+                "Runway task detail id does not match requested task",
+            ));
         }
         map_task_status(task)
     }
@@ -305,9 +308,7 @@ fn generation_payload(config: &RunwayConfig, instruction: &str, image: Option<&s
     payload
 }
 
-fn provider_job_id(
-    handle: &GenerationProviderHandle,
-) -> Result<&str, GenerationProviderError> {
+fn provider_job_id(handle: &GenerationProviderHandle) -> Result<&str, GenerationProviderError> {
     handle
         .provenance()
         .job_id
@@ -316,9 +317,7 @@ fn provider_job_id(
         .ok_or_else(|| malformed("Runway provider handle omitted task id"))
 }
 
-fn map_task_status(
-    task: TaskDetail,
-) -> Result<GenerationProviderStatus, GenerationProviderError> {
+fn map_task_status(task: TaskDetail) -> Result<GenerationProviderStatus, GenerationProviderError> {
     match task.status.as_str() {
         "PENDING" | "THROTTLED" => Ok(GenerationProviderStatus::Submitted),
         "RUNNING" => Ok(GenerationProviderStatus::Running),
@@ -425,9 +424,7 @@ fn multipart_body(
     append_text(&mut body, &format!("--{boundary}\r\n"));
     append_text(
         &mut body,
-        &format!(
-            "Content-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\n"
-        ),
+        &format!("Content-Disposition: form-data; name=\"file\"; filename=\"{filename}\"\r\n"),
     );
     append_text(&mut body, "Content-Type: application/octet-stream\r\n\r\n");
     body.extend_from_slice(file_bytes);
@@ -436,10 +433,7 @@ fn multipart_body(
     Ok(body)
 }
 
-fn validate_disposition_value(
-    value: &str,
-    field: &str,
-) -> Result<(), GenerationProviderError> {
+fn validate_disposition_value(value: &str, field: &str) -> Result<(), GenerationProviderError> {
     if value
         .chars()
         .any(|character| matches!(character, '\r' | '\n' | '"'))
@@ -557,15 +551,13 @@ mod tests {
 
     #[test]
     fn selected_subset_accepts_zero_or_one_image_input_only() {
-        let text = VideoGenerationRequest::new("Generate B-roll", Vec::new()).expect("text request");
+        let text =
+            VideoGenerationRequest::new("Generate B-roll", Vec::new()).expect("text request");
         assert!(selected_image_input(&text).expect("text input").is_none());
 
-        let image = GenerationMediaInput::new(
-            PathBuf::from("photo.jpg"),
-            MediaKind::Image,
-            digest('a'),
-        )
-        .expect("image input");
+        let image =
+            GenerationMediaInput::new(PathBuf::from("photo.jpg"), MediaKind::Image, digest('a'))
+                .expect("image input");
         let image_request =
             VideoGenerationRequest::new("Animate", vec![image]).expect("image request");
         assert!(
@@ -574,12 +566,9 @@ mod tests {
                 .is_some()
         );
 
-        let video = GenerationMediaInput::new(
-            PathBuf::from("clip.mp4"),
-            MediaKind::Video,
-            digest('b'),
-        )
-        .expect("video input");
+        let video =
+            GenerationMediaInput::new(PathBuf::from("clip.mp4"), MediaKind::Video, digest('b'))
+                .expect("video input");
         let video_request =
             VideoGenerationRequest::new("Transform", vec![video]).expect("video request");
         let error = selected_image_input(&video_request).expect_err("video input rejected");
@@ -617,14 +606,20 @@ mod tests {
     fn succeeded_task_requires_https_output() {
         let missing = map_task_status(task("SUCCEEDED", Vec::new()))
             .expect_err("missing output must be malformed");
-        assert_eq!(missing.kind(), GenerationProviderErrorKind::MalformedResponse);
+        assert_eq!(
+            missing.kind(),
+            GenerationProviderErrorKind::MalformedResponse
+        );
 
         let insecure = map_task_status(task(
             "SUCCEEDED",
             vec!["http://example.invalid/output.mp4".to_owned()],
         ))
         .expect_err("http output must be malformed");
-        assert_eq!(insecure.kind(), GenerationProviderErrorKind::MalformedResponse);
+        assert_eq!(
+            insecure.kind(),
+            GenerationProviderErrorKind::MalformedResponse
+        );
     }
 
     #[test]
