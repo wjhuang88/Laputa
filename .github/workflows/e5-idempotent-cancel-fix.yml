@@ -1,0 +1,115 @@
+name: E5 idempotent cancel fix
+
+on:
+  push:
+    branches:
+      - feature/laputa-001-e5-runway-adapter
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/laputa-001-e5-runway-adapter
+      - name: Patch Runway cancellation semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('crates/laputa-provider-runway/src/lib.rs')
+          text = path.read_text()
+
+          old = '''        let response = self
+            .request(Method::DELETE, &format!("/v1/tasks/{task_id}"))
+            .send()
+            .await
+            .map_err(|error| unavailable(format!("Runway task cancellation failed: {error}")))?;
+        checked_response(response, "Runway task cancellation", true).await?;
+        Ok(GenerationProviderStatus::Cancelled)
+'''
+          new = '''        let response = self
+            .request(Method::DELETE, &format!("/v1/tasks/{task_id}"))
+            .send()
+            .await
+            .map_err(|error| unavailable(format!("Runway task cancellation failed: {error}")))?;
+        if is_idempotent_cancel_success(response.status()) {
+            return Ok(GenerationProviderStatus::Cancelled);
+        }
+        checked_response(response, "Runway task cancellation", false).await?;
+        Ok(GenerationProviderStatus::Cancelled)
+'''
+          if old not in text:
+              raise SystemExit('cancel block not found')
+          text = text.replace(old, new, 1)
+
+          marker = '''fn selected_image_input(
+'''
+          helper = '''fn is_idempotent_cancel_success(status: StatusCode) -> bool {
+    status.is_success() || status == StatusCode::NOT_FOUND
+}
+
+'''
+          if helper not in text:
+              if marker not in text:
+                  raise SystemExit('selected_image_input marker not found')
+              text = text.replace(marker, helper + marker, 1)
+
+          old_import = '''    use laputa_provider::{
+        GenerationMediaInput, GenerationProviderErrorKind, GenerationProviderHandle,
+        GenerationProviderStatus, VideoGenerationRequest,
+    };
+'''
+          new_import = '''    use laputa_provider::{
+        GenerationMediaInput, GenerationProviderErrorKind, GenerationProviderHandle,
+        GenerationProviderStatus, VideoGenerationRequest,
+    };
+    use reqwest::StatusCode;
+'''
+          if old_import not in text:
+              raise SystemExit('test imports not found')
+          text = text.replace(old_import, new_import, 1)
+
+          old_super = '''        RunwayConfig, TaskDetail, generation_payload, map_task_status, multipart_body,
+        provider_job_id, selected_image_input,
+    };
+'''
+          new_super = '''        RunwayConfig, TaskDetail, generation_payload, is_idempotent_cancel_success,
+        map_task_status, multipart_body, provider_job_id, selected_image_input,
+    };
+'''
+          if old_super not in text:
+              raise SystemExit('super import block not found')
+          text = text.replace(old_super, new_super, 1)
+
+          test_marker = '''    #[test]
+    fn config_defaults_keep_vendor_controls_inside_adapter() {
+'''
+          test = '''    #[test]
+    fn cancellation_treats_not_found_as_idempotent_success() {
+        assert!(is_idempotent_cancel_success(StatusCode::NO_CONTENT));
+        assert!(is_idempotent_cancel_success(StatusCode::NOT_FOUND));
+        assert!(!is_idempotent_cancel_success(StatusCode::BAD_REQUEST));
+    }
+
+'''
+          if test not in text:
+              if test_marker not in text:
+                  raise SystemExit('test insertion marker not found')
+              text = text.replace(test_marker, test + test_marker, 1)
+
+          path.write_text(text)
+          PY
+          cargo fmt --all
+          rm .github/workflows/e5-idempotent-cancel-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add crates/laputa-provider-runway/src/lib.rs .github/workflows/e5-idempotent-cancel-fix.yml
+          git commit -m 'fix(provider): make Runway cancellation idempotent'
+          git push origin HEAD:feature/laputa-001-e5-runway-adapter
