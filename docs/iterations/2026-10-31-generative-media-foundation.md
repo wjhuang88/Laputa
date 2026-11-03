@@ -1,15 +1,15 @@
 # Iteration — Generative Media Foundation
 
-Status: in progress  
+Status: in progress — E5b final validation  
 Date: 2026-10-31  
 Selected Story: `LAPUTA-001-E`  
 Issue: #6
 
 ## Goal
 
-Establish the durable asynchronous generation foundation required for Story E, then prove it through a coarse-grained Laputa Tool path without leaking vendor/model/workflow concepts into the domain, Tool schema or normal user experience.
+Establish the durable asynchronous generation foundation required for Story E, then prove it through coarse-grained Laputa Tools and one external adapter without leaking vendor/model/workflow concepts into the domain, Tool schema or normal user experience.
 
-This iteration intentionally starts while Story D remains open for one independent real-desktop acceptance gate. Story E is allowed to proceed because its declared dependencies are only LAPUTA-001-A and LAPUTA-001-C, both Complete/Closed. No Story F/G/H behavior is pulled into this batch.
+This iteration intentionally proceeds while Story D remains open for one independent real-desktop acceptance gate. Story E depends only on LAPUTA-001-A and LAPUTA-001-C, both Complete/Closed. No Story F/G/H behavior is included.
 
 ## Published baseline
 
@@ -18,25 +18,29 @@ This iteration intentionally starts while Story D remains open for one independe
 - E1 durable generation state merged by PR #23: `540ca3286f182b46e880c1e817e92e6b1ec3486f`
 - E2 functional generation provider merged by PR #24: `fbd1b06ed43dbc55f3485184074fb734cfccd0e2`
 - E3 durable generation orchestration merged by PR #25: `120e68004bde3576ab593c0b8c5eab1693e3f783`
+- E4 coarse-grained generation Tools merged by PR #26: `5e8d3cdb7ae9b2e9c1cd8c6221c70206b0905e39`; post-merge main CI `41285644832` success
+- E5a Runway adapter merged by PR #27: `9f3662457655a58b9140dbdcb9459d65328a3f90`; post-merge main CI `41289213797` success
+- E5b project-owned Runway HTTPS materialization is under PR #28
 - LAPUTA-001-A / Issue #2: Complete/Closed
 - LAPUTA-001-C / Issue #4: Complete/Closed
 - LAPUTA-001-D / Issue #5: product implementation and automated smoke complete; one real-desktop human acceptance residual remains
 - ADR-0002: functional provider abstraction is authoritative
-- Architecture contract: external generation is `submit -> job -> terminal state -> verified/materialized artifact`; submission alone never authorizes timeline mutation
+- Architecture contract: external generation is `submit -> job -> terminal state -> verified/materialized artifact`; provider completion alone never authorizes timeline mutation
 
 ## Selected scope
 
 1. Define generation request/job/artifact domain state and invariants.
 2. Persist enough terminal/non-terminal job metadata for honest recovery and failure reporting.
-3. Define functional `VideoGenerationProvider` / `ImageGenerationProvider` boundary needed by the selected capability path, without vendor-named core interfaces.
-4. Provide a deterministic Fake adapter and state-machine tests.
-5. Materialize and validate terminal-success output before publishing a derived Artifact.
-6. Wire `media.animate_photo` plus one transition/B-roll path through coarse-grained Laputa Tools.
+3. Define provider-neutral functional `VideoGenerationProvider` / `ImageGenerationProvider` boundaries.
+4. Provide deterministic Fake adapters and state-machine tests.
+5. Materialize and independently validate terminal-success output before publishing a derived Artifact.
+6. Wire `media.animate_photo` and `media.generate_broll` through coarse-grained Laputa Tools.
 7. Add one external adapter for the selected subset and an opt-in live smoke when credentials are available.
+8. Ensure temporary external HTTPS output is copied into project-owned storage before the existing E3 publication gate.
 
 ## Explicit exclusions
 
-- No user-visible Provider/model selector.
+- No user-visible provider/model selector.
 - No vendor/model fields in normal Tool schemas.
 - No speculative routing framework or price-arbitrage system.
 - No local foundation-model deployment.
@@ -49,138 +53,109 @@ This iteration intentionally starts while Story D remains open for one independe
 
 ### E1 — durable job/artifact contract — Complete
 
-Define the smallest domain structures required to represent:
+E1 established stable generation request/job/artifact identities, source revision lineage, explicit queued/submitted/running/completed/failed/cancelled states, provider metadata as provenance only, guarded Artifact construction and atomic `.laputa/generation.json` persistence.
 
-- stable generation request identity;
-- source references and source hashes;
-- operation/capability identity;
-- queued/submitted/running/completed/failed/cancelled state;
-- provider request/job metadata as provenance metadata rather than core routing input;
-- a derived Artifact identity and materialized location;
-- lineage from Artifact -> generation job -> request -> source asset/artifact.
+Key evidence:
 
-Success rule: no non-terminal or failed/cancelled state can be converted into a timeline-eligible Artifact.
-
-#### E1 evidence
-
-- `laputa-domain` owns stable `GenerationRequestId`, `GenerationJobId` and `ArtifactId` identities;
-- product-level generation operations and Asset/Artifact source revisions are persisted without vendor routing fields;
-- job lifecycle explicitly represents queued/submitted/running/completed/failed/cancelled with guarded transitions;
-- provider/request/job identifiers are retained only as provenance metadata;
-- `GenerationJob` state/request and `DerivedArtifact` publication fields are sealed behind validated APIs;
-- `DerivedArtifact::from_verified_materialization` rejects every non-completed job and validates non-empty project-relative paths, SHA-256 and byte length;
-- `GenerationState::validate_for` enforces unique request/job/artifact identities, project/source revision consistency, Artifact -> Job -> Request linkage and acyclic derived-artifact lineage;
-- `laputa-media::GenerationStore` persists `.laputa/generation.json` atomically and validates before save and after reopen;
-- deterministic tests cover non-completed publication rejection, terminal-state restart rejection, stale source rejection, invalid path rejection, running-job reopen, completed-lineage reopen and original-media hash preservation;
-- final branch head `3779d6ef21502849f77622e7f6315cd97252a379`: push CI `41166260806` success, PR CI `41166264802` success;
+- `DerivedArtifact::from_verified_materialization` rejects non-completed jobs and invalid materialization metadata;
+- `GenerationState::validate_for` enforces request/job/artifact linkage, source revision consistency and acyclic derived-artifact lineage;
+- deterministic tests cover non-completed publication rejection, terminal restart rejection, stale source/path rejection, persistence/reopen and imported-original hash preservation;
+- final branch head `3779d6ef21502849f77622e7f6315cd97252a379`: push CI `41166260806`, PR CI `41166264802` success;
 - PR #23 squash merged to `540ca3286f182b46e880c1e817e92e6b1ec3486f`; post-merge main CI `41167010539` success.
 
 ### E2 — functional provider contract + Fake adapter — Complete
 
-Add capability-shaped provider contracts and deterministic Fake behavior for:
+E2 established provider-neutral async `submit / poll / cancel` contracts and deterministic Fake video/image providers covering lifecycle and error behavior without vendor/model/workflow routing fields in core requests.
 
-- successful asynchronous completion;
-- running/poll progression;
-- failure;
-- cancellation;
-- malformed/invalid completion;
-- provider claims success but returned output reference is absent/invalid.
+Key evidence:
 
-Success rule: provider submission success is observable as job state only, never as artifact success.
-
-#### E2 evidence
-
-- provider-neutral `VideoGenerationProvider` and `ImageGenerationProvider` define async `submit / poll / cancel` lifecycle;
-- provider-neutral media inputs and generation requests contain semantic instruction + source media only, with no vendor/model/workflow selection fields;
-- `GenerationProviderHandle` carries provider/request/job identity only as provenance metadata;
-- explicit provider status `Submitted / Running / Completed / Failed / Cancelled`;
-- stable error kinds for unavailable, rejected, malformed response, unknown job and cancellation unsupported;
-- deterministic Fake Video/Image providers cover submitted -> running -> completed, explicit failure, cancellation, submission error, malformed completion and completed-with-empty-output rejection;
-- final E2 head `0afcaee1518c1484a52c5aeb71a79ecd81bb6ea5`: push CI `41169352895` success and PR CI `41169984609` success;
+- provider statuses explicitly represent Submitted / Running / Completed / Failed / Cancelled;
+- stable errors cover unavailable, rejected, malformed response, unknown job and cancellation unsupported;
+- deterministic scenarios cover submitted -> running -> completed, failure, cancellation, submission error, malformed completion and completed-with-empty-output rejection;
+- final E2 head `0afcaee1518c1484a52c5aeb71a79ecd81bb6ea5`: push CI `41169352895`, PR CI `41169984609` success;
 - PR #24 squash merged to `fbd1b06ed43dbc55f3485184074fb734cfccd0e2`; post-merge main CI `41170400201` success.
 
 ### E3 — materialization/orchestration — Complete
 
-Implement the boundary that:
+E3 established the durable publication boundary: submit, persist and resume job state; verify terminal success; materialize into project-owned derivatives; independently FFprobe-validate; compute SHA-256/byte length; only then publish a derived Artifact.
 
-1. submits through the functional provider;
-2. persists/updates job state;
-3. waits/polls or resumes according to the provider contract;
-4. verifies terminal success;
-5. materializes the result into project-owned derived storage;
-6. validates the materialized artifact;
-7. only then publishes it as timeline-eligible.
+Key evidence:
 
-The orchestration is placed in `laputa-agent`, the existing composition layer that already depends on domain, media and provider. `laputa-media` remains provider-independent.
-
-#### E3 evidence
-
-- `GenerationOrchestrator` persists Queued before provider submission, then durable Submitted/Running/Completed/Failed/Cancelled transitions through `GenerationStore`;
-- resumable `resume_video_generation` reconstructs provider provenance from durable state; a temporary Provider `Unavailable` polling error leaves the durable non-terminal job resumable rather than falsely failing it;
-- explicit cancellation persists terminal cancellation and never publishes an Artifact;
-- provider `Completed` is persisted before any Artifact publication, but does not itself authorize an Artifact;
-- `GenerationOutputMaterializer` keeps provider-output transport separate from orchestration; the first deterministic implementation copies local/file output into `.laputa/derivatives/generation/<job-id>/output.mp4` using temporary-file replacement;
-- `GenerationOutputValidator` independently checks the local result; the first implementation uses FFprobe and requires a non-empty visual file, valid dimensions, positive video duration and a video codec;
-- after validation, E3 computes the materialized SHA-256 and byte length and only then enters E1 `DerivedArtifact::from_verified_materialization`;
-- provider Completed with missing/invalid local output remains a Completed Job but publishes no Artifact, preserving the distinction between remote job completion and locally eligible derived media;
-- Provider inputs are derived directly from durable `GenerationRequest` lineage rather than a second caller-provided source list, preventing request/source drift;
-- immediately before provider submission, current Asset and published Artifact bytes are re-hashed and must match the recorded lineage SHA-256, preventing externally modified bytes from being sent under stale lineage;
-- original media remains unchanged across success, provider failure, cancellation, malformed completion and missing-output paths;
-- deterministic tests cover successful real-FFmpeg video materialization/publication, provider failure, cancellation/reopen, malformed completion, missing output, externally changed imported Asset rejection and externally changed published Artifact rejection;
-- formatted implementation head `3d347b063bf8ac4e8a09ab805f4c93d827212b40` passed full push CI `41171624761`;
-- source-revision code head `f098bc77e04b1dcc57f1ba550ed013fbd19cd449` passed full push CI `41172397650`;
-- final PR head `f93c9e86d981aa75cb798e28f2408431f54262f5` passed push CI `41173132893` and PR CI `41173151343`, with no review threads;
+- `GenerationOrchestrator` persists durable Queued/Submitted/Running/Completed/Failed/Cancelled transitions;
+- provider `Completed` is persisted before publication but does not itself authorize an Artifact;
+- local materialization writes `.laputa/derivatives/generation/<job-id>/output.mp4` with temporary-file replacement;
+- FFprobe independently requires a non-empty visual file, dimensions, positive duration and video codec;
+- current Asset/Artifact source bytes are re-hashed immediately before provider submission to prevent stale lineage;
+- missing/invalid output, failure and cancellation never publish an Artifact and never mutate imported originals;
+- final PR head `f93c9e86d981aa75cb798e28f2408431f54262f5`: push CI `41173132893`, PR CI `41173151343` success;
 - PR #25 squash merged to `120e68004bde3576ab593c0b8c5eab1693e3f783`; post-merge main CI `41183800760` success.
 
-### E4 — coarse-grained Tool path — In Review
+### E4 — coarse-grained Tool path — Complete
 
-Wire at least:
+E4 wires real Talos Tools through E3:
 
-- `media.animate_photo`;
-- one `media.create_transition` or `media.generate_broll` path.
+- `media.animate_photo` takes only an image `asset_id` and product-level `instruction`;
+- `media.generate_broll` takes only a product-level `instruction`;
+- both Tools depend only on `VideoGenerationProvider`, execute the existing E3 durable generation/materialization/publication pipeline and return product/domain Artifact information;
+- public JSON schemas use `additionalProperties: false` and regression-test that `provider`, `vendor`, `model`, `workflow` and `sampler` do not appear;
+- deterministic Tool tests use a Fake provider plus a real FFmpeg fixture and prove verified Artifact publication while preserving imported original bytes and request/source lineage.
 
-Tool public schemas describe product intent only. They must not expose vendor, model, sampler, raw workflow or vendor-specific generation parameters.
+Evidence:
 
-#### Current E4 checkpoint
+- formatted implementation head `590b19705b42f03a5813cdef71763b87ed242089`: push CI `41184693535` success;
+- docs-synchronized head `6aca25c03ed6f0e7bbb89deb22515bb7add5254c`: push CI `41185349439` success;
+- PR #26 squash merged to `5e8d3cdb7ae9b2e9c1cd8c6221c70206b0905e39`;
+- post-merge main CI `41285644832` success.
 
-Implementation branch: `feature/laputa-001-e4-generation-tools`, based on E3 merge `120e68004bde3576ab593c0b8c5eab1693e3f783`.
+### E5a — Runway external adapter — Complete
 
-Implemented and validated:
+E5a adds the first real external video-generation adapter behind the frozen provider-neutral contract:
 
-- `AnimatePhotoTool` is a real Talos `AgentTool`; its public input is only an image `asset_id` plus natural-language `instruction`;
-- the Tool resolves the imported image revision, creates `GenerationOperation::AnimatePhoto`, then executes the E3 durable generation/materialization/publication pipeline;
-- `GenerateBrollTool` is a real Talos `AgentTool`; its public input is only a natural-language `instruction`, producing a source-less `GenerationOperation::GenerateBroll` request rather than inventing lineage;
-- both public JSON schemas use `additionalProperties: false` and regression-test that `provider`, `vendor`, `model`, `workflow` and `sampler` do not appear;
-- Tool success results expose only product/domain Artifact, Job and Request identities plus verified materialization metadata; Provider provenance is not exposed;
-- `media.animate_photo` rejects non-image Assets before creating generation state;
-- deterministic Tool execution tests use the Fake video provider plus a real FFmpeg output fixture and verify that the result is a published, independently validated Artifact;
-- the animate-photo Tool test verifies imported original bytes remain unchanged and preserves Asset revision lineage;
-- the B-roll Tool test verifies a verified published Artifact is produced with the correct `GenerateBroll` operation and no fabricated sources;
-- the first E4 CI failed only `cargo fmt --check`; formatting was corrected without semantic change;
-- formatted code head `590b19705b42f03a5813cdef71763b87ed242089` passed full push CI `41184693535`, including real FFmpeg fixture, fmt, workspace check, all-target/all-feature Clippy, workspace tests, desktop tests and governance.
+- independent `laputa-provider-runway` crate;
+- Runway HTTP shapes, model/ratio/API-version defaults and secret handling remain inside the adapter;
+- zero-source requests map to text-to-video; one image source maps to image-to-video through ephemeral upload;
+- Runway PENDING/THROTTLED/RUNNING/SUCCEEDED/FAILED/CANCELED states map to the existing lifecycle;
+- successful raw provider output must be HTTPS, but is not treated as a Laputa Artifact;
+- deterministic request/payload/status/upload tests cover adapter behavior;
+- ignored live smoke reads only `RUNWAYML_API_SECRET`; no credential is committed and no live success is claimed when unavailable.
 
-E4 remains incomplete until the docs-synchronized head, PR-triggered CI, review and post-merge main CI are green. E5 must not begin before that closure.
+Evidence:
 
-### E5 — external adapter/live residual
+- pre-PR adapter head `7a75c8a83e70bbe4469e0c68c6a5a64640cfb8de`: push CI `41287150353` success;
+- PR #27 squash merged to `9f3662457655a58b9140dbdcb9459d65328a3f90`;
+- post-merge main CI `41289213797` success.
 
-Select one external adapter only after the functional contract is fixed by E1-E4. Credentials remain environment/configuration concerns and are never committed or persisted in shareable project files.
+### E5b — project-owned HTTPS output materialization — In Review
 
-An opt-in live smoke is added when feasible. If no credential is available, deterministic acceptance remains mandatory and the missing live evidence is recorded explicitly as a residual.
+PR #28 closes the remaining external-output eligibility gap without changing E3/E4 architecture:
+
+- `RunwayProjectVideoGenerationProvider` wraps the core Runway provider while implementing the same `VideoGenerationProvider` contract;
+- public construction is available through `new(inner, project_root)` and deterministic tests can inject a `RunwayOutputFetcher` via `with_fetcher`;
+- a completed HTTPS locator is downloaded into `.laputa/provider-staging/runway/<task-id>/output.mp4` before being returned to E3;
+- staged files are reusable across repeated polling/resume, task ids are traversal-safe, downloads are bounded, empty/insecure output is rejected, and temp-file replacement prevents partially published staging output;
+- repeated cancellation treats an already-unknown remote job as idempotent Cancelled;
+- E3 remains responsible for copying staging output to final `.laputa/derivatives/...`, independent FFprobe validation, SHA-256/byte length calculation and `DerivedArtifact` publication;
+- deterministic cross-boundary coverage injects a fixture fetcher (no real network), passes the project wrapper directly into `GenerateBrollTool`, and verifies project staging -> final derivative -> FFprobe-gated Artifact publication, including that the staging file itself is never the published Artifact.
+
+Prior implementation head `6b9ec1808a66c0d24fcafb6a2ad913a04ff162da` passed exact-head push CI `41290501640` and PR CI `41290506425`. The composition test and synchronized governance docs are being validated on the final PR #28 head before Ready/merge.
 
 ## Validation plan
 
 Minimum deterministic validation:
 
+- real FFmpeg preview fixture
 - `cargo fmt --all -- --check`
 - `cargo check --workspace --locked`
 - `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`
 - `cargo test --workspace --locked`
+- desktop tests
 - `scripts/validate_project_governance.sh .`
-- Fake-adapter tests for submitted/running/completed/failed/cancelled/malformed completion
+- Fake-adapter lifecycle/error tests
 - original-media hash unchanged across success/failure/cancel paths
-- persistence/reopen test for job metadata required for honest recovery
-- artifact validation proving missing/invalid output never becomes eligible
+- persistence/reopen evidence for durable generation state
+- materialization/validation evidence proving missing/invalid output never becomes eligible
 - Tool schema regression proving no provider/model/workflow selector leaks
+- deterministic Runway project-wrapper -> Tool -> E3 publication composition without real network
 
 ## Acceptance evidence required before Story E closure
 
@@ -190,16 +165,20 @@ Minimum deterministic validation:
 - A completed provider response is independently materialized/validated before eligibility.
 - Failure/cancellation leaves original media unchanged and returns an explicit failure or documented safe fallback.
 - At least `media.animate_photo` plus one transition/B-roll path is wired through the product Tool surface.
+- One real external adapter fits the provider-neutral lifecycle without requiring provider/model/workflow selectors in normal Tool/user flow.
+- External temporary HTTPS output is first made project-owned and then traverses the existing E3 validation/publication gate.
 
-## Risks and assumptions
+## Live external evidence residual
 
-- **Confirmed:** D is not a dependency of E; A and C are the declared dependencies and are Complete.
-- **Confirmed:** generation provider identity belongs in adapter/provenance metadata, not the core functional contract or Tool schema.
-- **Confirmed:** submitted external jobs cannot be treated as generated artifacts.
-- **Confirmed by E3:** provider Completed and timeline-eligible Artifact are separate states; local materialization and validation can fail after remote completion without producing an Artifact.
-- **Confirmed by E4 deterministic Tool path:** product-facing generation requests can remain vendor/model/workflow-neutral while still traversing the durable provider lifecycle and verified publication boundary.
-- **Assumption requiring validation:** one common asynchronous lifecycle shape is sufficient for the selected image/video generation subset. If real adapter semantics materially conflict, record a Spike/ADR update rather than forcing incompatible lifecycle behavior into one interface.
-- **Assumption requiring validation:** the first external adapter can support at least one selected E capability without requiring user-visible model/workflow selection.
+The Runway live smoke remains explicitly opt-in and ignored by default. It reads only `RUNWAYML_API_SECRET`. If no credential is available at closure, deterministic adapter/composition/materialization evidence is the acceptance basis; no live execution is claimed.
+
+## Risks and confirmed boundaries
+
+- **Confirmed:** Story D is not a dependency of E; A and C are the declared dependencies and are Complete.
+- **Confirmed:** provider identity belongs in adapter/provenance metadata, not the core functional contract or Tool schema.
+- **Confirmed:** provider Completed and timeline-eligible Artifact are distinct states; project-owned materialization and independent validation can fail after remote completion without publishing an Artifact.
+- **Confirmed by E4:** product-facing generation requests remain vendor/model/workflow-neutral through the durable provider lifecycle.
+- **Confirmed by E5a/E5b:** the selected Runway subset fits the common async lifecycle and can be composed through project-owned staging into the existing E3 publication boundary without introducing a routing framework or user-visible selector.
 
 ## Parallel Story D disposition
 
