@@ -3415,6 +3415,7 @@ dependencies = [
  "laputa-domain",
  "laputa-media",
  "laputa-provider",
+ "laputa-provider-runway",
  "laputa-timeline",
  "serde",
  "serde_json",
