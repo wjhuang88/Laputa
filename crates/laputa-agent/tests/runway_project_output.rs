@@ -26,7 +26,7 @@ impl RunwayOutputFetcher for FixtureRunwayOutputFetcher {
         &self,
         _locator: &str,
         destination: &Path,
-    ) -> Result<(), GenerationProviderError> {
+    ) -> std::result::Result<(), GenerationProviderError> {
         let parent = destination.parent().ok_or_else(|| {
             GenerationProviderError::new(
                 GenerationProviderErrorKind::Unavailable,
