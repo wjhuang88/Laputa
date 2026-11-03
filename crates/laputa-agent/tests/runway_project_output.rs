@@ -142,17 +142,16 @@ async fn runway_project_wrapper_composes_with_tool_and_e3_publication_gate() -> 
     );
     let artifact = &state.artifacts[0];
     ensure!(
-        artifact
-            .materialized_path()
-            .starts_with(store.root().join(".laputa/derivatives")),
-        "published Artifact must live under project derivatives"
+        artifact.materialized_path().starts_with(".laputa/derivatives"),
+        "published Artifact must use a project-relative derivatives path"
     );
+    let materialized_output = store.root().join(artifact.materialized_path());
     ensure!(
-        artifact.materialized_path() != staged_output,
+        materialized_output != staged_output,
         "Runway staging output must not itself become the published Artifact"
     );
     ensure!(
-        sha256_file(artifact.materialized_path())? == remote_hash,
+        sha256_file(&materialized_output)? == remote_hash,
         "published Artifact bytes differ from verified staged output"
     );
     ensure!(
