@@ -142,7 +142,9 @@ async fn runway_project_wrapper_composes_with_tool_and_e3_publication_gate() -> 
     );
     let artifact = &state.artifacts[0];
     ensure!(
-        artifact.materialized_path().starts_with(".laputa/derivatives"),
+        artifact
+            .materialized_path()
+            .starts_with(".laputa/derivatives"),
         "published Artifact must use a project-relative derivatives path"
     );
     let materialized_output = store.root().join(artifact.materialized_path());
