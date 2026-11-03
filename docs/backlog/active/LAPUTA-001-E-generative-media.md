@@ -2,7 +2,7 @@
 
 Parent: LAPUTA-001  
 Type: Technical/API Story  
-Status: Ready  
+Status: In Progress — E5b validation  
 Dependencies: LAPUTA-001-A, LAPUTA-001-C（both Complete）  
 Decision links: `docs/decisions/ADR-0002-functional-provider-abstraction.md`  
 Implementation iteration: `docs/iterations/2026-10-31-generative-media-foundation.md`
@@ -43,12 +43,17 @@ To support photo animation, generated transitions and missing visual material, L
 - Public Tool schema regression proving no vendor/model selector leaks.
 - Opt-in live API smoke test when credentials exist; absence of credentials is recorded as a residual rather than fabricated evidence.
 
-## Initial implementation slices
+## Implementation slices
 
-1. **E1 — Domain/job/artifact contract**: generation request identity, durable job states, artifact lineage/eligibility invariants and persistence boundary.
-2. **E2 — Functional provider contract + Fake adapter**: capability-shaped provider API with deterministic state-machine tests.
-3. **E3 — Materialization/orchestration**: verify completed remote output before publishing a derived Artifact; no Timeline mutation from non-terminal jobs.
-4. **E4 — Coarse-grained Tool path**: wire `media.animate_photo` plus one transition/B-roll route without vendor fields in Tool schema.
-5. **E5 — External adapter/live residual**: add one selected external adapter and opt-in live smoke without committing credentials.
+1. **E1 — Domain/job/artifact contract — Complete**: generation request identity, durable job states, artifact lineage/eligibility invariants and persistence boundary. PR #23 merged to `540ca3286f182b46e880c1e817e92e6b1ec3486f`.
+2. **E2 — Functional provider contract + Fake adapter — Complete**: capability-shaped provider API with deterministic state-machine tests. PR #24 merged to `fbd1b06ed43dbc55f3485184074fb734cfccd0e2`.
+3. **E3 — Materialization/orchestration — Complete**: completed provider output is copied into project-owned derivatives, independently FFprobe-validated, hashed and only then published as an Artifact. PR #25 merged to `120e68004bde3576ab593c0b8c5eab1693e3f783`.
+4. **E4 — Coarse-grained Tool path — Complete**: `media.animate_photo` and `media.generate_broll` execute the E3 pipeline while keeping public Tool schemas free of provider/vendor/model/workflow/sampler controls. PR #26 merged to `5e8d3cdb7ae9b2e9c1cd8c6221c70206b0905e39`.
+5. **E5a — Runway external adapter — Complete**: isolated `laputa-provider-runway` adapter supports text-to-video and image-to-video behind the provider-neutral contract; live smoke remains opt-in via `RUNWAYML_API_SECRET`. PR #27 merged to `9f3662457655a58b9140dbdcb9459d65328a3f90`; post-merge main CI `41289213797` succeeded.
+6. **E5b — project-owned HTTPS materialization — In Review**: PR #28 wraps the Runway provider so successful HTTPS output is downloaded into `.laputa/provider-staging/runway/<task-id>/output.mp4` before the existing E3 local materialization and independent FFprobe publication gate. Deterministic cross-boundary coverage composes the project wrapper directly with `GenerateBrollTool` and verifies staging -> final derivative -> Artifact publication without real network access.
 
-The iteration may checkpoint these slices independently, but Story E remains incomplete until a runnable Tool path and the acceptance evidence above are present.
+Story E remains incomplete until PR #28 exact-head CI, review/merge gates and post-merge main CI are green. Only then are the acceptance checkboxes closed and the Story moved to `archive/`.
+
+## Live external evidence residual
+
+The Runway live smoke is intentionally `#[ignore]` and reads credentials only from `RUNWAYML_API_SECRET`. No credential is committed or persisted. If no credential is available during Story closure, no live success is claimed; deterministic adapter, composition, materialization and publication evidence remains the acceptance basis allowed by this Story.
