@@ -109,7 +109,10 @@ async fn runway_project_wrapper_composes_with_tool_and_e3_publication_gate() -> 
 
     ensure!(!result.is_error, "{}", result.content);
     let value: serde_json::Value = serde_json::from_str(&result.content)?;
-    ensure!(value["status"] == "published", "unexpected Tool result: {value}");
+    ensure!(
+        value["status"] == "published",
+        "unexpected Tool result: {value}"
+    );
 
     let staging_root = store.root().join(".laputa/provider-staging/runway");
     let mut staged_tasks = fs::read_dir(&staging_root)?;
@@ -133,7 +136,10 @@ async fn runway_project_wrapper_composes_with_tool_and_e3_publication_gate() -> 
         .load(&project)?
         .context("generation state should exist")?;
     ensure!(state.jobs.len() == 1, "expected one generation job");
-    ensure!(state.artifacts.len() == 1, "expected one published artifact");
+    ensure!(
+        state.artifacts.len() == 1,
+        "expected one published artifact"
+    );
     let artifact = &state.artifacts[0];
     ensure!(
         artifact
