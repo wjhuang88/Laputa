@@ -1,0 +1,43 @@
+name: Temporary E5b Cargo.lock refresh
+
+on:
+  push:
+    branches:
+      - feature/laputa-001-e5b-https-materialization
+    paths:
+      - .github/workflows/update-e5b-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feature/laputa-001-e5b-https-materialization
+
+      - name: Install Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup default 1.95.0
+
+      - name: Refresh Cargo.lock with Cargo
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo metadata --format-version 1 >/dev/null
+          git diff -- Cargo.lock
+          if git diff --quiet -- Cargo.lock; then
+            echo "Cargo.lock already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock
+          git commit -m "chore: refresh Cargo.lock for E5b integration test"
+          git push origin HEAD:feature/laputa-001-e5b-https-materialization
