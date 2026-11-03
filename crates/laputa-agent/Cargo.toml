@@ -17,6 +17,7 @@ talos-runtime.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+laputa-provider-runway = { path = "../laputa-provider-runway" }
 tempfile.workspace = true
 
 [lints]
