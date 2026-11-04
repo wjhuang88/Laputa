@@ -24,9 +24,9 @@ Laputa 不希望把传统专业剪辑软件简单“套一层 AI”，也不希�
 
 ## 当前状态
 
-产品治理、架构、V0.1 需求与 UI/UX 视觉基线已经建立。当前 `LAPUTA-001-A` 处于 **In Progress**：项目持久化、非破坏性混合媒体导入、媒体探测边界、自动化安全测试，以及 GPUI 项目创建/打开、系统文件选择导入和 Asset Browser 展示路径已经实现。
+截至 2026-11-04，Story **A/B/C/E 已 Complete/Closed**，包括 Story A 于 2026-10-20 获得用户“符合预期”确认的真实桌面导入/重开验收；Story E 的 E1–E5b 已闭环。Story **D / Issue #5** 已合并真实 GPUI Film Workspace、Preview 与 Scene Strip/Selection 产品接线，自动化 CI 通过，但**仍缺 MA-D-01 真实桌面人工交互验收**，因此保持 Open。Story F/G/H 尚未完成实现。
 
-Story A 目前唯一没有证据闭环的必需项是：在真实图形桌面上完成一次 **导入 → 关闭/重启 → 打开同一项目 → 素材清单仍可见** 的人工 smoke。因此不会仅因为 CI 能编译桌面程序就提前把 Story 标记为 Complete。
+所有当前需要你人工执行、未来才可执行以及可选的外部 API 真实烟测，统一记录在 **[人工验收台账](docs/acceptance/MANUAL-ACCEPTANCE.md)**。自动化 Xvfb/CI 结果不替代人工验收，也不需要重复验收已完成的 Story A。
 
 ### 桌面 GUI
 
@@ -56,7 +56,7 @@ cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- \
 
 当前 Asset Browser 先展示媒体类型、文件名以及可用的时长/尺寸元数据，不以缩略图生成扩大 Story A 范围。视觉层级遵循 [Laputa V0.1 UI/UX 基线](docs/design/UI-UX-VISION-v0.1.md)。
 
-当前尚未进入的能力包括素材 AI 理解、Talos First Cut、生成式媒体、可播放 Preview、真实 Scene Strip 编辑、Critic 和最终导出交互，它们仍按 `LAPUTA-001` 的 A→H 任务链渐进实现。
+目前素材理解、Talos First Cut、生成式媒体基础能力、真实 Preview/Scene Strip 均已实现；Story D 的最后人工确认尚未完成。完整 Selection 局部修改/直接操作（F）、Critic 有界修复（G）以及最终导出（H）仍按任务链逐步实现。
 
 ## 核心产品原则
 
@@ -146,16 +146,17 @@ Talos 不应感知 `Shot`、`Timeline`、Vlog、FFmpeg 或具体生成模型等 
 - [LAPUTA-001 MVP Epic](docs/backlog/active/LAPUTA-001-agentic-vlog-mvp.md)
 - [GitHub Issues](https://github.com/wjhuang88/Laputa/issues)
 - [项目治理与文档地图](docs/README.md)
+- [人工验收台账（含跨会话操作步骤）](docs/acceptance/MANUAL-ACCEPTANCE.md)
 - [Agent 开发规则](AGENTS.md)
 
 ## 当前 MVP 任务链
 
 - #1 `LAPUTA-001`：Agentic Consumer Vlog MVP
-- #2 `LAPUTA-001-A`：项目创建与非破坏性混合媒体导入（In Progress；基础与 GPUI 路径已实现，待人工桌面 smoke）
-- #3 `LAPUTA-001-B`：素材结构化理解与功能型 Provider
-- #4 `LAPUTA-001-C`：Talos 驱动的一句话 First Cut
-- #5 `LAPUTA-001-D`：Preview + Scene Strip + Selection 上下文
-- #6 `LAPUTA-001-E`：生成式派生媒体与异步 Job
+- #2 `LAPUTA-001-A`：Complete（2026-10-20 真实桌面人工验收已通过）
+- #3 `LAPUTA-001-B`：Complete（外部 Gemini smoke 可选）
+- #4 `LAPUTA-001-C`：Complete（真实 LLM smoke 可选）
+- #5 `LAPUTA-001-D`：In Progress（**MA-D-01 真实桌面人工验收待执行**）
+- #6 `LAPUTA-001-E`：Complete（E1–E5b；Runway live smoke 可选）
 - #7 `LAPUTA-001-F`：Selection 作用域修改与直接操作
 - #8 `LAPUTA-001-G`：Preview Critic 与有界自动修复
 - #9 `LAPUTA-001-H`：工程恢复与最终 MP4 导出
