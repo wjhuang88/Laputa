@@ -10,9 +10,9 @@ Laputa uses [Talos](https://github.com/wjhuang88/talos) as its embedded Agent Lo
 
 ## Current status
 
-The product, governance, V0.1 requirement, and UI/UX visual baselines are initialized. `LAPUTA-001-A` remains **In Progress**: project persistence, non-destructive mixed-media import, the media-probe boundary, automated safety tests, and the GPUI project-create/open, system file-picker import, and Asset Browser paths are implemented.
+Stories **A/B/C/E are Complete/Closed**, including Story A's real-desktop import/reopen smoke (user-confirmed on 2026-10-20) and Story E's deterministic Tool-to-materialization path. Story **D / Issue #5** has a real canonical GPUI Film Workspace with preview, Scene Strip and Selection merged and automated tests passing; its **only remaining closure gate** is real-desktop **human interaction acceptance (MA-D-01)**. Stories F/G/H are proposed.
 
-The one required Story A evidence row still missing is a real graphical-desktop smoke proving **import → close/relaunch → reopen the same project → imported inventory remains visible**. A successful headless CI build is intentionally not treated as that manual evidence.
+See the **[manual acceptance ledger](docs/acceptance/MANUAL-ACCEPTANCE.md)** for the pending real-desktop walkthrough, future Story F/H checks, completed Story A evidence, and optional credential-gated Gemini/Talos/Runway live API smokes. Do not treat automated Xvfb smoke as human acceptance.
 
 ### Desktop GUI
 
@@ -42,7 +42,7 @@ Desktop import uses the native multi-file picker and reuses `ffprobe` through th
 
 The first Asset Browser intentionally shows media kind, filename, and available duration/dimension metadata instead of expanding Story A into thumbnail-generation work. The visual hierarchy follows the [Laputa V0.1 UI/UX baseline](docs/design/UI-UX-VISION-v0.1.md).
 
-Media AI understanding, the Talos First Cut, generated media, playable Preview, real Scene Strip editing, Critic, and final export interaction remain later Stories in the `LAPUTA-001` A→H chain.
+Asset understanding, Talos First Cut, generative-media foundations, and the canonical playable Preview/Scene Strip are implemented. Selection-scoped editing/drag/trim/lock (F), Critic/repair (G), and final export (H) are later Stories; Story D's last real-desktop acceptance remains open.
 
 ## Product principles
 
