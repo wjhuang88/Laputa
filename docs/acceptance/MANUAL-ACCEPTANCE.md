@@ -20,12 +20,21 @@ Scope: `LAPUTA-001` V0.1 · Owner of Story status: `docs/backlog/active/` and ar
 - **Issue**：https://github.com/wjhuang88/Laputa/issues/5
 - **Story**：`docs/backlog/active/LAPUTA-001-D-preview-scene-strip.md`
 - **自动化已有证据**：PR #21 产品二进制在 Xvfb 中真实渲染、点击 Scene 02、校验 selection/default edit target；post-merge CI `40720360492` success。**这些不能替代下列真实桌面操作**。
-- **准备**：使用真实 GUI 桌面（非 Xvfb/截图回放）；安装 Rust 与 FFmpeg（`ffmpeg`/`ffprobe`）；准备一个**已存在可播放 first-cut FilmState / Scene Strip 的项目**，至少包含两个 Scene。只有原始素材而没有 first cut 的空项目不满足本验收前提。
-- **启动产品**（在仓库根目录，替换为实际项目路径）：
+- **准备**：使用真实 GUI 桌面（非 Xvfb/截图回放）；安装 Rust 1.95 与 FFmpeg（`ffmpeg`/`ffprobe`）；需要一个**已持久化 first-cut FilmState / Scene Strip 的项目**，至少包含两个 Scene。只有原始素材而没有 first cut 的空项目不满足本验收前提。
+- **推荐：在本机生成可复现、无私人素材的两段测试项目**（在仓库根目录执行；目标目录**及同名 `.sources` 目录都必须尚不存在**，重复执行请换一个新目录名）：
 
   ```sh
-  cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- open /absolute/path/to/existing-film-project
+  cargo run -p laputa-app --example workspace_fixture --locked -- /tmp/laputa-manual-d-01
   ```
+
+  此命令使用项目已有的 `crates/laputa-app/examples/workspace_fixture.rs` 和 FFmpeg，生成 `京都静景`（图片 1.5s）+ `街头漫步`（视频 2s），并写入项目 `.laputa/project.json` 与 `.laputa/film.json`；来源同现有 `product-workspace-smoke.yml`，**不是把 CI 的 GUI 操作当作人工确认**。可使用你自己的已完成 first-cut 项目替代，但请避免在截图中泄露个人媒体。
+- **在真实桌面启动产品**（直接打开上面创建的 fixture；如果用自己的项目，把路径替换掉）：
+
+  ```sh
+  cargo run -p laputa-app --features desktop-ui --bin laputa-desktop --locked -- open /tmp/laputa-manual-d-01
+  ```
+
+  fixture 总时长约 3.5 秒，`±5s` 快捷 seek 可能钳制到片头/片尾；按**实际时间范围内画面是否同步**判定，不要求跳出短片范围。
 
 - **逐项现场记录**（由用户实际操作后勾选；当前不得预填）：
   - [ ] **D-1 打开**：产品启动后加载该已有项目，显示真实影片 Stage、按顺序排列的 Scene Strip；无假数据或仅演示屏。
