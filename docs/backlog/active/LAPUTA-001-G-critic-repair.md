@@ -31,6 +31,10 @@ As a user who expects a useful automatic result, I want Laputa to notice obvious
   When issues remain  
   Then the loop stops and exposes unresolved issues instead of retrying indefinitely.
 
+## Future user walkthrough (not yet executable)
+
+**MA-G-01: FUTURE / NOT READY · PRODUCT WALKTHROUGH** in the [manual acceptance ledger](../../acceptance/MANUAL-ACCEPTANCE.md) covers issue presentation and understandable unresolved repairs once a real GUI exists. The Story's required schema, bounded-loop, and fixture acceptance remains automated; the walkthrough is **not an additional mandatory closure gate** unless explicitly approved in Story change control.
+
 ## Minimum validation
 
 Critique schema tests, bounded-loop tests, and one end-to-end proxy → critique → revision fixture.
