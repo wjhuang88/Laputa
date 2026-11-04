@@ -32,6 +32,10 @@ As a user, I want to close and reopen my project and export the current result, 
   When executed from import through one selection-based revision to export  
   Then no normal interaction requires provider/model/workflow selection.
 
+## Future manual end-to-end verification (not yet executable)
+
+**MA-H-01/MA-H-02: FUTURE / NOT READY** in the [manual acceptance ledger](../../acceptance/MANUAL-ACCEPTANCE.md) describe user-driven reopen/continue and playable 16:9/9:16 MP4 export checks. Execute only after the production paths are implemented. The deterministic fixture, FFprobe, playback and source-hash evidence remains mandatory independently of manual confirmation.
+
 ## Minimum validation
 
 End-to-end fixture test, output probe/playability check, project reopen check, and original-media hash evidence.
