@@ -2,7 +2,7 @@
 
 Parent: LAPUTA-001  
 Type: Product Story  
-Status: In Progress  
+Status: In Progress — awaiting MA-D-01 real-desktop human acceptance  
 Dependencies: LAPUTA-001-C  
 Decision links: `docs/decisions/ADR-0003-agent-first-consumer-interaction.md`
 
@@ -13,6 +13,12 @@ As a normal user, I want to watch the first cut and see its ordered scenes witho
 The current implementation begins with a **Film Workspace visual baseline checkpoint** before the remaining playback/selection behavior. The approved Simplified-Chinese `docs/design/assets/v0.1/03-workspace.jpg` is the high-fidelity target for this checkpoint.
 
 This sequencing change does not relax Story acceptance. The Story remains open until the behavioral criteria below are satisfied.
+
+## Required real-desktop acceptance — MA-D-01 (pending)
+
+**Human gate: NOT YET ACCEPTED.** The canonical `laputa-desktop` Film Workspace and automated Xvfb Scene Strip/selection checks are merged (PR #21; post-merge CI success). Real GUI user playback, seek, Selection, default edit target, and product-boundary confirmation are still required before Story D or Issue #5 can be closed.
+
+Follow **[MA-D-01 checklist](../../acceptance/MANUAL-ACCEPTANCE.md#1-当前需要你人工执行唯一已知阻塞项)**. The checklist owns executable steps, evidence fields, and PASS/FAIL/BLOCKED recording; do not infer completion from CI or from the already accepted visual checkpoint.
 
 ## Scope
 
