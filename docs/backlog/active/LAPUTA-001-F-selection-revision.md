@@ -35,6 +35,10 @@ As a normal user, I want to point at the part I dislike and say what should chan
   When the user drags B before A  
   Then project/timeline order changes accordingly without requiring an Agent turn.
 
+## Future manual verification (not yet executable)
+
+**MA-F-01 through MA-F-04: FUTURE / NOT READY.** Selection-scoped language mutation, direct reorder/trim/delete, lock/retain semantics, and derived “Try another” require real product GUI validation **after** the corresponding implementation merges. These are **not** Story D's existing Selection-context smoke and must not be pre-checked. See [manual acceptance ledger](../../acceptance/MANUAL-ACCEPTANCE.md).
+
 ## Minimum validation
 
 Scope-resolution tests plus GUI integration smoke checks for select/reorder/trim/delete/lock.
