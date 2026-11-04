@@ -22,14 +22,18 @@ Hard constraints and assumptions are owned by `docs/reference/PRODUCT-REQUIREMEN
 | --- | --- | --- | --- | --- |
 | LAPUTA-001-A | Project creation + non-destructive mixed-media import | Complete | None | `2026-10-16-project-media-foundation.md`; `2026-10-17-gpui-project-import.md` |
 | LAPUTA-001-B | Structured asset understanding via functional provider | Complete | LAPUTA-001-A | `2026-10-20-asset-understanding-foundation.md` |
-| LAPUTA-001-C | Talos-driven first-cut loop using Laputa tools | Ready | LAPUTA-001-A, LAPUTA-001-B | `2026-10-21-talos-first-cut.md` |
-| LAPUTA-001-D | Playable preview + scene-strip representation | Proposed | LAPUTA-001-C | - |
-| LAPUTA-001-E | Generative derived-media job/provider path | Proposed | LAPUTA-001-A, LAPUTA-001-C | - |
+| LAPUTA-001-C | Talos-driven first-cut loop using Laputa tools | Complete | LAPUTA-001-A, LAPUTA-001-B | `2026-10-21-talos-first-cut.md`; Issue #4 |
+| LAPUTA-001-D | Playable preview + scene-strip representation | In Progress — MA-D-01 human gate | LAPUTA-001-C | `2026-10-23-workspace-visual-baseline.md`; Issue #5 |
+| LAPUTA-001-E | Generative derived-media job/provider path | Complete | LAPUTA-001-A, LAPUTA-001-C | `2026-10-31-generative-media-foundation.md`; Issue #6 |
 | LAPUTA-001-F | Selection-scoped revisions, direct manipulation and locks | Proposed | LAPUTA-001-D | - |
 | LAPUTA-001-G | Structured critic + bounded repair loop | Proposed | LAPUTA-001-C, LAPUTA-001-D | - |
 | LAPUTA-001-H | Reopen/continue + final MP4 export | Proposed | LAPUTA-001-A through LAPUTA-001-G as required for integrated path | - |
 
-Stories A and B are dependency-closed. Story A has user-confirmed real-desktop import/reopen evidence; Story B has canonical provider-neutral understanding, revision-bound derived state, deterministic fake-provider coverage and clean branch/PR CI evidence. `LAPUTA-001-C` is now dependency-closed and refined Ready through the 2026-10-21 First Cut iteration plan; production work starts only after its published baseline is recorded.
+Stories A/B/C/E are Complete and closed. Story A includes user-confirmed real-desktop import/reopen evidence. Story D's canonical Film Workspace is integrated and automated product CI passed, but **MA-D-01 real-desktop human acceptance remains pending**, so Issue #5 stays open. F/G/H remain proposed and are not yet suitable for manual completion. Runway/Gemini/Talos paid or credentialed live smokes remain optional, unrun residuals rather than invented proof.
+
+## Human acceptance handoff
+
+See the central [manual acceptance ledger](../../acceptance/MANUAL-ACCEPTANCE.md) for **current required MA-D-01**, future MA-F/MA-H/MVP walkthroughs, and credential-gated optional smokes. Parent Epic closure requires the complete user-reachable integration path; automated fixture results alone do not assert a user actually completed that path. Actual user evidence must be recorded before human-gated boxes are checked.
 
 ## Epic completion condition
 

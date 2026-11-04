@@ -10,6 +10,10 @@ Testing follows risk and observable acceptance, not file count.
 - GUI behavior: focused interaction tests where possible plus manual/visual smoke evidence for playback, selection, drag/trim/lock flows.
 - External APIs: opt-in live smoke tests only when credentials exist; default CI must not depend on paid/network providers.
 
+## Manual acceptance evidence
+
+Use [`docs/acceptance/MANUAL-ACCEPTANCE.md`](../acceptance/MANUAL-ACCEPTANCE.md) to classify current human-blocking gates, future GUI checks, and credential-gated optional external smokes. A successful CI/Xvfb screenshot does not mark a real-desktop human gate PASS. Only actually performed manual checks may be recorded as accepted; preserve FAIL/BLOCKED/UNRUN distinctly.
+
 ## Hard gates
 
 - Any operation touching imported media must include evidence that supported paths do not overwrite originals.
