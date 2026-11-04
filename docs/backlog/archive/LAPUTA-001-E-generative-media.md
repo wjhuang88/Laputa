@@ -2,7 +2,9 @@
 
 Parent: LAPUTA-001  
 Type: Technical/API Story  
-Status: In Progress — E5b validation  
+Status: Complete  
+Closed: 2026-11-04  
+Issue: #6  
 Dependencies: LAPUTA-001-A, LAPUTA-001-C（both Complete）  
 Decision links: `docs/decisions/ADR-0002-functional-provider-abstraction.md`  
 Implementation iteration: `docs/iterations/2026-10-31-generative-media-foundation.md`
@@ -28,12 +30,12 @@ To support photo animation, generated transitions and missing visual material, L
 
 ## Acceptance
 
-- [ ] A Tool can request a derived generation without naming a vendor in its public schema.
-- [ ] Submitted/running/failed/cancelled jobs cannot be mistaken for completed artifacts.
-- [ ] Generated outputs preserve source/request/job lineage and provider operation metadata required by the V0.1 provenance contract.
-- [ ] Only terminal-success artifacts that pass materialization/validation are eligible for timeline use.
-- [ ] Failure can return an explicit failure or safe deterministic fallback without mutating originals.
-- [ ] Cancellation has an explicit durable state and does not fabricate a result artifact.
+- [x] A Tool can request a derived generation without naming a vendor in its public schema.
+- [x] Submitted/running/failed/cancelled jobs cannot be mistaken for completed artifacts.
+- [x] Generated outputs preserve source/request/job lineage and provider operation metadata required by the V0.1 provenance contract.
+- [x] Only terminal-success artifacts that pass materialization/validation are eligible for timeline use.
+- [x] Failure can return an explicit failure or safe deterministic fallback without mutating originals.
+- [x] Cancellation has an explicit durable state and does not fabricate a result artifact.
 
 ## Minimum validation
 
@@ -50,9 +52,17 @@ To support photo animation, generated transitions and missing visual material, L
 3. **E3 — Materialization/orchestration — Complete**: completed provider output is copied into project-owned derivatives, independently FFprobe-validated, hashed and only then published as an Artifact. PR #25 merged to `120e68004bde3576ab593c0b8c5eab1693e3f783`.
 4. **E4 — Coarse-grained Tool path — Complete**: `media.animate_photo` and `media.generate_broll` execute the E3 pipeline while keeping public Tool schemas free of provider/vendor/model/workflow/sampler controls. PR #26 merged to `5e8d3cdb7ae9b2e9c1cd8c6221c70206b0905e39`.
 5. **E5a — Runway external adapter — Complete**: isolated `laputa-provider-runway` adapter supports text-to-video and image-to-video behind the provider-neutral contract; live smoke remains opt-in via `RUNWAYML_API_SECRET`. PR #27 merged to `9f3662457655a58b9140dbdcb9459d65328a3f90`; post-merge main CI `41289213797` succeeded.
-6. **E5b — project-owned HTTPS materialization — In Review**: PR #28 wraps the Runway provider so successful HTTPS output is downloaded into `.laputa/provider-staging/runway/<task-id>/output.mp4` before the existing E3 local materialization and independent FFprobe publication gate. Deterministic cross-boundary coverage composes the project wrapper directly with `GenerateBrollTool` and verifies staging -> final derivative -> Artifact publication without real network access.
+6. **E5b — project-owned HTTPS materialization — Complete**: PR #28 squash merged to `9a677c9d9c5cd1df8763a7b384bbf1704216bd3a`. The Runway project wrapper stages temporary HTTPS output, then reuses E3's independent local materialization, FFprobe gate and Artifact publication. A deterministic fixture-fetcher test composes the wrapper with the real `GenerateBrollTool` → E3 path without network. Exact-head push CI `41647519486` and PR CI `41647530163` succeeded; post-merge main CI `41649040890` succeeded.
 
-Story E remains incomplete until PR #28 exact-head CI, review/merge gates and post-merge main CI are green. Only then are the acceptance checkboxes closed and the Story moved to `archive/`.
+Story E is Complete: PR #28 passed exact-head push/PR CI and the post-merge main validation gate, with no unresolved review threads. All six acceptance criteria are met through deterministic and project-owned publication evidence.
+
+## Closure evidence
+
+- E1/E2/E3/E4/E5a: PRs #23–#27 merged with their documented post-merge evidence.
+- E5b: [PR #28](https://github.com/wjhuang88/Laputa/pull/28) squash merged to `9a677c9d9c5cd1df8763a7b384bbf1704216bd3a` after exact-head push CI `41647519486` and PR CI `41647530163` both succeeded.
+- Post-merge main CI [`41649040890`](https://github.com/wjhuang88/Laputa/actions/runs/41649040890) succeeded, covering real FFmpeg fixture, fmt, workspace check, all-target/all-feature Clippy, tests, desktop and governance.
+- The deterministic Runway fixture-fetcher → `RunwayProjectVideoGenerationProvider` → `GenerateBrollTool` → E3 test proves staging does not count as an Artifact and confirms project-relative derivative publication with matching bytes/SHA-256 after the FFprobe gate.
+- Runtime/app does not yet select a configured Runway provider by default; the public composition API is proven at the real Tool boundary and no vendor selector or routing framework was introduced.
 
 ## Live external evidence residual
 

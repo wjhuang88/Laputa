@@ -1,6 +1,7 @@
 # Iteration — Generative Media Foundation
 
-Status: in progress — E5b final validation  
+Status: complete — Story E accepted  
+Closed: 2026-11-04  
 Date: 2026-10-31  
 Selected Story: `LAPUTA-001-E`  
 Issue: #6
@@ -20,7 +21,7 @@ This iteration intentionally proceeds while Story D remains open for one indepen
 - E3 durable generation orchestration merged by PR #25: `120e68004bde3576ab593c0b8c5eab1693e3f783`
 - E4 coarse-grained generation Tools merged by PR #26: `5e8d3cdb7ae9b2e9c1cd8c6221c70206b0905e39`; post-merge main CI `41285644832` success
 - E5a Runway adapter merged by PR #27: `9f3662457655a58b9140dbdcb9459d65328a3f90`; post-merge main CI `41289213797` success
-- E5b project-owned Runway HTTPS materialization is under PR #28
+- E5b project-owned Runway HTTPS materialization: PR #28 squash merged to `9a677c9d9c5cd1df8763a7b384bbf1704216bd3a`; exact-head push CI `41647519486` and PR CI `41647530163` success; post-merge main CI `41649040890` success
 - LAPUTA-001-A / Issue #2: Complete/Closed
 - LAPUTA-001-C / Issue #4: Complete/Closed
 - LAPUTA-001-D / Issue #5: product implementation and automated smoke complete; one real-desktop human acceptance residual remains
@@ -125,7 +126,7 @@ Evidence:
 - PR #27 squash merged to `9f3662457655a58b9140dbdcb9459d65328a3f90`;
 - post-merge main CI `41289213797` success.
 
-### E5b — project-owned HTTPS output materialization — In Review
+### E5b — project-owned HTTPS output materialization — Complete
 
 PR #28 closes the remaining external-output eligibility gap without changing E3/E4 architecture:
 
@@ -137,7 +138,7 @@ PR #28 closes the remaining external-output eligibility gap without changing E3/
 - E3 remains responsible for copying staging output to final `.laputa/derivatives/...`, independent FFprobe validation, SHA-256/byte length calculation and `DerivedArtifact` publication;
 - deterministic cross-boundary coverage injects a fixture fetcher (no real network), passes the project wrapper directly into `GenerateBrollTool`, and verifies project staging -> final derivative -> FFprobe-gated Artifact publication, including that the staging file itself is never the published Artifact.
 
-Prior implementation head `6b9ec1808a66c0d24fcafb6a2ad913a04ff162da` passed exact-head push CI `41290501640` and PR CI `41290506425`. The composition test and synchronized governance docs are being validated on the final PR #28 head before Ready/merge.
+The prior implementation head `6b9ec1808a66c0d24fcafb6a2ad913a04ff162da` passed exact-head push CI `41290501640` and PR CI `41290506425`. Final head `d7f59c852feddf2eebbc53eed5242937754a9ab5` passed push CI `41647519486` and PR CI `41647530163`; PR #28 was marked Ready with no unresolved threads, squash merged to `9a677c9d9c5cd1df8763a7b384bbf1704216bd3a`, and post-merge main CI `41649040890` succeeded. The deterministic Tool → E3 composition proof runs in those checks and requires no real network.
 
 ## Validation plan
 
@@ -167,6 +168,12 @@ Minimum deterministic validation:
 - At least `media.animate_photo` plus one transition/B-roll path is wired through the product Tool surface.
 - One real external adapter fits the provider-neutral lifecycle without requiring provider/model/workflow selectors in normal Tool/user flow.
 - External temporary HTTPS output is first made project-owned and then traverses the existing E3 validation/publication gate.
+
+## Final Story E closure decision
+
+**Complete (2026-11-04):** All Story E acceptance checks are satisfied. E1–E5b are merged; real `GenerateBrollTool` composition with the Runway project wrapper and E3 validates staging → derivative → FFprobe → Artifact with deterministic fixtures. Post-merge main CI `41649040890` is green. Provider completion alone never makes an Artifact timeline-eligible. This closes Issue #6 without entering F/G/H or Story D.
+
+**Evidence distinction:** This is deterministic integration and CI evidence, not a claim that a paid Runway live generation was executed. The existing opt-in smoke remains credential-unavailable until `RUNWAYML_API_SECRET` is supplied.
 
 ## Live external evidence residual
 
