@@ -410,7 +410,10 @@ mod tests {
         assert_eq!(state.revision_scope(None)?, RevisionScope::Scene(second));
         state.seek(0);
         assert_eq!(state.revision_scope(None)?, RevisionScope::Scene(second));
-        assert_eq!(state.revision_scope(Some(RevisionScope::Project))?, RevisionScope::Project);
+        assert_eq!(
+            state.revision_scope(Some(RevisionScope::Project))?,
+            RevisionScope::Project
+        );
         assert_eq!(
             state.revision_scope(Some(RevisionScope::Scene(first)))?,
             RevisionScope::Scene(first)
