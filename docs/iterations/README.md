@@ -6,6 +6,8 @@ Use `docs/sop/START-ITERATION.md` to create a new iteration record and `docs/sop
 
 Current/latest records:
 
+- `2026-11-06-selection-revision-core.md` — planned/active F1 deterministic revision slice; Story D human gate remains open and Story F is not complete.
+
 - `2026-10-31-generative-media-foundation.md` — complete; Story E / Issue #6 archived and closed (E1–E5b), credential-gated Runway live smoke explicitly unrun and optional.
 - `2026-10-23-workspace-visual-baseline.md` — complete for its visual-baseline goal; Story D retains a separate final real-desktop acceptance residual in Issue #5.
 
