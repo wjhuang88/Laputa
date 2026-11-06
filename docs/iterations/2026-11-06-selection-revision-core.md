@@ -1,6 +1,6 @@
 # Iteration — Selection Revision Core (F1)
 
-Status: planned — F1 technical slice; Story F remains open  
+Status: partial — F1 technical implementation delivered to PR #31; Story F remains open  
 Date: 2026-11-06  
 Selected Story: `LAPUTA-001-F` / Issue #7 (F1 only)  
 Published planning baseline: `main` `948f43abf75615f96332ac386b8e3cd4717d5063`
@@ -38,6 +38,18 @@ Deliver the **smallest deterministic, persisted edit core** shared by future Tal
 - Baseline exact-head push/PR CI: FFmpeg render fixture, fmt/check/clippy workspace/desktop tests and project governance. Record real run IDs/results here after execution.
 - Real desktop **MA-D-01 / MA-F-01…04 remain UNRUN**. No human check is inferred from CI.
 
-## Evidence / disposition
+## Implemented F1 checkpoint (2026-11-06)
 
-Pending implementation and CI. Publish verified results here on the same branch before merge. The Story, Epic, Product Backlog and #7 must not claim F1 completes all Story F acceptance.
+- The initial implementation and tests are in [PR #31](https://github.com/wjhuang88/Laputa/pull/31). Code head `7f47e644389b0004c0f41b53f2cf92442967fffd` has **push CI [42181097639](https://github.com/wjhuang88/Laputa/actions/runs/42181097639) completed / success**.
+- Initial PR CI `42180780604` failed **only at `cargo fmt --all -- --check`**, after FFmpeg fixture success. Its exact Rustfmt hunks were applied, then branch rerun. No code behavior change was made for that formatting correction.
+- The same code head's PR CI is [42181103778](https://github.com/wjhuang88/Laputa/actions/runs/42181103778); its outcome must be checked on GitHub before merge. Subsequent documentation-only updates require **fresh exact-head CI**; do not substitute these earlier run IDs for the new head.
+- Source files: `crates/laputa-timeline/src/lib.rs`, `crates/laputa-timeline/src/revision.rs`, `crates/laputa-app/src/workspace_state.rs`. Verified in source: legacy Scene lock defaults false, candidate-first revision, scene ID/source preservation, atomic FilmStore save boundary, existing Selection-based scope.
+- Added tests: explicit vs selected vs global scope, stale ID rejection, reordered/stable scene identity, source-bound trim, last-scene deletion rejection, orphaned-beat prune, user unlock and autonomous lock guard, legacy schema-v1 JSON, disk reopen/failed-revision rollback, unchanged original fixture bytes, and D Workspace Selection context.
+- No vendor/model/tool routing changes, no use of paid credentials, no actual GUI drag/trim/lock, and no live/manual claim.
+
+## Disposition and continuation
+
+**Partial**: this technical F1 slice is implemented and submitted for validation; Story F itself is **not** Complete. Required later work is F2 Talos `timeline.edit` / explicit natural-language scope, F3 GPUI direct controls and preview invalidation, F4 verified variant retry/product end-to-end path. Do not close #7 or check any of its acceptance criteria yet. Real-desktop **MA-D-01** and future **MA-F-01…04** remain pending in the central manual acceptance ledger.
+
+Final PR exact-head and post-merge main CI outcomes should be recorded on [Issue #7](https://github.com/wjhuang88/Laputa/issues/7) after they actually finish; they are not inferred from earlier runs.
+
