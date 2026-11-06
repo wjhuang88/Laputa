@@ -1,5 +1,7 @@
 //! Laputa-owned editorial state and timeline intermediate representation.
 
+pub mod revision;
+
 use std::{
     collections::{HashMap, HashSet},
     fmt,
@@ -93,6 +95,9 @@ pub struct Scene {
     pub asset_id: AssetId,
     pub title: String,
     pub source: SceneSource,
+    /// Persisted retain/lock flag. Missing in Story C schema-v1 files means unlocked.
+    #[serde(default)]
+    pub locked: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -161,6 +166,7 @@ impl FilmState {
                 asset_id: scene.asset_id,
                 title: scene.title,
                 source: scene.source,
+                locked: false,
             });
         }
 
