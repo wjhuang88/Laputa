@@ -2,11 +2,23 @@
 
 Parent: LAPUTA-001  
 Type: Product Story  
-Status: Proposed  
+Status: In Progress — F1 technical core only; Story completion pending D/GUI/Talos acceptance  
 Dependencies: LAPUTA-001-D  
 Decision links: `docs/decisions/ADR-0003-agent-first-consumer-interaction.md`
 
 As a normal user, I want to point at the part I dislike and say what should change, so that I can refine the video without learning editing commands.
+
+## Execution state — 2026-11-06
+
+**F1 (technical-only) in progress** under [2026-11-06 selection revision iteration](../../iterations/2026-11-06-selection-revision-core.md). `LAPUTA-001-D / #5` remains Open for **MA-D-01 real-desktop human acceptance**. Its production Scene Strip and Selection code are already merged; F1 may depend on those exact technical contracts **without claiming human acceptance of D**. This is a bounded foundation exception under the iteration SOP; all Story F user acceptance remains unfulfilled until product GUI/Talos wiring.
+
+F1 implements:
+- typed scope precedence (explicit overrides selected Scene; no Selection defaults Project; stale ID rejects);
+- validated non-destructive reorder, trim, delete and persisted retain/lock for canonical `FilmState`, with backward-compatible schema-v1 read;
+- project-local `FilmStore` edit-and-save path, fixture tests for rollback, reopen, original bytes and lock invariants;
+- `WorkspaceState` Selection → revision scope projection, intentionally distinct from playback current Scene.
+
+**Remaining F2/F3/F4:** Talos `timeline.edit` and language integration, Scene Strip direct GUI editing/preview refresh, variant retry, real product interaction and MA-F-01…04. The F1 core alone does **not** fulfill the Given/When/Then user-facing Story acceptance.
 
 ## Scope
 
