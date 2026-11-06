@@ -29,7 +29,10 @@ pub fn resolve_revision_scope(
         .unwrap_or(RevisionScope::Project);
     if let RevisionScope::Scene(scene_id) = scope {
         ensure!(
-            film.timeline.scenes.iter().any(|scene| scene.id == scene_id),
+            film.timeline
+                .scenes
+                .iter()
+                .any(|scene| scene.id == scene_id),
             "revision target scene {scene_id:?} does not exist"
         );
     }
@@ -126,8 +129,12 @@ impl FilmState {
 
                 // FilmState requires every StoryBeat to remain represented. Drop only
                 // orphaned beats; keep surviving Beat IDs and all other Scene IDs stable.
-                let surviving: std::collections::HashSet<_> =
-                    next.timeline.scenes.iter().map(|scene| scene.beat_id).collect();
+                let surviving: std::collections::HashSet<_> = next
+                    .timeline
+                    .scenes
+                    .iter()
+                    .map(|scene| scene.beat_id)
+                    .collect();
                 next.story.beats.retain(|beat| surviving.contains(&beat.id));
             }
             RevisionAction::SetLocked { scene_id, locked } => {
@@ -201,9 +208,7 @@ mod tests {
     use anyhow::Result;
     use laputa_domain::{Asset, AssetId, AssetTechnicalMetadata, MediaKind, ProjectManifest};
 
-    use super::{
-        RevisionAction, RevisionOrigin, RevisionScope, resolve_revision_scope,
-    };
+    use super::{RevisionAction, RevisionOrigin, RevisionScope, resolve_revision_scope};
     use crate::{
         FilmDraft, FilmState, FilmStore, IntentDraft, SceneDraft, SceneId, SceneSource,
         StoryBeatDraft, StoryDraft,
@@ -294,7 +299,10 @@ mod tests {
         let (_project, film) = film_fixture(temp.path())?;
         let selected = film.timeline.scenes[1].id;
 
-        assert_eq!(resolve_revision_scope(&film, None, None)?, RevisionScope::Project);
+        assert_eq!(
+            resolve_revision_scope(&film, None, None)?,
+            RevisionScope::Project
+        );
         assert_eq!(
             resolve_revision_scope(&film, Some(selected), None)?,
             RevisionScope::Scene(selected)
@@ -305,11 +313,7 @@ mod tests {
         );
         let first = film.timeline.scenes[0].id;
         assert_eq!(
-            resolve_revision_scope(
-                &film,
-                Some(selected),
-                Some(RevisionScope::Scene(first))
-            )?,
+            resolve_revision_scope(&film, Some(selected), Some(RevisionScope::Scene(first)))?,
             RevisionScope::Scene(first)
         );
         assert!(resolve_revision_scope(&film, Some(SceneId::new()), None).is_err());
@@ -354,7 +358,10 @@ mod tests {
             RevisionOrigin::User,
         )?;
         assert_eq!(trimmed.timeline.duration_ms(), 4_000);
-        assert_eq!(trimmed.timeline.scenes[0].asset_id, film.timeline.scenes[1].asset_id);
+        assert_eq!(
+            trimmed.timeline.scenes[0].asset_id,
+            film.timeline.scenes[1].asset_id
+        );
 
         let deleted = trimmed.revised(
             &project,
@@ -365,12 +372,13 @@ mod tests {
         assert_eq!(deleted.story.beats.len(), 1);
         assert_eq!(deleted.timeline.scenes[0].id, second);
         assert!(
-            deleted.revised(
-                &project,
-                RevisionAction::Delete { scene_id: second },
-                RevisionOrigin::User,
-            )
-            .is_err()
+            deleted
+                .revised(
+                    &project,
+                    RevisionAction::Delete { scene_id: second },
+                    RevisionOrigin::User,
+                )
+                .is_err()
         );
         Ok(())
     }
@@ -393,46 +401,46 @@ mod tests {
 
         for origin in [RevisionOrigin::User, RevisionOrigin::Automatic] {
             assert!(
-                locked.revised(
-                    &project,
-                    RevisionAction::Trim {
-                        scene_id: first,
-                        source: SceneSource::Image { duration_ms: 1_000 },
-                    },
-                    origin,
-                )
-                .is_err()
+                locked
+                    .revised(
+                        &project,
+                        RevisionAction::Trim {
+                            scene_id: first,
+                            source: SceneSource::Image { duration_ms: 1_000 },
+                        },
+                        origin,
+                    )
+                    .is_err()
             );
             assert!(
-                locked.revised(
-                    &project,
-                    RevisionAction::Delete { scene_id: first },
-                    origin,
-                )
-                .is_err()
+                locked
+                    .revised(&project, RevisionAction::Delete { scene_id: first }, origin,)
+                    .is_err()
             );
         }
         assert!(
-            locked.revised(
-                &project,
-                RevisionAction::Reorder {
-                    scene_id: second,
-                    before: Some(first),
-                },
-                RevisionOrigin::Automatic,
-            )
-            .is_err()
+            locked
+                .revised(
+                    &project,
+                    RevisionAction::Reorder {
+                        scene_id: second,
+                        before: Some(first),
+                    },
+                    RevisionOrigin::Automatic,
+                )
+                .is_err()
         );
         assert!(
-            locked.revised(
-                &project,
-                RevisionAction::SetLocked {
-                    scene_id: first,
-                    locked: false,
-                },
-                RevisionOrigin::Automatic,
-            )
-            .is_err()
+            locked
+                .revised(
+                    &project,
+                    RevisionAction::SetLocked {
+                        scene_id: first,
+                        locked: false,
+                    },
+                    RevisionOrigin::Automatic,
+                )
+                .is_err()
         );
 
         let unlocked = locked.revised(
@@ -445,15 +453,16 @@ mod tests {
         )?;
         assert!(!unlocked.timeline.scenes[0].locked);
         assert!(
-            unlocked.revised(
-                &project,
-                RevisionAction::Trim {
-                    scene_id: first,
-                    source: SceneSource::Image { duration_ms: 1_000 },
-                },
-                RevisionOrigin::Automatic,
-            )
-            .is_ok()
+            unlocked
+                .revised(
+                    &project,
+                    RevisionAction::Trim {
+                        scene_id: first,
+                        source: SceneSource::Image { duration_ms: 1_000 },
+                    },
+                    RevisionOrigin::Automatic,
+                )
+                .is_ok()
         );
         Ok(())
     }
@@ -467,7 +476,10 @@ mod tests {
             .as_array_mut()
             .expect("canonical scenes array")
         {
-            scene.as_object_mut().expect("scene object").remove("locked");
+            scene
+                .as_object_mut()
+                .expect("scene object")
+                .remove("locked");
         }
         let legacy: FilmState = serde_json::from_value(value)?;
         assert!(legacy.timeline.scenes.iter().all(|scene| !scene.locked));
@@ -477,7 +489,8 @@ mod tests {
     }
 
     #[test]
-    fn persisted_edits_reopen_and_errors_do_not_replace_committed_film_or_originals() -> Result<()> {
+    fn persisted_edits_reopen_and_errors_do_not_replace_committed_film_or_originals() -> Result<()>
+    {
         let temp = tempfile::tempdir()?;
         let (project, film) = film_fixture(temp.path())?;
         let store = FilmStore::at(temp.path());
@@ -512,25 +525,27 @@ mod tests {
         let committed_bytes = fs::read(store.path())?;
 
         assert!(
-            store.apply_revision(
-                &project,
-                RevisionAction::Trim {
-                    scene_id: first,
-                    source: SceneSource::Image { duration_ms: 0 },
-                },
-                RevisionOrigin::User,
-            )
-            .is_err()
+            store
+                .apply_revision(
+                    &project,
+                    RevisionAction::Trim {
+                        scene_id: first,
+                        source: SceneSource::Image { duration_ms: 0 },
+                    },
+                    RevisionOrigin::User,
+                )
+                .is_err()
         );
         assert!(
-            store.apply_revision(
-                &project,
-                RevisionAction::Delete {
-                    scene_id: SceneId::new(),
-                },
-                RevisionOrigin::User,
-            )
-            .is_err()
+            store
+                .apply_revision(
+                    &project,
+                    RevisionAction::Delete {
+                        scene_id: SceneId::new(),
+                    },
+                    RevisionOrigin::User,
+                )
+                .is_err()
         );
         assert_eq!(fs::read(store.path())?, committed_bytes);
         assert_eq!(store.load(&project)?, Some(locked));
