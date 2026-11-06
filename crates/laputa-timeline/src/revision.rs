@@ -196,12 +196,10 @@ fn ensure_unlocked(film: &FilmState, index: usize) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::PathBuf};
+    use std::fs;
 
     use anyhow::Result;
-    use laputa_domain::{
-        Asset, AssetId, AssetTechnicalMetadata, MediaKind, ProjectManifest,
-    };
+    use laputa_domain::{Asset, AssetId, AssetTechnicalMetadata, MediaKind, ProjectManifest};
 
     use super::{
         RevisionAction, RevisionOrigin, RevisionScope, resolve_revision_scope,
@@ -540,7 +538,10 @@ mod tests {
         for (asset, original) in project.assets.iter().zip(originals) {
             assert_eq!(fs::read(&asset.original_path)?, original);
         }
-        assert_eq!(project.assets[0].original_path, PathBuf::from(temp.path().join("source-photo.jpg")));
+        assert_eq!(
+            project.assets[0].original_path,
+            temp.path().join("source-photo.jpg")
+        );
         Ok(())
     }
 }
