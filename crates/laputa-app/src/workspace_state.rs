@@ -2,7 +2,10 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use laputa_domain::{AssetId, MediaKind, ProjectManifest};
-use laputa_timeline::{FilmState, SceneId, SceneSource};
+use laputa_timeline::{
+    FilmState, SceneId, SceneSource,
+    revision::{RevisionScope, resolve_revision_scope},
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PreviewSource {
@@ -209,6 +212,12 @@ impl WorkspaceState {
         }
     }
 
+    /// Use the same selected scene as CommandContext; explicit user scope wins.
+    /// The playhead is never treated as an editing target.
+    pub fn revision_scope(&self, explicit: Option<RevisionScope>) -> Result<RevisionScope> {
+        resolve_revision_scope(&self.film, self.selected_scene, explicit)
+    }
+
     #[must_use]
     pub fn scene_at_playhead(&self) -> &SceneStripItem {
         if self.playhead_ms >= self.duration_ms() {
@@ -245,6 +254,7 @@ mod tests {
     use laputa_domain::{Asset, AssetId, AssetTechnicalMetadata, MediaKind, ProjectManifest};
     use laputa_timeline::{
         FilmDraft, FilmState, IntentDraft, SceneDraft, SceneSource, StoryBeatDraft, StoryDraft,
+        revision::RevisionScope,
     };
 
     use super::{DefaultEditTarget, PreviewSource, WorkspaceState};
@@ -385,6 +395,28 @@ mod tests {
             state.command_context().default_target,
             DefaultEditTarget::Project
         );
+        Ok(())
+    }
+
+    #[test]
+    fn selection_scope_is_project_by_default_and_explicit_language_wins() -> Result<()> {
+        let (project, film) = fixture()?;
+        let mut state = WorkspaceState::from_film(&project, film)?;
+        let first = state.scene_strip()[0].scene_id;
+        let second = state.scene_strip()[1].scene_id;
+
+        assert_eq!(state.revision_scope(None)?, RevisionScope::Project);
+        state.select_scene(second)?;
+        assert_eq!(state.revision_scope(None)?, RevisionScope::Scene(second));
+        state.seek(0);
+        assert_eq!(state.revision_scope(None)?, RevisionScope::Scene(second));
+        assert_eq!(state.revision_scope(Some(RevisionScope::Project))?, RevisionScope::Project);
+        assert_eq!(
+            state.revision_scope(Some(RevisionScope::Scene(first)))?,
+            RevisionScope::Scene(first)
+        );
+        state.clear_selection();
+        assert_eq!(state.revision_scope(None)?, RevisionScope::Project);
         Ok(())
     }
 
