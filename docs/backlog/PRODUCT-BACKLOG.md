@@ -21,7 +21,7 @@ The canonical human-test checklist is [`docs/acceptance/MANUAL-ACCEPTANCE.md`](.
 | --- | --- | --- | --- | --- | --- |
 | LAPUTA-001 | Epic | Prove the end-to-end agentic consumer Vlog MVP | Refined | Validate the simple “add → intent → first cut → revise → export” interaction before local-model deployment | `active/LAPUTA-001-agentic-vlog-mvp.md`, product requirements, architecture |
 | LAPUTA-001-D | Story | User can preview and inspect the first cut as a scene strip | In Progress — final real-desktop acceptance | Canonical product binding is merged and automated product smoke is green; only real-desktop human interaction acceptance MA-D-01 remains | `active/LAPUTA-001-D-preview-scene-strip.md`, ADR-0003, `../design/UI-UX-VISION-v0.1.md` |
-| LAPUTA-001-F | Story | User can revise selected content with language/direct manipulation and locks | In Progress — F1 merged, F2 Talos revision | F1 merged (#31); F2 Tool/Runtime in progress; D MA-D-01 and F GUI/variant acceptance remain pending | `active/LAPUTA-001-F-selection-revision.md`, ADR-0003 |
+| LAPUTA-001-F | Story | User can revise selected content with language/direct manipulation and locks | In Progress — F1/F2 merged, F3/F4 pending | F1 (#31) and F2 (#32) technical checkpoints merged; D MA-D-01 and F GUI/variant/manual acceptance remain pending | `active/LAPUTA-001-F-selection-revision.md`, ADR-0003 |
 | LAPUTA-001-G | Story | Laputa can critique a preview and apply bounded repair | Proposed | Requires C+D and analysis provider | `active/LAPUTA-001-G-critic-repair.md`, ADR-0001, ADR-0002 |
 | LAPUTA-001-H | Story | User can reopen a project and export a valid final MP4 | Proposed | Integration closure across A-G | `active/LAPUTA-001-H-persistence-export.md`, product requirements |
 
