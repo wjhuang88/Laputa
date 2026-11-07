@@ -3,7 +3,10 @@
 //! Tools only stage a candidate. A successful Talos turn is required before the
 //! runner writes one FilmState; a failed turn never leaves a partial edit behind.
 
-use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 
 use anyhow::{Context, Result, bail, ensure};
 use async_trait::async_trait;
@@ -85,15 +88,12 @@ impl AgentTool for TimelineGetTool {
         if input != json!({}) {
             return ToolResult::error("timeline.get accepts no arguments");
         }
-        let default_scope = match resolve_revision_scope(
-            &self.turn.film,
-            self.turn.selected_scene,
-            None,
-        ) {
-            Ok(RevisionScope::Project) => "project",
-            Ok(RevisionScope::Scene(_)) => "selected_scene",
-            Err(error) => return ToolResult::error(error.to_string()),
-        };
+        let default_scope =
+            match resolve_revision_scope(&self.turn.film, self.turn.selected_scene, None) {
+                Ok(RevisionScope::Project) => "project",
+                Ok(RevisionScope::Scene(_)) => "selected_scene",
+                Err(error) => return ToolResult::error(error.to_string()),
+            };
         self.turn.state.inspected.store(true, Ordering::SeqCst);
         let film = &self.turn.film;
         let scenes: Vec<_> = film
@@ -147,8 +147,8 @@ impl TimelineEditTool {
             self.turn.state.inspected.load(Ordering::SeqCst),
             "inspect timeline.get before preparing a revision"
         );
-        let input: EditInput = serde_json::from_value(value)
-            .context("invalid timeline.edit input")?;
+        let input: EditInput =
+            serde_json::from_value(value).context("invalid timeline.edit input")?;
 
         ensure!(
             !has_negative_instruction(&self.turn.request),
@@ -173,11 +173,8 @@ impl TimelineEditTool {
         } else {
             None
         };
-        let resolved = resolve_revision_scope(
-            &self.turn.film,
-            self.turn.selected_scene,
-            explicit_scope,
-        )?;
+        let resolved =
+            resolve_revision_scope(&self.turn.film, self.turn.selected_scene, explicit_scope)?;
         let mut next = self.turn.film.clone();
 
         match (input.operation, resolved) {
@@ -206,7 +203,10 @@ impl TimelineEditTool {
                     .filter(|scene| !scene.locked)
                     .map(|scene| (scene.id, scene.source.clone()))
                     .collect();
-                ensure!(!unlocked.is_empty(), "all scenes are locked; no edit staged");
+                ensure!(
+                    !unlocked.is_empty(),
+                    "all scenes are locked; no edit staged"
+                );
                 for (scene_id, source) in unlocked {
                     next = next.revised(
                         &self.turn.project,
@@ -241,7 +241,10 @@ impl TimelineEditTool {
             .prepared
             .lock()
             .map_err(|_| anyhow::anyhow!("revision staging mutex is poisoned"))?;
-        ensure!(prepared.is_none(), "only one edit is permitted per Talos turn");
+        ensure!(
+            prepared.is_none(),
+            "only one edit is permitted per Talos turn"
+        );
         *prepared = Some(next);
 
         Ok(json!({
@@ -350,9 +353,20 @@ fn shorten_source(source: &SceneSource) -> Result<SceneSource> {
 fn explicitly_whole_video(request: &str) -> bool {
     let request = request.to_lowercase();
     [
-        "整个视频", "整部视频", "整部影片", "整段视频", "整部片", "全片",
-        "所有片段", "全部片段", "whole video", "entire video",
-        "whole film", "entire film", "all scenes", "all clips"
+        "整个视频",
+        "整部视频",
+        "整部影片",
+        "整段视频",
+        "整部片",
+        "全片",
+        "所有片段",
+        "全部片段",
+        "whole video",
+        "entire video",
+        "whole film",
+        "entire film",
+        "all scenes",
+        "all clips",
     ]
     .iter()
     .any(|phrase| request.contains(phrase))
@@ -360,20 +374,18 @@ fn explicitly_whole_video(request: &str) -> bool {
 
 fn has_negative_instruction(request: &str) -> bool {
     let request = request.to_lowercase();
-    ["不要", "别", "不许", "禁止", "do not", "don't", "not ", "never"]
-        .iter()
-        .any(|phrase| request.contains(phrase))
+    [
+        "不要", "别", "不许", "禁止", "do not", "don't", "not ", "never",
+    ]
+    .iter()
+    .any(|phrase| request.contains(phrase))
 }
 
 fn operation_supported_by_request(request: &str, operation: EditOperation) -> bool {
     let request = request.to_lowercase();
     let phrases: &[&str] = match operation {
-        EditOperation::Shorten => &[
-            "缩短", "短一点", "短一些", "剪短", "更短", "short", "trim",
-        ],
-        EditOperation::Delete => &[
-            "删除", "删掉", "删了", "移除", "去掉", "delete", "remove",
-        ],
+        EditOperation::Shorten => &["缩短", "短一点", "短一些", "剪短", "更短", "short", "trim"],
+        EditOperation::Delete => &["删除", "删掉", "删了", "移除", "去掉", "delete", "remove"],
     };
     phrases.iter().any(|phrase| request.contains(phrase))
 }
