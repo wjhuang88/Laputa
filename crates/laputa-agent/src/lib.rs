@@ -4,6 +4,8 @@ pub mod first_cut;
 pub mod first_cut_runtime;
 pub mod generation_orchestration;
 pub mod generation_tools;
+pub mod revision_runtime;
+pub mod revision_tools;
 
 use anyhow::{Context, Result, anyhow, bail};
 use laputa_domain::{AssetAnalysis, AssetAnalysisState, AssetId};
