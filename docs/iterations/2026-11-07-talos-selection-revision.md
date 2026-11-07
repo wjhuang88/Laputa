@@ -1,6 +1,6 @@
 # Iteration — Talos Selection Revision Tool (F2)
 
-Status: planned — bounded technical F2 slice, Story F remains open  
+Status: partial — F2 Tool/Runner implementation and tests submitted in PR #32; Story F remains open  
 Date: 2026-11-07  
 Selected Story: `LAPUTA-001-F` / Issue #7 (F2 only)  
 Baseline: `main` `ca3609034287d51801e4d624227be317ceb6efb3` (PR #31 F1 merged; post-merge CI 42183222768 success)
@@ -34,6 +34,17 @@ Story D / #5 remains open for MA-D-01 real-desktop interaction. F2 is a **bounde
 - Evidence requires exact PR head CI, PR review and merge status; final post-merge main CI checked separately.
 - Manual MA-D-01 and MA-F-01…04 remain **UNRUN**, F2 alone is not Story F closure.
 
-## Checkpoints / evidence
+## Implemented checkpoint / observed CI (2026-11-07)
 
-Pending implementation, test execution and PR. Record observed results here or in Issue #7; preserve original baseline.
+- **[PR #32](https://github.com/wjhuang88/Laputa/pull/32)** implements `TimelineGetTool`, `TimelineEditTool`, `RevisionRunner` and publishes the modules under `laputa-agent`. No changes were made to Talos Runtime, original media, provider contracts or default GPUI behavior.
+- A real `RuntimeBuilder` running against a deterministic scripted `LanguageModel` exercises Tool inspection, scoped edit staging and a one-time FilmStore write after success. Negative cases verify that malformed/unsupported edits, invented global scope, an incomplete turn, repeated Tool calls and uninspected editing cannot leave partial state. No model network calls or private credentials were used.
+- First CI head `d7a5bc9b0e1f545eccb350b8eda2c6da32f39264` failed at `cargo fmt --all -- --check` (after FFmpeg fixture success); exact Rustfmt diffs were applied in the two new Rust files. This is **not** a behavioral test failure.
+- Corrected code head `e01dcadb271cd74eb6dbe61c744adcead2c88515` passed exact-head [push CI #42341440961](https://github.com/wjhuang88/Laputa/actions/runs/42341440961) **success** and [PR CI #42341443001](https://github.com/wjhuang88/Laputa/actions/runs/42341443001) **success**.
+- Follow-up regression tests explicitly cover no Selection → Project default and locked selected Scene rejection. **Do not substitute the preceding CI results for the newest head**; later tests/documentation commits require their own push/PR CI before merge.
+- `timeline.edit` in F2 intentionally supports only shorten and delete selected; 20% shortening is an unvalidated UX default, color/warmth instructions are unsupported, and a literal scope keyword guard is conservative rather than general natural-language understanding.
+- **No product GUI human acceptance was performed.** MA-D-01 remains CURRENT/REQUIRED; MA-F-01…04 remain FUTURE/NOT READY. F3 command/preview wiring, F3 direct editing, F4 generated variants and Story F acceptance remain outstanding.
+
+## Disposition / next steps
+
+**Partial**: This is a bounded technical integration checkpoint, not full Story F and not yet a merged/accepted PR at the time of this evidence entry. After final exact-head PR/push CI pass, review/merge PR #32 with expected head and inspect post-merge main CI. Record final merge/evidence in Issue #7; keep all user-facing acceptance checkboxes unchecked until actual F3/F4 implementation and human verification.
+
