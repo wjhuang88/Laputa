@@ -442,6 +442,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rejected_second_tool_call_aborts_prepared_first_edit() -> Result<()> {
+        let (_temp, store, before) = fixture()?;
+        let selected = before.timeline.scenes[1].id;
+        let provider = ScriptedProvider::new()
+            .with_tool_call("get-1", TIMELINE_GET_TOOL, json!({}))
+            .with_tool_call("edit-1", TIMELINE_EDIT_TOOL, json!({"operation":"shorten"}))
+            .with_tool_call("edit-2", TIMELINE_EDIT_TOOL, json!({"operation":"delete"}))
+            .with_response("Done");
+        let result = runner(&store, provider)
+            .run("把这里短一点", Some(selected))
+            .await;
+        assert!(result.is_err());
+        assert_eq!(FilmStore::at(store.root()).load(&store.open()?)?, Some(before));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn editing_without_first_inspecting_is_rejected() -> Result<()> {
+        let (_temp, store, before) = fixture()?;
+        let selected = before.timeline.scenes[1].id;
+        let provider = ScriptedProvider::new()
+            .with_tool_call("edit-1", TIMELINE_EDIT_TOOL, json!({"operation":"shorten"}))
+            .with_response("Done");
+        assert!(runner(&store, provider).run("把这里短一点", Some(selected)).await.is_err());
+        assert_eq!(FilmStore::at(store.root()).load(&store.open()?)?, Some(before));
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn no_tool_call_or_stale_selection_does_not_mutate_film() -> Result<()> {
         let (_temp, store, before) = fixture()?;
         let no_tool = ScriptedProvider::new().with_response("I did it");
