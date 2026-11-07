@@ -23,6 +23,7 @@ pub const TIMELINE_EDIT_TOOL: &str = "timeline.edit";
 pub(crate) struct RevisionTurnState {
     pub prepared: Mutex<Option<FilmState>>,
     pub rejected: AtomicBool,
+    pub inspected: AtomicBool,
 }
 
 #[derive(Clone)]
@@ -93,6 +94,7 @@ impl AgentTool for TimelineGetTool {
             Ok(RevisionScope::Scene(_)) => "selected_scene",
             Err(error) => return ToolResult::error(error.to_string()),
         };
+        self.turn.state.inspected.store(true, Ordering::SeqCst);
         let film = &self.turn.film;
         let scenes: Vec<_> = film
             .timeline
@@ -141,6 +143,10 @@ impl TimelineEditTool {
     }
 
     fn prepare(&self, value: Value) -> Result<Value> {
+        ensure!(
+            self.turn.state.inspected.load(Ordering::SeqCst),
+            "inspect timeline.get before preparing a revision"
+        );
         let input: EditInput = serde_json::from_value(value)
             .context("invalid timeline.edit input")?;
 
