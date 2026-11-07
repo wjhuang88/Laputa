@@ -1,6 +1,6 @@
 # Iteration — Talos Selection Revision Tool (F2)
 
-Status: partial — F2 Tool/Runner implementation and tests submitted in PR #32; Story F remains open  
+Status: complete — F2 bounded technical integration merged; Story F remains In Progress  
 Date: 2026-11-07  
 Selected Story: `LAPUTA-001-F` / Issue #7 (F2 only)  
 Baseline: `main` `ca3609034287d51801e4d624227be317ceb6efb3` (PR #31 F1 merged; post-merge CI 42183222768 success)
@@ -44,7 +44,12 @@ Story D / #5 remains open for MA-D-01 real-desktop interaction. F2 is a **bounde
 - `timeline.edit` in F2 intentionally supports only shorten and delete selected; 20% shortening is an unvalidated UX default, color/warmth instructions are unsupported, and a literal scope keyword guard is conservative rather than general natural-language understanding.
 - **No product GUI human acceptance was performed.** MA-D-01 remains CURRENT/REQUIRED; MA-F-01…04 remain FUTURE/NOT READY. F3 command/preview wiring, F3 direct editing, F4 generated variants and Story F acceptance remain outstanding.
 
-## Disposition / next steps
+## Closure / disposition (2026-11-07)
 
-**Partial**: This is a bounded technical integration checkpoint, not full Story F and not yet a merged/accepted PR at the time of this evidence entry. After final exact-head PR/push CI pass, review/merge PR #32 with expected head and inspect post-merge main CI. Record final merge/evidence in Issue #7; keep all user-facing acceptance checkboxes unchecked until actual F3/F4 implementation and human verification.
+**F2 technical-only: COMPLETE; full Story F: PARTIAL / OPEN.** Final PR #32 head `81eab5e6785b9eb309120fd2a7e68c77af96b209` passed [push CI #42342269218](https://github.com/wjhuang88/Laputa/actions/runs/42342269218) and [PR CI #42342273404](https://github.com/wjhuang88/Laputa/actions/runs/42342273404), both **success**, including the two extra regression tests. No unresolved review threads. PR #32 squash merged to `main` commit `33d07aeaeadfcb72e373687900171b46f333b9c5`.
+
+Post-merge `main` CI: [#42343021535](https://github.com/wjhuang88/Laputa/actions/runs/42343021535). See the linked GitHub run for its final live result; do not infer a result from the merge alone. Final run outcome and any residuals are tracked in [Issue #7](https://github.com/wjhuang88/Laputa/issues/7).
+
+**Outstanding:** F3 real GPUI command input, direct Scene Strip operations, preview invalidation/re-render; F4 generated “Try another”; real product manual acceptance MA-F-01…04. MA-D-01 remains CURRENT / REQUIRED on Issue #5. Do not close #7, check user-facing acceptance boxes, or claim a whole-video warming effect from F2's shortening Tool.
+
 
