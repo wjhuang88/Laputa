@@ -377,6 +377,47 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn no_selection_defaults_to_whole_video() -> Result<()> {
+        let (_temp, store, before) = fixture()?;
+        let edited = runner(&store, scripted_edit("shorten", None))
+            .run("把视频缩短一点", None)
+            .await?;
+        assert_eq!(edited.timeline.scenes[0].source.duration_ms(), 3_200);
+        assert_eq!(edited.timeline.scenes[1].source.duration_ms(), 4_800);
+        assert_ne!(before.timeline, edited.timeline);
+        assert_eq!(
+            FilmStore::at(store.root()).load(&store.open()?)?,
+            Some(edited)
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn locked_selected_scene_rejects_talos_edit_without_committing() -> Result<()> {
+        let (_temp, store, before) = fixture()?;
+        let project = store.open()?;
+        let selected = before.timeline.scenes[1].id;
+        let baseline = FilmStore::at(store.root()).apply_revision(
+            &project,
+            RevisionAction::SetLocked {
+                scene_id: selected,
+                locked: true,
+            },
+            RevisionOrigin::User,
+        )?;
+
+        let result = runner(&store, scripted_edit("shorten", None))
+            .run("把这里短一点", Some(selected))
+            .await;
+        assert!(result.is_err());
+        assert_eq!(
+            FilmStore::at(store.root()).load(&store.open()?)?,
+            Some(baseline)
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn explicit_whole_video_wording_overrides_selected_scene_without_model_scope()
     -> Result<()> {
         let (_temp, store, before) = fixture()?;
