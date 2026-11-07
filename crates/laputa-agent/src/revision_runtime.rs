@@ -6,18 +6,13 @@ use std::sync::{Arc, atomic::Ordering};
 
 use anyhow::{Context, Result, bail, ensure};
 use laputa_media::ProjectStore;
-use laputa_timeline::{
-    FilmState, FilmStore, SceneId,
-    revision::resolve_revision_scope,
-};
+use laputa_timeline::{FilmState, FilmStore, SceneId, revision::resolve_revision_scope};
 use talos_runtime::{
-    LanguageModel, PermissionDecision, PermissionRule, RuntimeBuilder,
-    RuntimeTurnCompletionStatus, SessionEvent, TurnEventPayload,
+    LanguageModel, PermissionDecision, PermissionRule, RuntimeBuilder, RuntimeTurnCompletionStatus,
+    SessionEvent, TurnEventPayload,
 };
 
-use crate::revision_tools::{
-    RevisionTurn, TIMELINE_EDIT_TOOL, TimelineEditTool, TimelineGetTool,
-};
+use crate::revision_tools::{RevisionTurn, TIMELINE_EDIT_TOOL, TimelineEditTool, TimelineGetTool};
 
 const REVISION_PROMPT: &str = r#"You are Laputa's constrained Film Revision Director.
 
@@ -58,7 +53,10 @@ impl RevisionRunner {
         selected_scene: Option<SceneId>,
     ) -> Result<FilmState> {
         let request = request.into();
-        ensure!(!request.trim().is_empty(), "revision request must not be empty");
+        ensure!(
+            !request.trim().is_empty(),
+            "revision request must not be empty"
+        );
 
         let project_before = self.project_store.open()?;
         let film_store = FilmStore::at(self.project_store.root());
@@ -172,19 +170,20 @@ mod tests {
     use laputa_domain::{AssetTechnicalMetadata, MediaKind};
     use laputa_media::{MediaProbe, ProjectStore};
     use laputa_timeline::{
-        FilmDraft, FilmState, FilmStore, IntentDraft, SceneDraft, SceneSource,
-        StoryBeatDraft, StoryDraft,
+        FilmDraft, FilmState, FilmStore, IntentDraft, SceneDraft, SceneSource, StoryBeatDraft,
+        StoryDraft,
         revision::{RevisionAction, RevisionOrigin},
     };
     use serde_json::{Value, json};
     use talos_runtime::{
-        AgentEvent, AgentTool, CapabilityProbe, LanguageModel, Message,
-        ProtocolCapabilities, ProviderError, ProviderResult, Receiver, StopReason,
-        ToolCall, ToolProvenance, Usage,
+        AgentEvent, AgentTool, CapabilityProbe, LanguageModel, Message, ProtocolCapabilities,
+        ProviderError, ProviderResult, Receiver, StopReason, ToolCall, ToolProvenance, Usage,
     };
 
     use super::RevisionRunner;
-    use crate::revision_tools::{TIMELINE_EDIT_TOOL, TIMELINE_GET_TOOL, TimelineEditTool, TimelineGetTool, RevisionTurn};
+    use crate::revision_tools::{
+        RevisionTurn, TIMELINE_EDIT_TOOL, TIMELINE_GET_TOOL, TimelineEditTool, TimelineGetTool,
+    };
 
     #[derive(Debug)]
     struct FixtureProbe;
@@ -219,42 +218,36 @@ mod tests {
         }
 
         fn with_tool_call(self, id: &str, name: &str, input: Value) -> Self {
-            self.responses
-                .lock()
-                .expect("script mutex")
-                .push_back(vec![
-                    AgentEvent::TurnStart,
-                    AgentEvent::ToolCall {
-                        call: ToolCall {
-                            id: id.to_owned(),
-                            name: name.to_owned(),
-                            input,
-                        },
-                        provenance: ToolProvenance::Native,
-                        summary_fields: Vec::new(),
+            self.responses.lock().expect("script mutex").push_back(vec![
+                AgentEvent::TurnStart,
+                AgentEvent::ToolCall {
+                    call: ToolCall {
+                        id: id.to_owned(),
+                        name: name.to_owned(),
+                        input,
                     },
-                    AgentEvent::TurnEnd {
-                        stop_reason: StopReason::ToolUse,
-                        usage: Usage::default(),
-                    },
-                ]);
+                    provenance: ToolProvenance::Native,
+                    summary_fields: Vec::new(),
+                },
+                AgentEvent::TurnEnd {
+                    stop_reason: StopReason::ToolUse,
+                    usage: Usage::default(),
+                },
+            ]);
             self
         }
 
         fn with_response(self, text: &str) -> Self {
-            self.responses
-                .lock()
-                .expect("script mutex")
-                .push_back(vec![
-                    AgentEvent::TurnStart,
-                    AgentEvent::TextDelta {
-                        delta: text.to_owned(),
-                    },
-                    AgentEvent::TurnEnd {
-                        stop_reason: StopReason::EndTurn,
-                        usage: Usage::default(),
-                    },
-                ]);
+            self.responses.lock().expect("script mutex").push_back(vec![
+                AgentEvent::TurnStart,
+                AgentEvent::TextDelta {
+                    delta: text.to_owned(),
+                },
+                AgentEvent::TurnEnd {
+                    stop_reason: StopReason::EndTurn,
+                    usage: Usage::default(),
+                },
+            ]);
             self
         }
     }
@@ -358,7 +351,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn selected_scene_shortens_after_real_talos_turn_and_preserves_other_scene() -> Result<()> {
+    async fn selected_scene_shortens_after_real_talos_turn_and_preserves_other_scene() -> Result<()>
+    {
         let (temp, store, before) = fixture()?;
         let selected = before.timeline.scenes[1].id;
         let edited = runner(&store, scripted_edit("shorten", None))
@@ -367,14 +361,24 @@ mod tests {
         assert_eq!(edited.timeline.scenes[0], before.timeline.scenes[0]);
         assert_eq!(edited.timeline.scenes[1].source.duration_ms(), 4_800);
         assert_eq!(edited.timeline.duration_ms(), 8_800);
-        assert_eq!(FilmStore::at(store.root()).load(&store.open()?)?, Some(edited));
-        assert_eq!(fs::read(temp.path().join("photo.jpg"))?, b"original-photo-sentinel");
-        assert_eq!(fs::read(temp.path().join("video.mp4"))?, b"original-video-sentinel");
+        assert_eq!(
+            FilmStore::at(store.root()).load(&store.open()?)?,
+            Some(edited)
+        );
+        assert_eq!(
+            fs::read(temp.path().join("photo.jpg"))?,
+            b"original-photo-sentinel"
+        );
+        assert_eq!(
+            fs::read(temp.path().join("video.mp4"))?,
+            b"original-video-sentinel"
+        );
         Ok(())
     }
 
     #[tokio::test]
-    async fn explicit_whole_video_wording_overrides_selected_scene_without_model_scope() -> Result<()> {
+    async fn explicit_whole_video_wording_overrides_selected_scene_without_model_scope()
+    -> Result<()> {
         let (_temp, store, before) = fixture()?;
         let selected = before.timeline.scenes[1].id;
         let edited = runner(&store, scripted_edit("shorten", None))
@@ -416,13 +420,19 @@ mod tests {
             .run("把这里短一点", Some(selected))
             .await;
         assert!(wrong_scope.is_err());
-        assert_eq!(FilmStore::at(store.root()).load(&store.open()?)?, Some(before.clone()));
+        assert_eq!(
+            FilmStore::at(store.root()).load(&store.open()?)?,
+            Some(before.clone())
+        );
 
         let unsupported = runner(&store, scripted_edit("shorten", Some("whole_video")))
             .run("让整个视频更暖一点", Some(selected))
             .await;
         assert!(unsupported.is_err());
-        assert_eq!(FilmStore::at(store.root()).load(&store.open()?)?, Some(before));
+        assert_eq!(
+            FilmStore::at(store.root()).load(&store.open()?)?,
+            Some(before)
+        );
         Ok(())
     }
 
@@ -437,7 +447,10 @@ mod tests {
             .run("把这里短一点", Some(selected))
             .await;
         assert!(result.is_err());
-        assert_eq!(FilmStore::at(store.root()).load(&store.open()?)?, Some(before));
+        assert_eq!(
+            FilmStore::at(store.root()).load(&store.open()?)?,
+            Some(before)
+        );
         Ok(())
     }
 
@@ -454,7 +467,10 @@ mod tests {
             .run("把这里短一点", Some(selected))
             .await;
         assert!(result.is_err());
-        assert_eq!(FilmStore::at(store.root()).load(&store.open()?)?, Some(before));
+        assert_eq!(
+            FilmStore::at(store.root()).load(&store.open()?)?,
+            Some(before)
+        );
         Ok(())
     }
 
@@ -465,8 +481,16 @@ mod tests {
         let provider = ScriptedProvider::new()
             .with_tool_call("edit-1", TIMELINE_EDIT_TOOL, json!({"operation":"shorten"}))
             .with_response("Done");
-        assert!(runner(&store, provider).run("把这里短一点", Some(selected)).await.is_err());
-        assert_eq!(FilmStore::at(store.root()).load(&store.open()?)?, Some(before));
+        assert!(
+            runner(&store, provider)
+                .run("把这里短一点", Some(selected))
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            FilmStore::at(store.root()).load(&store.open()?)?,
+            Some(before)
+        );
         Ok(())
     }
 
@@ -474,13 +498,21 @@ mod tests {
     async fn no_tool_call_or_stale_selection_does_not_mutate_film() -> Result<()> {
         let (_temp, store, before) = fixture()?;
         let no_tool = ScriptedProvider::new().with_response("I did it");
-        assert!(runner(&store, no_tool).run("把这里短一点", None).await.is_err());
+        assert!(
+            runner(&store, no_tool)
+                .run("把这里短一点", None)
+                .await
+                .is_err()
+        );
 
         let stale_selection = runner(&store, scripted_edit("shorten", None))
             .run("把这里短一点", Some(laputa_timeline::SceneId::new()))
             .await;
         assert!(stale_selection.is_err());
-        assert_eq!(FilmStore::at(store.root()).load(&store.open()?)?, Some(before));
+        assert_eq!(
+            FilmStore::at(store.root()).load(&store.open()?)?,
+            Some(before)
+        );
         Ok(())
     }
 
@@ -499,14 +531,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn public_tool_schemas_hide_model_controls_and_inspection_hides_source_paths() -> Result<()> {
+    async fn public_tool_schemas_hide_model_controls_and_inspection_hides_source_paths()
+    -> Result<()> {
         let (_temp, store, film) = fixture()?;
-        let turn = RevisionTurn::new(
-            store.open()?,
-            film,
-            None,
-            "把整个视频短一点".to_owned(),
-        );
+        let turn = RevisionTurn::new(store.open()?, film, None, "把整个视频短一点".to_owned());
         let get = TimelineGetTool::new(turn.clone());
         let edit = TimelineEditTool::new(turn);
         for schema in [get.parameters(), edit.parameters()] {
