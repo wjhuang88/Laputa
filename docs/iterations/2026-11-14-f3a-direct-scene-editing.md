@@ -1,6 +1,6 @@
 # Iteration — F3a Direct Scene Editing and Preview Refresh
 
-Status: partial — F3a product implementation and tests submitted in PR #34; Story F remains In Progress  
+Status: partial — F3a implementation merged with CI; real desktop preflight and Story F completion still pending  
 Date: 2026-11-14  
 Selected: `LAPUTA-001-F` / Issue #7 (F3a)  
 Baseline: `main` `a886020a11be98729bb35e5c296f7ef6dd9f5edc` (F1 PR #31 + F2 PR #32 + docs #33 merged; main CI #42344231989 success)
@@ -44,5 +44,12 @@ Story D Film Workspace/Selection/Preview production code and automated Xvfb smok
 
 ## Disposition / next step
 
-**Partial, not Story F completion.** F3a provides buttons, not pointer drag. F3b still must add true drag-and-drop reorder, finer trimming and a working input/submit path wired to F2 `RevisionRunner` with model-provider configuration. F4 generated “Try another” and MA-F/MVP real-desktop acceptance remain future work. Once final head PR/push CI and reviews succeed, merge the bounded F3a PR with expected head, then separately check post-merge main CI. Keep Issue #7 and parent Epic #1 Open; report any failed gate honestly.
+**Partial, not Story F completion.** F3a provides buttons, not pointer drag. F3b still must add true drag-and-drop reorder, finer trimming and a working input/submit path wired to F2 `RevisionRunner` with model-provider configuration. F4 generated “Try another” and MA-F/MVP real-desktop acceptance remain future work. The bounded F3a code has merged in PR #34 after exact-head push/PR CI success; post-merge main CI is independently tracked below. Issue #7 and Epic #1 remain Open. F3b/F4 and all real user checks remain pending.
 
+
+## Final merge checkpoint (2026-11-14)
+
+- PR #34 final head `6b0c2a0e014bf64298c3bcae9c318ad21a9bf187`: [push CI #43467717690](https://github.com/wjhuang88/Laputa/actions/runs/43467717690) **success**, [PR CI #43467727768](https://github.com/wjhuang88/Laputa/actions/runs/43467727768) **success**. No unresolved PR review threads; verified base/main expected SHA before squash merge.
+- [PR #34](https://github.com/wjhuang88/Laputa/pull/34) **merged** as `0cf66df0c38b96e5b1e73384c0023039f32fa7c7`. Post-merge main CI [#43469951389](https://github.com/wjhuang88/Laputa/actions/runs/43469951389) is an independent gate; follow its actual GitHub result and update Issue #7, rather than inferring success from merge.
+- A GitHub automation unexpectedly marked **Issue #7 Completed/Closed** on the partial-delivery PR merge; it was immediately **reopened** with all 4 original acceptance boxes unchecked. GitHub events confirm the close/reopen event sequence. See EVO-002; PR descriptions for partial slices must not include recognized issue-closing keywords even in negative sentences.
+- F3a **manual real desktop preflight remains UNRUN**. The central acceptance ledger contains reproducible commands and checks for order, shorten, retain/guard and preview. The full MA-F-02 drag requirement is not satisfied by discrete move buttons. MA-D-01 remains CURRENT/REQUIRED.
