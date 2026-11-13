@@ -2,7 +2,7 @@
 
 Parent: LAPUTA-001  
 Type: Product Story  
-Status: In Progress — F1/F2 merged; F3a direct desktop actions in implementation, F3b/F4 and manual acceptance pending  
+Status: In Progress — F1/F2/F3a merged, F3b drag/language, F4 variants and manual acceptance pending  
 Dependencies: LAPUTA-001-D  
 Decision links: `docs/decisions/ADR-0003-agent-first-consumer-interaction.md`
 
@@ -20,11 +20,11 @@ F1 implements:
 
 **F2 (2026-11-07):** The bounded Talos `timeline.get` / `timeline.edit` Runtime integration was **merged in PR #32** (main `33d07aea`; exact-head push CI `42342269218` and PR CI `42342273404` success). See [F2 iteration](../../iterations/2026-11-07-talos-selection-revision.md). It supports staged single-turn natural-language **shorten** and **delete selected** operations with explicit whole-video override, model-invalid scope rejection and post-success single-commit semantics. The initial 20% shortening is a tracked UX assumption, not a full general-language semantic editor.
 
-**Remaining F3/F4:** Scene Strip direct GUI editing/preview refresh, product command-input wiring, variant retry, real product interaction and MA-F-01…04. F1/F2 technical checkpoints do **not** fulfill the Given/When/Then user-facing Story acceptance; Issue #7 stays Open.
+**Remaining F3b/F4:** pointer drag sorting, real submit-ready language input routed to Talos, adjustable trim controls, generated variant retry, product interaction and MA-F-01…04. F1/F2 technical checkpoints do **not** fulfill the Given/When/Then user-facing Story acceptance; Issue #7 stays Open.
 
-## F3a execution checkpoint — 2026-11-14
+## F3a merged code checkpoint — 2026-11-14
 
-The [F3a iteration](../../iterations/2026-11-14-f3a-direct-scene-editing.md) is a **bounded user-facing direct-edit slice**. Actual GPUI `laputa-desktop` now binds selected Scene IDs to F1 canonical persisted user actions: move earlier/later (buttons, **not yet drag**), shorten 20%, delete, and lock/unlock. Persisted edits reproject `WorkspaceState` and invalidate/rerender the FFmpeg preview; stale async render generations are fenced from re-installing their old frame. These changes are under PR CI and must not be called fully validated before exact-head success.
+The [F3a iteration](../../iterations/2026-11-14-f3a-direct-scene-editing.md) is a **bounded user-facing direct-edit slice**. Actual GPUI `laputa-desktop` now binds selected Scene IDs to F1 canonical persisted user actions: move earlier/later (buttons, **not yet drag**), shorten 20%, delete, and lock/unlock. Persisted edits reproject `WorkspaceState` and invalidate/rerender the FFmpeg preview; stale async render generations are fenced from re-installing their old frame. This bounded F3a code was **merged in [PR #34](https://github.com/wjhuang88/Laputa/pull/34)** (main `0cf66df0`; exact-head push CI `43467717690` and PR CI `43467727768` successful). Real desktop use is **not** human-accepted yet.
 
 **Still required after F3a:** F3b pointer drag sorting, actual text input + submit to F2 `RevisionRunner` (provider runtime configuration), richer direct trim affordance; F4 generated variants; GUI human MA-F-01…04 and Story F closure. The right-rail natural-language placeholder is **not** a working user input yet, and no “whole video warmer” effect is implemented.
 
