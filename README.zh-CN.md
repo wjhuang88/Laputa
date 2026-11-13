@@ -24,7 +24,7 @@ Laputa 不希望把传统专业剪辑软件简单“套一层 AI”，也不希�
 
 ## 当前状态
 
-截至 2026-11-04，Story **A/B/C/E 已 Complete/Closed**，包括 Story A 于 2026-10-20 获得用户“符合预期”确认的真实桌面导入/重开验收；Story E 的 E1–E5b 已闭环。Story **D / Issue #5** 已合并真实 GPUI Film Workspace、Preview 与 Scene Strip/Selection 产品接线，自动化 CI 通过，但**仍缺 MA-D-01 真实桌面人工交互验收**，因此保持 Open。Story F/G/H 尚未完成实现。
+截至 2026-11-04，Story **A/B/C/E 已 Complete/Closed**，包括 Story A 于 2026-10-20 获得用户“符合预期”确认的真实桌面导入/重开验收；Story E 的 E1–E5b 已闭环。Story **D / Issue #5** 已合并真实 GPUI Film Workspace、Preview 与 Scene Strip/Selection 产品接线，自动化 CI 通过，但**仍缺 MA-D-01 真实桌面人工交互验收**，因此保持 Open。Story **F / Issue #7** 进行中：F1 确定性编辑核心、F2 Talos 编辑 Tool 已合并，F3a 为 Scene Strip 提供直接操作按钮与预览更新；F3b 真正拖动和自然语言输入、F4 生成变体及真人验收仍未完成。Story G/H 尚待实现。
 
 所有当前需要你人工执行、未来才可执行以及可选的外部 API 真实烟测，统一记录在 **[人工验收台账](docs/acceptance/MANUAL-ACCEPTANCE.md)**。自动化 Xvfb/CI 结果不替代人工验收，也不需要重复验收已完成的 Story A。
 
@@ -38,25 +38,21 @@ Laputa 不希望把传统专业剪辑软件简单“套一层 AI”，也不希�
 cargo run -p laputa-app --features desktop-ui --bin laputa-desktop
 ```
 
-直接创建项目：
+创建项目请从桌面启动页点击**新建项目**，当前桌面程序没有 `create` 子命令。
+
+直接打开已有项目只需传入**一个项目目录参数**：
 
 ```sh
-cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- \
-  create ./demo-project "我的 Vlog"
-```
-
-直接打开已有项目：
-
-```sh
-cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- \
-  open ./demo-project
+cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- ./demo-project
 ```
 
 桌面导入使用系统多文件选择器，媒体 probe 继续复用 `ffprobe`，因此需要安装 FFmpeg。导入工作在 UI 线程之外运行；成功后 Asset Browser 会直接从最新 `ProjectManifest` 展示素材，失败则保留已有项目状态并显示可恢复错误。Laputa 只读引用导入的原始素材；项目元数据、缓存以及后续派生文件均保存在 `<project>/.laputa/` 下，不覆盖原文件。
 
 当前 Asset Browser 先展示媒体类型、文件名以及可用的时长/尺寸元数据，不以缩略图生成扩大 Story A 范围。视觉层级遵循 [Laputa V0.1 UI/UX 基线](docs/design/UI-UX-VISION-v0.1.md)。
 
-目前素材理解、Talos First Cut、生成式媒体基础能力、真实 Preview/Scene Strip 均已实现；Story D 的最后人工确认尚未完成。完整 Selection 局部修改/直接操作（F）、Critic 有界修复（G）以及最终导出（H）仍按任务链逐步实现。
+目前素材理解、Talos First Cut、生成式媒体基础能力、真实 Preview/Scene Strip 均已实现；Story D 的最后人工确认尚未完成。F1/F2 已支持部分 Selection 局部修改；F3a 在**选中 Scene Strip 片段后**提供前移/后移、缩短 20%、删除以及“保留这个片段”/“取消保留”按钮。成功修改会持久化影片并重新生成预览，原始素材保持不变。**鼠标拖动排序、可调裁切手柄以及真正可提交的自然语言输入仍属于 F3b**，生成式“换一个”属于 F4；Critic（G）和最终导出（H）仍待推进。
+
+测试直接操作时，请打开一个至少有两个 Scene 且已有 First Cut 的项目，点击底部片段后在右侧操作。当前按钮排序不等于已经实现拖动，真人验收仍由[人工验收台账](docs/acceptance/MANUAL-ACCEPTANCE.md)记录。
 
 ## 核心产品原则
 
