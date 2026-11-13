@@ -31,7 +31,7 @@ Scope: `LAPUTA-001` V0.1 · Owner of Story status: `docs/backlog/active/` and ar
 - **在真实桌面启动产品**（直接打开上面创建的 fixture；如果用自己的项目，把路径替换掉）：
 
   ```sh
-  cargo run -p laputa-app --features desktop-ui --bin laputa-desktop --locked -- open /tmp/laputa-manual-d-01
+  cargo run -p laputa-app --features desktop-ui --bin laputa-desktop --locked -- /tmp/laputa-manual-d-01
   ```
 
   fixture 总时长约 3.5 秒，`±5s` 快捷 seek 可能钳制到片头/片尾；按**实际时间范围内画面是否同步**判定，不要求跳出短片范围。
