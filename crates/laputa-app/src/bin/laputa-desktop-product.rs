@@ -1308,9 +1308,9 @@ impl DesktopWindow {
                         .child(self.scene_edit_button(
                             "scene-lock",
                             if locked {
-                                "解除锁定"
+                                "取消保留"
                             } else {
-                                "锁定片段"
+                                "保留这个片段"
                             },
                             DirectSceneEdit::SetLocked(scene_id, !locked),
                             cx,
