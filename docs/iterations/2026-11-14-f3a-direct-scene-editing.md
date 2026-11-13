@@ -1,6 +1,6 @@
 # Iteration — F3a Direct Scene Editing and Preview Refresh
 
-Status: planned — bounded F3a product slice; Story F remains In Progress  
+Status: partial — F3a product implementation and tests submitted in PR #34; Story F remains In Progress  
 Date: 2026-11-14  
 Selected: `LAPUTA-001-F` / Issue #7 (F3a)  
 Baseline: `main` `a886020a11be98729bb35e5c296f7ef6dd9f5edc` (F1 PR #31 + F2 PR #32 + docs #33 merged; main CI #42344231989 success)
@@ -33,6 +33,16 @@ Story D Film Workspace/Selection/Preview production code and automated Xvfb smok
 
 **Manual**: MA-D-01 remains CURRENT/REQUIRED and MA-F-01…04 FUTURE/NOT READY. Do not mark PASS solely from CI.
 
-## Checkpoints
+## Evidence / checkpoint (2026-11-14)
 
-Pending implementation/CI. Preserve this baseline and record observed results without silently expanding the scope.
+- Implementation: [PR #34](https://github.com/wjhuang88/Laputa/pull/34) on `feature/laputa-001-f3a-direct-scenes`. New `DirectSceneEdit` actions use the canonical F1 validated edit path, reconstruct a fresh WorkspaceState, preserve valid Selection, and protect original source bytes. Actual GPUI controls bind these operations; preview epoch fences discard both stale render completions and obsolete cross-controller playback events. Render output paths are isolated per revision; initially launched product still supports the legacy `current.mp4` smoke fixture.
+- First branch CI `#43464725773` failed **at `cargo fmt --all -- --check` after successful FFmpeg fixture**; 19 exact Rustfmt differences were applied in three files. This was a formatting-only failure, not a discovered runtime regression.
+- An initial corrected F3a code head (up to `976ae10292a0863fdc225c89cced0b7b99659ed1`) passed [push CI #43465590098](https://github.com/wjhuang88/Laputa/actions/runs/43465590098) **success** and [PR CI #43465602800](https://github.com/wjhuang88/Laputa/actions/runs/43465602800) **success**.
+- Subsequent changes align UI wording with the approved consumer-design vocabulary, correct stale README/MA-D-01 CLI examples against the actual binary argument parser, register the durable EVO-001 lesson, and add a separately documented F3a manual smoke. **Do not use the earlier code-head successes as exact-head merge evidence** after these commits.
+- Headless tests cover move earlier/later, shortened duration, lock/unlock and deletion, reopened persisted film and Scene Strip/preview-plan projections, rejecting stale external film edits and invalid deletion, and comparing source bytes unchanged. Real product desktop user validation has **not** occurred.
+- Manual checklist: `docs/acceptance/MANUAL-ACCEPTANCE.md` includes an **UNRUN F3a conditional preflight**. Story D MA-D-01 is CURRENT/REQUIRED; full Story F MA-F-01…04 is FUTURE/NOT READY. No checkboxes are completed and no credential-gated smoke has been performed.
+
+## Disposition / next step
+
+**Partial, not Story F completion.** F3a provides buttons, not pointer drag. F3b still must add true drag-and-drop reorder, finer trimming and a working input/submit path wired to F2 `RevisionRunner` with model-provider configuration. F4 generated “Try another” and MA-F/MVP real-desktop acceptance remain future work. Once final head PR/push CI and reviews succeed, merge the bounded F3a PR with expected head, then separately check post-merge main CI. Keep Issue #7 and parent Epic #1 Open; report any failed gate honestly.
+
