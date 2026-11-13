@@ -12,8 +12,8 @@ use anyhow::{Context, Result, bail, ensure};
 use async_trait::async_trait;
 use laputa_domain::ProjectManifest;
 use laputa_timeline::{
-    FilmState, SceneId, SceneSource,
-    revision::{RevisionAction, RevisionOrigin, RevisionScope, resolve_revision_scope},
+    FilmState, SceneId,
+    revision::{RevisionAction, RevisionOrigin, RevisionScope, resolve_revision_scope, shortened_source},
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -185,7 +185,7 @@ impl TimelineEditTool {
                     .iter()
                     .find(|scene| scene.id == scene_id)
                     .context("selected scene is stale")?;
-                let new_source = shorten_source(&scene.source)?;
+                let new_source = shortened_source(&scene.source)?;
                 next = next.revised(
                     &self.turn.project,
                     RevisionAction::Trim {
@@ -212,7 +212,7 @@ impl TimelineEditTool {
                         &self.turn.project,
                         RevisionAction::Trim {
                             scene_id,
-                            source: shorten_source(&source)?,
+                            source: shortened_source(&source)?,
                         },
                         RevisionOrigin::Automatic,
                     )?;
@@ -325,29 +325,6 @@ struct EditInput {
     operation: EditOperation,
     #[serde(default)]
     scope: Option<RequestedScope>,
-}
-
-fn shorten_source(source: &SceneSource) -> Result<SceneSource> {
-    let previous_duration = source.duration_ms();
-    ensure!(
-        previous_duration > 1,
-        "scene is already at minimum positive duration"
-    );
-    // Deliberately conservative, fixed MVP assumption (20% shortening);
-    // the model does not get to invent arbitrary source ranges.
-    let decrease_ms = (previous_duration / 5).max(1);
-    let new_duration = previous_duration - decrease_ms;
-    Ok(match source {
-        SceneSource::Image { .. } => SceneSource::Image {
-            duration_ms: new_duration,
-        },
-        SceneSource::Video { start_ms, .. } => SceneSource::Video {
-            start_ms: *start_ms,
-            end_ms: start_ms
-                .checked_add(new_duration)
-                .context("shortened video range overflow")?,
-        },
-    })
 }
 
 fn explicitly_whole_video(request: &str) -> bool {
