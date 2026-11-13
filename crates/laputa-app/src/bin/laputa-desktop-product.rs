@@ -351,7 +351,11 @@ impl DesktopWindow {
                     Ok(artifact) => match PreviewPlayerState::new(artifact) {
                         Ok(player) => {
                             let controller = PreviewController::new(player);
-                            let initial = controller.player().decode_request(0);
+                            let cursor = this
+                                .state
+                                .workspace()
+                                .map_or(0, |workspace| workspace.playhead_ms());
+                            let initial = controller.player().decode_request(cursor);
                             match this.decode_one_frame(initial) {
                                 Ok(frame) => {
                                     this.controller = Some(controller);
@@ -471,10 +475,14 @@ impl DesktopWindow {
             Ok((handle, mut receiver)) => {
                 controller.attach_playback(generation, handle);
                 self.preview_error = None;
+                let epoch = self.preview_epoch;
                 cx.spawn(async move |this, cx| {
                     while let Some(event) = receiver.recv().await {
                         let terminal = !matches!(&event, PreviewPlaybackEvent::Frame(_));
                         let _ = this.update(cx, |this, cx| {
+                            if this.preview_epoch != epoch {
+                                return;
+                            }
                             this.consume_event(generation, event);
                             cx.notify();
                         });
