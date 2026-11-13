@@ -1268,12 +1268,16 @@ impl DesktopWindow {
                                 .flex()
                                 .gap_2()
                                 .child(self.scene_edit_button(
-                                    "scene-move-earlier", "← 前移",
-                                    DirectSceneEdit::MoveEarlier(scene_id), cx,
+                                    "scene-move-earlier",
+                                    "← 前移",
+                                    DirectSceneEdit::MoveEarlier(scene_id),
+                                    cx,
                                 ))
                                 .child(self.scene_edit_button(
-                                    "scene-move-later", "后移 →",
-                                    DirectSceneEdit::MoveLater(scene_id), cx,
+                                    "scene-move-later",
+                                    "后移 →",
+                                    DirectSceneEdit::MoveLater(scene_id),
+                                    cx,
                                 )),
                         )
                         .child(
@@ -1281,31 +1285,53 @@ impl DesktopWindow {
                                 .flex()
                                 .gap_2()
                                 .child(self.scene_edit_button(
-                                    "scene-shorten", "缩短 20%",
-                                    DirectSceneEdit::Shorten(scene_id), cx,
+                                    "scene-shorten",
+                                    "缩短 20%",
+                                    DirectSceneEdit::Shorten(scene_id),
+                                    cx,
                                 ))
                                 .child(self.scene_edit_button(
-                                    "scene-delete", "删除片段",
-                                    DirectSceneEdit::Delete(scene_id), cx,
+                                    "scene-delete",
+                                    "删除片段",
+                                    DirectSceneEdit::Delete(scene_id),
+                                    cx,
                                 )),
                         )
                         .child(self.scene_edit_button(
-                            "scene-lock", if locked { "解除锁定" } else { "锁定片段" },
-                            DirectSceneEdit::SetLocked(scene_id, !locked), cx,
+                            "scene-lock",
+                            if locked {
+                                "解除锁定"
+                            } else {
+                                "锁定片段"
+                            },
+                            DirectSceneEdit::SetLocked(scene_id, !locked),
+                            cx,
                         )),
                 )
             })
             .when(active_edit.is_none(), |view| {
                 view.child(
-                    div().text_sm().text_color(rgb(MUTED))
-                        .child("先在底部选择片段，即可直接调整排序、时长与锁定。")
+                    div()
+                        .text_sm()
+                        .text_color(rgb(MUTED))
+                        .child("先在底部选择片段，即可直接调整排序、时长与锁定。"),
                 )
             })
             .when_some(self.state.notice(), |view, notice| {
-                view.child(div().text_sm().text_color(rgb(SUCCESS)).child(notice.to_owned()))
+                view.child(
+                    div()
+                        .text_sm()
+                        .text_color(rgb(SUCCESS))
+                        .child(notice.to_owned()),
+                )
             })
             .when_some(self.state.error(), |view, error| {
-                view.child(div().text_sm().text_color(rgb(ERROR)).child(error.to_owned()))
+                view.child(
+                    div()
+                        .text_sm()
+                        .text_color(rgb(ERROR))
+                        .child(error.to_owned()),
+                )
             })
             .child(
                 div()
