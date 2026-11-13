@@ -13,7 +13,9 @@ use async_trait::async_trait;
 use laputa_domain::ProjectManifest;
 use laputa_timeline::{
     FilmState, SceneId,
-    revision::{RevisionAction, RevisionOrigin, RevisionScope, resolve_revision_scope, shortened_source},
+    revision::{
+        RevisionAction, RevisionOrigin, RevisionScope, resolve_revision_scope, shortened_source,
+    },
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
