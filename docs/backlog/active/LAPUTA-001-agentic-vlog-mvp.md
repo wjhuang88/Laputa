@@ -25,11 +25,11 @@ Hard constraints and assumptions are owned by `docs/reference/PRODUCT-REQUIREMEN
 | LAPUTA-001-C | Talos-driven first-cut loop using Laputa tools | Complete | LAPUTA-001-A, LAPUTA-001-B | `2026-10-21-talos-first-cut.md`; Issue #4 |
 | LAPUTA-001-D | Playable preview + scene-strip representation | In Progress — MA-D-01 human gate | LAPUTA-001-C | `2026-10-23-workspace-visual-baseline.md`; Issue #5 |
 | LAPUTA-001-E | Generative derived-media job/provider path | Complete | LAPUTA-001-A, LAPUTA-001-C | `2026-10-31-generative-media-foundation.md`; Issue #6 |
-| LAPUTA-001-F | Selection-scoped revisions, direct manipulation and locks | In Progress — F1/F2 technical merged, F3/F4 pending | LAPUTA-001-D (merged contracts; MA-D-01 pending) | `2026-11-06-selection-revision-core.md`; Issue #7 |
+| LAPUTA-001-F | Selection-scoped revisions, direct manipulation and locks | In Progress — F1/F2 merged, F3a direct editing under PR; F3b/F4 pending | LAPUTA-001-D (merged contracts; MA-D-01 pending) | `2026-11-06-selection-revision-core.md`; Issue #7 |
 | LAPUTA-001-G | Structured critic + bounded repair loop | Proposed | LAPUTA-001-C, LAPUTA-001-D | - |
 | LAPUTA-001-H | Reopen/continue + final MP4 export | Proposed | LAPUTA-001-A through LAPUTA-001-G as required for integrated path | - |
 
-Stories A/B/C/E are Complete and closed. Story A includes user-confirmed real-desktop import/reopen evidence. Story D's canonical Film Workspace is integrated and automated product CI passed, but **MA-D-01 real-desktop human acceptance remains pending**, so Issue #5 stays open. F1 (#31) and F2 (#32) technical checkpoints are merged, but real GUI editing/preview and generated variants remain outstanding (not a completed Story F); G/H remain proposed. F, G, H and Epic manual walkthroughs are not yet suitable for completion. Runway/Gemini/Talos paid or credentialed live smokes remain optional, unrun residuals rather than invented proof.
+Stories A/B/C/E are Complete and closed. Story A includes user-confirmed real-desktop import/reopen evidence. Story D's canonical Film Workspace is integrated and automated product CI passed, but **MA-D-01 real-desktop human acceptance remains pending**, so Issue #5 stays open. F1 (#31) and F2 (#32) technical checkpoints are merged; F3a direct GUI scene editing and preview refresh are under review, and drag/language input/F4 generated variants remain outstanding (not a completed Story F); G/H remain proposed. F, G, H and Epic manual walkthroughs are not yet suitable for completion. Runway/Gemini/Talos paid or credentialed live smokes remain optional, unrun residuals rather than invented proof.
 
 ## Human acceptance handoff
 
