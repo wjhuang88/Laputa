@@ -39,6 +39,31 @@ pub fn resolve_revision_scope(
     Ok(scope)
 }
 
+/// Deterministically shorten a clip by 20% for the v0.1 simple "shorter" action.
+///
+/// This is a temporary product default shared by direct UI and the Talos Tool;
+/// it does not expose arbitrary trim parameters or alter source media.
+pub fn shortened_source(source: &SceneSource) -> Result<SceneSource> {
+    let previous_duration = source.duration_ms();
+    ensure!(
+        previous_duration > 1,
+        "scene is already at minimum positive duration"
+    );
+    let decrease_ms = (previous_duration / 5).max(1);
+    let new_duration = previous_duration - decrease_ms;
+    Ok(match source {
+        SceneSource::Image { .. } => SceneSource::Image {
+            duration_ms: new_duration,
+        },
+        SceneSource::Video { start_ms, .. } => SceneSource::Video {
+            start_ms: *start_ms,
+            end_ms: start_ms
+                .checked_add(new_duration)
+                .context("shortened video range overflow")?,
+        },
+    })
+}
+
 /// Direct user action or autonomous revision. Both respect locks; only users can unlock.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RevisionOrigin {
