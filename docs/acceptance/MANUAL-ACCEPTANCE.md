@@ -31,7 +31,7 @@ Scope: `LAPUTA-001` V0.1 · Owner of Story status: `docs/backlog/active/` and ar
 - **在真实桌面启动产品**（直接打开上面创建的 fixture；如果用自己的项目，把路径替换掉）：
 
   ```sh
-  cargo run -p laputa-app --features desktop-ui --bin laputa-desktop --locked -- open /tmp/laputa-manual-d-01
+  cargo run -p laputa-app --features desktop-ui --bin laputa-desktop --locked -- /tmp/laputa-manual-d-01
   ```
 
   fixture 总时长约 3.5 秒，`±5s` 快捷 seek 可能钳制到片头/片尾；按**实际时间范围内画面是否同步**判定，不要求跳出短片范围。
@@ -62,6 +62,23 @@ Scope: `LAPUTA-001` V0.1 · Owner of Story status: `docs/backlog/active/` and ar
 | **MA-H-01** | H / #9 | **FUTURE / NOT READY** | 编辑后**关闭应用再打开同一项目**：Intent、Scene 顺序、选择修改、锁定与派生 lineage 恢复；可以接着编辑 | Persist/reopen fixture 与 hash |
 | **MA-H-02** | H / #9 | **FUTURE / NOT READY** | 产品内请求 16:9 与 9:16 导出；分别播放最终 MP4，检查正常画面、长度和尺寸；原始素材未改变 | ffprobe/playability/ratio/hash 自动验证 |
 | **MA-MVP-01** | Epic / #1 | **FUTURE / NOT READY** | 一次真正的用户可达闭环：导入 → 一句话 → 可播放 first cut → 选中并修改 → 导出；全程无需 Provider/Model/Workflow 选择 | 跨模块集成 fixture 与 original hash |
+
+### F3a 部分产品预检 — Story F / Issue #7（不得替代 MA-F-02/03）
+
+- **状态：F3a PR #34 合并且最新 main CI 通过后才可执行的部分人工预检；UNRUN。** 这是完成 Story F 前可独立执行的一组验证，不代表拖动/自然语言编辑/生成变体已经实现。
+- **入口：** 在真实桌面上执行以下命令；两个目标目录都需不存在，重复操作请换新名称。原始媒体是 FFmpeg 生成的非私人 fixture。
+
+  ```sh
+  cargo run -p laputa-app --example workspace_fixture --locked -- /tmp/laputa-manual-f3a-01
+  cargo run -p laputa-app --features desktop-ui --bin laputa-desktop --locked -- /tmp/laputa-manual-f3a-01
+  ```
+
+- **预检 1 — 直接排序：** 底部选择“街头漫步”Scene 02，在右侧点击“← 前移”；核对 Scene Strip 立即变为 Scene 02 → Scene 01，Stage 真实预览内容及片段顺序更新。然后点击“后移 →”恢复顺序；全程不要求 Agent 回合。
+- **预检 2 — 缩短/持久化：** 保持选中“街头漫步”，点击“缩短 20%”；片段时长应从 2.0s 变为 1.6s，影片总时长从 3.5s 变为约 3.1s。观察预览重新生成后画面/进度同步；关闭再用同一个项目路径打开，顺序和时长保持一致。
+- **预检 3 — 保留/错误保护：** 点击“保留这个片段”；再尝试对这个片段“缩短 20%”或“删除片段”，应显示可理解的错误且不改影片。点击“取消保留”后删除 Scene 02；应只剩 Scene 01，Stage 更新且原始素材仍存在。最后一个 Scene 的删除必须被拒绝。
+- **预检 4 — 异步旧帧：** 可在预览生成中快速连续操作，核对上一次预览结束后不会恢复旧顺序/旧时间；如果无法稳定复现就标记 N/A，不伪造竞态证据。
+- **仍未完成：** F3b 鼠标拖放、精细裁切手柄、真正自然语言提交和 F4 “换一个”。MA-F-01～04 保持原状态，尤其**按钮前移不等于 MA-F-02 的拖动成功**。
+- **实际执行后记录：** 日期、OS/桌面、被测 `main` commit、操作结果 PASS/FAIL/BLOCKED（每步可分别记录）、截图/短录屏及异常文本。未经本人真实操作不勾选或宣布通过。
 
 - Story F：`docs/backlog/active/LAPUTA-001-F-selection-revision.md`。
 - Story G：`docs/backlog/active/LAPUTA-001-G-critic-repair.md`。其已写明的强制 gate 以结构化/有界 fixture 证据为准；MA-G-01 只作为**产品可用性走查**，在 Owner 正式把它列为验收 gate 前，不强加新的人工阻塞条件。

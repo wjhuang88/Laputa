@@ -1,8 +1,11 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result, ensure};
 use laputa_domain::{Asset, AssetId, MediaKind, ProjectManifest};
-use laputa_timeline::{FilmState, FilmStore};
+use laputa_timeline::{
+    FilmState, FilmStore, SceneId,
+    revision::{RevisionAction, RevisionOrigin, shortened_source},
+};
 
 use crate::workspace_state::WorkspaceState;
 
@@ -61,6 +64,16 @@ impl DesktopOperation {
             Self::ImportingMedia => Some("正在添加素材…"),
         }
     }
+}
+
+/// An immediate, direct user action on a known Scene ID. No Agent turn required.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DirectSceneEdit {
+    MoveEarlier(SceneId),
+    MoveLater(SceneId),
+    Shorten(SceneId),
+    Delete(SceneId),
+    SetLocked(SceneId, bool),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -203,6 +216,101 @@ impl DesktopState {
             .collect()
     }
 
+    /// Persist a direct edit, then rebuild the Film Workspace projection.
+    ///
+    /// This v0.1 desktop entrypoint assumes one active project writer. A stale
+    /// UI projection is rejected instead of silently editing an unseen revision.
+    pub fn apply_direct_scene_edit(&mut self, edit: DirectSceneEdit) -> Result<()> {
+        ensure!(
+            !self.operation.is_busy(),
+            "finish the current project operation before editing"
+        );
+        let root = self.project_root.as_ref().context("no open project")?;
+        let project = self.project.as_ref().context("no open project manifest")?;
+        let previous = self
+            .workspace
+            .as_ref()
+            .context("a committed film is required")?;
+        let store = FilmStore::at(root);
+        let disk_film = store
+            .load(project)?
+            .context("cannot edit without a persisted first cut")?;
+        ensure!(
+            disk_film == *previous.film(),
+            "film changed outside this workspace; reopen the project before editing"
+        );
+
+        let scenes = &disk_film.timeline.scenes;
+        let action = match edit {
+            DirectSceneEdit::MoveEarlier(scene_id) => {
+                let index = scenes
+                    .iter()
+                    .position(|scene| scene.id == scene_id)
+                    .context("scene is missing from the film")?;
+                ensure!(index > 0, "scene is already first");
+                RevisionAction::Reorder {
+                    scene_id,
+                    before: Some(scenes[index - 1].id),
+                }
+            }
+            DirectSceneEdit::MoveLater(scene_id) => {
+                let index = scenes
+                    .iter()
+                    .position(|scene| scene.id == scene_id)
+                    .context("scene is missing from the film")?;
+                ensure!(index + 1 < scenes.len(), "scene is already last");
+                RevisionAction::Reorder {
+                    scene_id,
+                    before: scenes.get(index + 2).map(|scene| scene.id),
+                }
+            }
+            DirectSceneEdit::Shorten(scene_id) => {
+                let scene = scenes
+                    .iter()
+                    .find(|scene| scene.id == scene_id)
+                    .context("scene is missing from the film")?;
+                RevisionAction::Trim {
+                    scene_id,
+                    source: shortened_source(&scene.source)?,
+                }
+            }
+            DirectSceneEdit::Delete(scene_id) => RevisionAction::Delete { scene_id },
+            DirectSceneEdit::SetLocked(scene_id, locked) => {
+                RevisionAction::SetLocked { scene_id, locked }
+            }
+        };
+
+        // Preflight both timeline invariants and the actual GUI preview projection
+        // before writing to disk; rejected revisions do not disturb the UI.
+        let candidate = disk_film.revised(project, action.clone(), RevisionOrigin::User)?;
+        let mut refreshed = WorkspaceState::from_film(project, candidate.clone())?;
+        let old_selection = previous.selected_scene();
+        let old_playhead = previous.playhead_ms();
+        if let Some(scene_id) = old_selection {
+            if refreshed
+                .scene_strip()
+                .iter()
+                .any(|scene| scene.scene_id == scene_id)
+            {
+                refreshed.select_scene(scene_id)?;
+            } else {
+                refreshed.seek(old_playhead);
+            }
+        } else {
+            refreshed.seek(old_playhead);
+        }
+
+        let saved = store.apply_revision(project, action, RevisionOrigin::User)?;
+        ensure!(
+            saved == candidate,
+            "revision result changed during editing; reopen the project"
+        );
+        self.workspace = Some(refreshed);
+        self.notice = Some("影片片段已更新".to_owned());
+        self.error = None;
+        Ok(())
+    }
+
     pub fn begin(&mut self, operation: DesktopOperation) -> bool {
         if self.operation.is_busy() {
             return false;
@@ -277,7 +385,7 @@ fn format_duration(duration_ms: u64) -> String {
 mod tests {
     use std::fs;
 
-    use anyhow::Result;
+    use anyhow::{Context, Result};
     use laputa_domain::{AssetTechnicalMetadata, MediaKind};
     use laputa_media::{MediaProbe, ProjectStore};
     use laputa_timeline::{
@@ -286,7 +394,7 @@ mod tests {
     };
     use tempfile::tempdir;
 
-    use super::{AssetFilter, DesktopOperation, DesktopState};
+    use super::{AssetFilter, DesktopOperation, DesktopState, DirectSceneEdit};
 
     struct FixtureProbe;
 
@@ -311,6 +419,271 @@ mod tests {
                 },
             })
         }
+    }
+
+    fn scene_edit_fixture() -> Result<(tempfile::TempDir, DesktopState)> {
+        let temp = tempdir()?;
+        let photo = temp.path().join("scene-a.jpg");
+        let video = temp.path().join("scene-b.mp4");
+        fs::write(&photo, b"original-image-sentinel")?;
+        fs::write(&video, b"original-video-sentinel")?;
+        let root = temp.path().join("story");
+        let store = ProjectStore::at(&root);
+        store.create("Film")?;
+        let report = store.import_media(&[photo, video], &FixtureProbe)?;
+        let project = report.project;
+        let film = FilmState::from_draft(
+            "Simple film",
+            FilmDraft {
+                intent: IntentDraft {
+                    summary: "Memories".to_owned(),
+                    target_duration_ms: Some(10_000),
+                    tone_tags: vec!["warm".into()],
+                },
+                story: StoryDraft {
+                    summary: "Two moments".into(),
+                    beats: vec![
+                        StoryBeatDraft {
+                            key: "a".into(),
+                            title: "Arrival".into(),
+                            purpose: "Establish the place".into(),
+                        },
+                        StoryBeatDraft {
+                            key: "b".into(),
+                            title: "Walking".into(),
+                            purpose: "Show motion".into(),
+                        },
+                    ],
+                },
+                scenes: vec![
+                    SceneDraft {
+                        beat_key: "a".into(),
+                        asset_id: report.imported[0].id,
+                        title: "Photo".into(),
+                        source: SceneSource::Image { duration_ms: 4_000 },
+                    },
+                    SceneDraft {
+                        beat_key: "b".into(),
+                        asset_id: report.imported[1].id,
+                        title: "Video".into(),
+                        source: SceneSource::Video {
+                            start_ms: 1_000,
+                            end_ms: 7_000,
+                        },
+                    },
+                ],
+            },
+            &project,
+        )?;
+        FilmStore::at(&root).save(&project, &film)?;
+        Ok((
+            temp,
+            DesktopState::from_project_with_film(root, project, film)?,
+        ))
+    }
+
+    #[test]
+    fn direct_scene_buttons_persist_order_and_refresh_selection_preview() -> Result<()> {
+        let (temp, mut state) = scene_edit_fixture()?;
+        let first = state
+            .workspace()
+            .context("workspace missing")?
+            .scene_strip()[0]
+            .scene_id;
+        let second = state
+            .workspace()
+            .context("workspace missing")?
+            .scene_strip()[1]
+            .scene_id;
+        state
+            .workspace_mut()
+            .context("workspace missing")?
+            .select_scene(second)?;
+
+        state.apply_direct_scene_edit(DirectSceneEdit::MoveEarlier(second))?;
+        let workspace = state.workspace().context("workspace missing")?;
+        assert_eq!(workspace.scene_strip()[0].scene_id, second);
+        assert_eq!(workspace.selected_scene(), Some(second));
+        assert_eq!(workspace.playhead_ms(), 0);
+        assert_eq!(workspace.preview_plan()[0].scene_id, second);
+
+        state.apply_direct_scene_edit(DirectSceneEdit::MoveLater(second))?;
+        assert_eq!(
+            state
+                .workspace()
+                .context("workspace missing")?
+                .scene_strip()[0]
+                .scene_id,
+            first
+        );
+        assert_eq!(
+            state
+                .workspace()
+                .context("workspace missing")?
+                .preview_plan()[1]
+                .scene_id,
+            second
+        );
+        let reopened = super::DesktopState::from_project(
+            temp.path().join("story"),
+            state.project().context("project missing")?.clone(),
+        );
+        assert_eq!(
+            reopened
+                .workspace()
+                .context("reopened workspace missing")?
+                .scene_strip()[0]
+                .scene_id,
+            first
+        );
+        assert_eq!(
+            reopened
+                .workspace()
+                .context("reopened workspace missing")?
+                .scene_strip()[1]
+                .scene_id,
+            second
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn direct_shorten_lock_delete_reopen_and_original_bytes_remain_unchanged() -> Result<()> {
+        let (temp, mut state) = scene_edit_fixture()?;
+        let first = state
+            .workspace()
+            .context("workspace missing")?
+            .scene_strip()[0]
+            .scene_id;
+        let second = state
+            .workspace()
+            .context("workspace missing")?
+            .scene_strip()[1]
+            .scene_id;
+        let store = FilmStore::at(temp.path().join("story"));
+        let project = state.project().context("project missing")?.clone();
+        let source_a = fs::read(temp.path().join("scene-a.jpg"))?;
+        let source_b = fs::read(temp.path().join("scene-b.mp4"))?;
+
+        state.apply_direct_scene_edit(DirectSceneEdit::Shorten(first))?;
+        assert_eq!(
+            state
+                .workspace()
+                .context("workspace missing")?
+                .scene_strip()[0]
+                .duration_ms(),
+            3_200
+        );
+        assert_eq!(
+            state
+                .workspace()
+                .context("workspace missing")?
+                .duration_ms(),
+            9_200
+        );
+        state.apply_direct_scene_edit(DirectSceneEdit::SetLocked(first, true))?;
+        let saved = fs::read(store.path())?;
+        assert!(
+            state
+                .apply_direct_scene_edit(DirectSceneEdit::Shorten(first))
+                .is_err()
+        );
+        assert!(
+            state
+                .apply_direct_scene_edit(DirectSceneEdit::Delete(first))
+                .is_err()
+        );
+        assert_eq!(saved, fs::read(store.path())?);
+        assert!(
+            state
+                .workspace()
+                .context("workspace missing")?
+                .film()
+                .timeline
+                .scenes[0]
+                .locked
+        );
+
+        state.apply_direct_scene_edit(DirectSceneEdit::SetLocked(first, false))?;
+        state
+            .workspace_mut()
+            .context("workspace missing")?
+            .select_scene(second)?;
+        state.apply_direct_scene_edit(DirectSceneEdit::Delete(second))?;
+        assert_eq!(
+            state
+                .workspace()
+                .context("workspace missing")?
+                .scene_strip()
+                .len(),
+            1
+        );
+        assert_eq!(
+            state
+                .workspace()
+                .context("workspace missing")?
+                .selected_scene(),
+            None
+        );
+        assert_eq!(
+            state
+                .workspace()
+                .context("workspace missing")?
+                .preview_plan()
+                .len(),
+            1
+        );
+        let final_disk_bytes = fs::read(store.path())?;
+        assert!(
+            state
+                .apply_direct_scene_edit(DirectSceneEdit::Delete(first))
+                .is_err()
+        );
+        assert_eq!(fs::read(store.path())?, final_disk_bytes);
+        assert_eq!(
+            store
+                .load(&project)?
+                .context("saved film missing")?
+                .timeline
+                .scenes
+                .len(),
+            1
+        );
+        assert_eq!(fs::read(temp.path().join("scene-a.jpg"))?, source_a);
+        assert_eq!(fs::read(temp.path().join("scene-b.mp4"))?, source_b);
+        Ok(())
+    }
+
+    #[test]
+    fn stale_external_film_rejects_direct_action_before_replacing_disk_or_ui() -> Result<()> {
+        let (temp, mut state) = scene_edit_fixture()?;
+        let first = state
+            .workspace()
+            .context("workspace missing")?
+            .scene_strip()[0]
+            .scene_id;
+        let store = FilmStore::at(temp.path().join("story"));
+        let mut changed = store
+            .load(state.project().context("project missing")?)?
+            .context("saved film missing")?;
+        changed.timeline.scenes[0].title = "Externally edited".to_owned();
+        store.save(state.project().context("project missing")?, &changed)?;
+        let disk_bytes = fs::read(store.path())?;
+        assert!(
+            state
+                .apply_direct_scene_edit(DirectSceneEdit::Shorten(first))
+                .is_err()
+        );
+        assert_eq!(disk_bytes, fs::read(store.path())?);
+        assert_eq!(
+            state
+                .workspace()
+                .context("workspace missing")?
+                .scene_strip()[0]
+                .title,
+            "Photo"
+        );
+        Ok(())
     }
 
     #[test]

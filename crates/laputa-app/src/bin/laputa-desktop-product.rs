@@ -14,7 +14,7 @@ use gpui::{
     WindowOptions, div, img, prelude::*, px, rgb, size,
 };
 use laputa_app::{
-    desktop_state::{AssetCard, AssetFilter, DesktopOperation, DesktopState},
+    desktop_state::{AssetCard, AssetFilter, DesktopOperation, DesktopState, DirectSceneEdit},
     preview_controller::PreviewController,
     preview_frame_image::{RenderedPreviewFrame, into_rendered_preview_frame},
     preview_playback::{PreviewPlaybackEvent, spawn_preview_playback},
@@ -67,6 +67,8 @@ struct DesktopWindow {
     frame: Option<RenderedPreviewFrame>,
     preview_error: Option<String>,
     preview_preparing: bool,
+    /// Fences old async renders after a successful scene edit or project switch.
+    preview_epoch: u64,
 }
 
 impl DesktopWindow {
@@ -78,6 +80,7 @@ impl DesktopWindow {
             frame: None,
             preview_error: None,
             preview_preparing: false,
+            preview_epoch: 0,
         }
     }
 
@@ -91,25 +94,40 @@ impl DesktopWindow {
                 cx.notify();
             }
             UiCommand::RetryPreview => {
-                self.controller = None;
-                self.frame = None;
-                self.preview_error = None;
-                self.preview_preparing = false;
+                self.reset_preview();
                 self.prepare_preview(cx);
             }
         }
     }
 
     fn reset_preview(&mut self) {
+        // Invalidate both pending renderer completions and queued decode frames.
+        self.preview_epoch = self.preview_epoch.wrapping_add(1);
         if let (Some(controller), Some(workspace)) =
             (self.controller.as_mut(), self.state.workspace_mut())
         {
             controller.pause(workspace);
         }
-        self.controller = None;
+        if let Some(controller) = self.controller.take() {
+            let old_proxy = controller.player().artifact().path.clone();
+            drop(controller);
+            // Only this application's reconstructable cache file, never originals.
+            let _ = std::fs::remove_file(old_proxy);
+        }
         self.frame = None;
         self.preview_error = None;
         self.preview_preparing = false;
+    }
+
+    fn edit_scene(&mut self, action: DirectSceneEdit, cx: &mut Context<Self>) {
+        match self.state.apply_direct_scene_edit(action) {
+            Ok(()) => {
+                self.reset_preview();
+                self.prepare_preview(cx);
+            }
+            Err(error) => self.state.fail(format!("片段修改失败：{error}")),
+        }
+        cx.notify();
     }
 
     fn choose_project(&mut self, mode: ProjectPromptMode, cx: &mut Context<Self>) {
@@ -295,15 +313,23 @@ impl DesktopWindow {
         };
         self.preview_preparing = true;
         self.preview_error = None;
+        let epoch = self.preview_epoch;
 
         cx.spawn(async move |this, cx| {
             let result = cx
                 .background_spawn(async move {
+                    // Distinct per render generation: a late, obsolete FFmpeg job
+                    // must not overwrite the current preview on the same path.
+                    let output_name = if epoch == 0 {
+                        "current.mp4".to_owned()
+                    } else {
+                        format!("current-{}-{epoch}.mp4", std::process::id())
+                    };
                     let output = root
                         .join(".laputa")
                         .join("cache")
                         .join("preview")
-                        .join("current.mp4");
+                        .join(output_name);
                     let request =
                         preview_render_request(&workspace, output, PreviewProfile::default());
                     FfmpegPreviewRenderer::default()
@@ -313,12 +339,23 @@ impl DesktopWindow {
                 .await;
 
             let _ = this.update(cx, |this, cx| {
+                if this.preview_epoch != epoch {
+                    if let Ok(artifact) = result {
+                        // The stale artifact is a disposable output of this job.
+                        let _ = std::fs::remove_file(artifact.path);
+                    }
+                    return;
+                }
                 this.preview_preparing = false;
                 match result {
                     Ok(artifact) => match PreviewPlayerState::new(artifact) {
                         Ok(player) => {
                             let controller = PreviewController::new(player);
-                            let initial = controller.player().decode_request(0);
+                            let cursor = this
+                                .state
+                                .workspace()
+                                .map_or(0, |workspace| workspace.playhead_ms());
+                            let initial = controller.player().decode_request(cursor);
                             match this.decode_one_frame(initial) {
                                 Ok(frame) => {
                                     this.controller = Some(controller);
@@ -418,7 +455,11 @@ impl DesktopWindow {
             },
             None => return,
         };
-        self.seek_to(target, cx);
+        if self.controller.is_some() {
+            self.seek_to(target, cx);
+        } else {
+            cx.notify();
+        }
     }
 
     fn start_playback(
@@ -434,10 +475,14 @@ impl DesktopWindow {
             Ok((handle, mut receiver)) => {
                 controller.attach_playback(generation, handle);
                 self.preview_error = None;
+                let epoch = self.preview_epoch;
                 cx.spawn(async move |this, cx| {
                     while let Some(event) = receiver.recv().await {
                         let terminal = !matches!(&event, PreviewPlaybackEvent::Frame(_));
                         let _ = this.update(cx, |this, cx| {
+                            if this.preview_epoch != epoch {
+                                return;
+                            }
                             this.consume_event(generation, event);
                             cx.notify();
                         });
@@ -907,7 +952,7 @@ impl DesktopWindow {
                     .flex()
                     .child(self.moments_rail(cards, cx))
                     .child(self.preview_stage(cx))
-                    .child(self.director_rail()),
+                    .child(self.director_rail(cx)),
             )
             .child(self.scene_strip(cx))
     }
@@ -1118,7 +1163,28 @@ impl DesktopWindow {
             )
     }
 
-    fn director_rail(&self) -> impl IntoElement {
+    fn scene_edit_button(
+        &self,
+        id: &'static str,
+        label: &'static str,
+        action: DirectSceneEdit,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .id(id)
+            .px_2()
+            .py_2()
+            .rounded_md()
+            .border_1()
+            .border_color(rgb(HAIRLINE))
+            .bg(rgb(PAPER))
+            .text_sm()
+            .cursor_pointer()
+            .child(label)
+            .on_click(cx.listener(move |this, _, _, cx| this.edit_scene(action, cx)))
+    }
+
+    fn director_rail(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let workspace = self.state.workspace();
         let scene = workspace.map(|workspace| {
             workspace
@@ -1130,6 +1196,17 @@ impl DesktopWindow {
                         .find(|scene| scene.scene_id == selected)
                 })
                 .unwrap_or_else(|| workspace.scene_at_playhead())
+        });
+        let active_edit = workspace.and_then(|workspace| {
+            workspace.selected_scene().and_then(|scene_id| {
+                workspace
+                    .film()
+                    .timeline
+                    .scenes
+                    .iter()
+                    .find(|scene| scene.id == scene_id)
+                    .map(|scene| (scene_id, scene.locked))
+            })
         });
         let target = workspace
             .map(
@@ -1187,6 +1264,83 @@ impl DesktopWindow {
                     .child(div().text_sm().text_color(rgb(MUTED)).child("默认编辑目标"))
                     .child(div().text_sm().child(target)),
             )
+            .when_some(active_edit, |view, (scene_id, locked)| {
+                view.child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_2()
+                        .child(div().text_sm().text_color(rgb(MUTED)).child("直接修改片段"))
+                        .child(
+                            div()
+                                .flex()
+                                .gap_2()
+                                .child(self.scene_edit_button(
+                                    "scene-move-earlier",
+                                    "← 前移",
+                                    DirectSceneEdit::MoveEarlier(scene_id),
+                                    cx,
+                                ))
+                                .child(self.scene_edit_button(
+                                    "scene-move-later",
+                                    "后移 →",
+                                    DirectSceneEdit::MoveLater(scene_id),
+                                    cx,
+                                )),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .gap_2()
+                                .child(self.scene_edit_button(
+                                    "scene-shorten",
+                                    "缩短 20%",
+                                    DirectSceneEdit::Shorten(scene_id),
+                                    cx,
+                                ))
+                                .child(self.scene_edit_button(
+                                    "scene-delete",
+                                    "删除片段",
+                                    DirectSceneEdit::Delete(scene_id),
+                                    cx,
+                                )),
+                        )
+                        .child(self.scene_edit_button(
+                            "scene-lock",
+                            if locked {
+                                "取消保留"
+                            } else {
+                                "保留这个片段"
+                            },
+                            DirectSceneEdit::SetLocked(scene_id, !locked),
+                            cx,
+                        )),
+                )
+            })
+            .when(active_edit.is_none(), |view| {
+                view.child(
+                    div()
+                        .text_sm()
+                        .text_color(rgb(MUTED))
+                        .child("先在底部选择片段，即可直接调整排序、时长与锁定。"),
+                )
+            })
+            .when_some(self.state.notice(), |view, notice| {
+                view.child(
+                    div()
+                        .text_sm()
+                        .text_color(rgb(SUCCESS))
+                        .child(notice.to_owned()),
+                )
+            })
+            .when_some(self.state.error(), |view, error| {
+                view.child(
+                    div()
+                        .text_sm()
+                        .text_color(rgb(ERROR))
+                        .child(error.to_owned()),
+                )
+            })
             .child(
                 div()
                     .rounded_lg()
@@ -1196,7 +1350,7 @@ impl DesktopWindow {
                     .p_3()
                     .text_sm()
                     .text_color(rgb(MUTED))
-                    .child("告诉 Laputa 你的想法…"),
+                    .child("自然语言修改接入中（F3b）；当前请使用上方直接操作。"),
             )
             .child(
                 div()
