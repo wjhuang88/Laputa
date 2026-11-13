@@ -378,7 +378,7 @@ mod tests {
     };
     use tempfile::tempdir;
 
-    use super::{AssetFilter, DesktopOperation, DesktopState};
+    use super::{AssetFilter, DesktopOperation, DesktopState, DirectSceneEdit};
 
     struct FixtureProbe;
 
@@ -403,6 +403,140 @@ mod tests {
                 },
             })
         }
+    }
+
+    fn scene_edit_fixture() -> Result<(tempfile::TempDir, DesktopState)> {
+        let temp = tempdir()?;
+        let photo = temp.path().join("scene-a.jpg");
+        let video = temp.path().join("scene-b.mp4");
+        fs::write(&photo, b"original-image-sentinel")?;
+        fs::write(&video, b"original-video-sentinel")?;
+        let root = temp.path().join("story");
+        let store = ProjectStore::at(&root);
+        store.create("Film")?;
+        let report = store.import_media(&[photo, video], &FixtureProbe)?;
+        let project = report.project;
+        let film = FilmState::from_draft(
+            "Simple film",
+            FilmDraft {
+                intent: IntentDraft {
+                    summary: "Memories".to_owned(),
+                    target_duration_ms: Some(10_000),
+                    tone_tags: vec!["warm".into()],
+                },
+                story: StoryDraft {
+                    summary: "Two moments".into(),
+                    beats: vec![
+                        StoryBeatDraft {
+                            key: "a".into(),
+                            title: "Arrival".into(),
+                            purpose: "Establish the place".into(),
+                        },
+                        StoryBeatDraft {
+                            key: "b".into(),
+                            title: "Walking".into(),
+                            purpose: "Show motion".into(),
+                        },
+                    ],
+                },
+                scenes: vec![
+                    SceneDraft {
+                        beat_key: "a".into(),
+                        asset_id: report.imported[0].id,
+                        title: "Photo".into(),
+                        source: SceneSource::Image { duration_ms: 4_000 },
+                    },
+                    SceneDraft {
+                        beat_key: "b".into(),
+                        asset_id: report.imported[1].id,
+                        title: "Video".into(),
+                        source: SceneSource::Video {
+                            start_ms: 1_000,
+                            end_ms: 7_000,
+                        },
+                    },
+                ],
+            },
+            &project,
+        )?;
+        FilmStore::at(&root).save(&project, &film)?;
+        Ok((temp, DesktopState::from_project_with_film(root, project, film)?))
+    }
+
+    #[test]
+    fn direct_scene_buttons_persist_order_and_refresh_selection_preview() -> Result<()> {
+        let (temp, mut state) = scene_edit_fixture()?;
+        let first = state.workspace().unwrap().scene_strip()[0].scene_id;
+        let second = state.workspace().unwrap().scene_strip()[1].scene_id;
+        state.workspace_mut().unwrap().select_scene(second)?;
+
+        state.apply_direct_scene_edit(DirectSceneEdit::MoveEarlier(second))?;
+        let workspace = state.workspace().unwrap();
+        assert_eq!(workspace.scene_strip()[0].scene_id, second);
+        assert_eq!(workspace.selected_scene(), Some(second));
+        assert_eq!(workspace.playhead_ms(), 0);
+        assert_eq!(workspace.preview_plan()[0].scene_id, second);
+
+        state.apply_direct_scene_edit(DirectSceneEdit::MoveLater(second))?;
+        assert_eq!(state.workspace().unwrap().scene_strip()[0].scene_id, first);
+        assert_eq!(state.workspace().unwrap().preview_plan()[1].scene_id, second);
+        let reopened = super::DesktopState::from_project(
+            temp.path().join("story"),
+            state.project().unwrap().clone(),
+        );
+        assert_eq!(reopened.workspace().unwrap().scene_strip()[0].scene_id, first);
+        assert_eq!(reopened.workspace().unwrap().scene_strip()[1].scene_id, second);
+        Ok(())
+    }
+
+    #[test]
+    fn direct_shorten_lock_delete_reopen_and_original_bytes_remain_unchanged() -> Result<()> {
+        let (temp, mut state) = scene_edit_fixture()?;
+        let first = state.workspace().unwrap().scene_strip()[0].scene_id;
+        let second = state.workspace().unwrap().scene_strip()[1].scene_id;
+        let store = FilmStore::at(temp.path().join("story"));
+        let project = state.project().unwrap().clone();
+        let source_a = fs::read(temp.path().join("scene-a.jpg"))?;
+        let source_b = fs::read(temp.path().join("scene-b.mp4"))?;
+
+        state.apply_direct_scene_edit(DirectSceneEdit::Shorten(first))?;
+        assert_eq!(state.workspace().unwrap().scene_strip()[0].duration_ms(), 3_200);
+        assert_eq!(state.workspace().unwrap().duration_ms(), 9_200);
+        state.apply_direct_scene_edit(DirectSceneEdit::SetLocked(first, true))?;
+        let saved = fs::read(store.path())?;
+        assert!(state.apply_direct_scene_edit(DirectSceneEdit::Shorten(first)).is_err());
+        assert!(state.apply_direct_scene_edit(DirectSceneEdit::Delete(first)).is_err());
+        assert_eq!(saved, fs::read(store.path())?);
+        assert!(state.workspace().unwrap().film().timeline.scenes[0].locked);
+
+        state.apply_direct_scene_edit(DirectSceneEdit::SetLocked(first, false))?;
+        state.workspace_mut().unwrap().select_scene(second)?;
+        state.apply_direct_scene_edit(DirectSceneEdit::Delete(second))?;
+        assert_eq!(state.workspace().unwrap().scene_strip().len(), 1);
+        assert_eq!(state.workspace().unwrap().selected_scene(), None);
+        assert_eq!(state.workspace().unwrap().preview_plan().len(), 1);
+        let final_disk_bytes = fs::read(store.path())?;
+        assert!(state.apply_direct_scene_edit(DirectSceneEdit::Delete(first)).is_err());
+        assert_eq!(fs::read(store.path())?, final_disk_bytes);
+        assert_eq!(store.load(&project)?.unwrap().timeline.scenes.len(), 1);
+        assert_eq!(fs::read(temp.path().join("scene-a.jpg"))?, source_a);
+        assert_eq!(fs::read(temp.path().join("scene-b.mp4"))?, source_b);
+        Ok(())
+    }
+
+    #[test]
+    fn stale_external_film_rejects_direct_action_before_replacing_disk_or_ui() -> Result<()> {
+        let (temp, mut state) = scene_edit_fixture()?;
+        let first = state.workspace().unwrap().scene_strip()[0].scene_id;
+        let store = FilmStore::at(temp.path().join("story"));
+        let mut changed = store.load(state.project().unwrap())?.unwrap();
+        changed.timeline.scenes[0].title = "Externally edited".to_owned();
+        store.save(state.project().unwrap(), &changed)?;
+        let disk_bytes = fs::read(store.path())?;
+        assert!(state.apply_direct_scene_edit(DirectSceneEdit::Shorten(first)).is_err());
+        assert_eq!(disk_bytes, fs::read(store.path())?);
+        assert_eq!(state.workspace().unwrap().scene_strip()[0].title, "Photo");
+        Ok(())
     }
 
     #[test]
