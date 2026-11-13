@@ -1,8 +1,11 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result, ensure};
 use laputa_domain::{Asset, AssetId, MediaKind, ProjectManifest};
-use laputa_timeline::{FilmState, FilmStore};
+use laputa_timeline::{
+    FilmState, FilmStore, SceneId,
+    revision::{RevisionAction, RevisionOrigin, shortened_source},
+};
 
 use crate::workspace_state::WorkspaceState;
 
@@ -61,6 +64,16 @@ impl DesktopOperation {
             Self::ImportingMedia => Some("正在添加素材…"),
         }
     }
+}
+
+/// An immediate, direct user action on a known Scene ID. No Agent turn required.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DirectSceneEdit {
+    MoveEarlier(SceneId),
+    MoveLater(SceneId),
+    Shorten(SceneId),
+    Delete(SceneId),
+    SetLocked(SceneId, bool),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -201,6 +214,85 @@ impl DesktopState {
             .filter(|asset| self.filter.matches(asset.media_kind))
             .map(AssetCard::from_asset)
             .collect()
+    }
+
+    /// Persist a direct edit, then rebuild the Film Workspace projection.
+    ///
+    /// This v0.1 desktop entrypoint assumes one active project writer. A stale
+    /// UI projection is rejected instead of silently editing an unseen revision.
+    pub fn apply_direct_scene_edit(&mut self, edit: DirectSceneEdit) -> Result<()> {
+        ensure!(!self.operation.is_busy(), "finish the current project operation before editing");
+        let root = self.project_root.as_ref().context("no open project")?;
+        let project = self.project.as_ref().context("no open project manifest")?;
+        let previous = self.workspace.as_ref().context("a committed film is required")?;
+        let store = FilmStore::at(root);
+        let disk_film = store
+            .load(project)?
+            .context("cannot edit without a persisted first cut")?;
+        ensure!(
+            disk_film == *previous.film(),
+            "film changed outside this workspace; reopen the project before editing"
+        );
+
+        let scenes = &disk_film.timeline.scenes;
+        let action = match edit {
+            DirectSceneEdit::MoveEarlier(scene_id) => {
+                let index = scenes.iter().position(|scene| scene.id == scene_id)
+                    .context("scene is missing from the film")?;
+                ensure!(index > 0, "scene is already first");
+                RevisionAction::Reorder {
+                    scene_id,
+                    before: Some(scenes[index - 1].id),
+                }
+            }
+            DirectSceneEdit::MoveLater(scene_id) => {
+                let index = scenes.iter().position(|scene| scene.id == scene_id)
+                    .context("scene is missing from the film")?;
+                ensure!(index + 1 < scenes.len(), "scene is already last");
+                RevisionAction::Reorder {
+                    scene_id,
+                    before: scenes.get(index + 2).map(|scene| scene.id),
+                }
+            }
+            DirectSceneEdit::Shorten(scene_id) => {
+                let scene = scenes.iter().find(|scene| scene.id == scene_id)
+                    .context("scene is missing from the film")?;
+                RevisionAction::Trim {
+                    scene_id,
+                    source: shortened_source(&scene.source)?,
+                }
+            }
+            DirectSceneEdit::Delete(scene_id) => RevisionAction::Delete { scene_id },
+            DirectSceneEdit::SetLocked(scene_id, locked) => {
+                RevisionAction::SetLocked { scene_id, locked }
+            }
+        };
+
+        // Preflight both timeline invariants and the actual GUI preview projection
+        // before writing to disk; rejected revisions do not disturb the UI.
+        let candidate = disk_film.revised(project, action.clone(), RevisionOrigin::User)?;
+        let mut refreshed = WorkspaceState::from_film(project, candidate.clone())?;
+        let old_selection = previous.selected_scene();
+        let old_playhead = previous.playhead_ms();
+        if let Some(scene_id) = old_selection {
+            if refreshed.scene_strip().iter().any(|scene| scene.scene_id == scene_id) {
+                refreshed.select_scene(scene_id)?;
+            } else {
+                refreshed.seek(old_playhead);
+            }
+        } else {
+            refreshed.seek(old_playhead);
+        }
+
+        let saved = store.apply_revision(project, action, RevisionOrigin::User)?;
+        ensure!(
+            saved == candidate,
+            "revision result changed during editing; reopen the project"
+        );
+        self.workspace = Some(refreshed);
+        self.notice = Some("影片片段已更新".to_owned());
+        self.error = None;
+        Ok(())
     }
 
     pub fn begin(&mut self, operation: DesktopOperation) -> bool {
