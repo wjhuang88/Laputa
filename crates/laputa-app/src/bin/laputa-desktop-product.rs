@@ -94,10 +94,7 @@ impl DesktopWindow {
                 cx.notify();
             }
             UiCommand::RetryPreview => {
-                self.controller = None;
-                self.frame = None;
-                self.preview_error = None;
-                self.preview_preparing = false;
+                self.reset_preview();
                 self.prepare_preview(cx);
             }
         }
@@ -323,11 +320,16 @@ impl DesktopWindow {
                 .background_spawn(async move {
                     // Distinct per render generation: a late, obsolete FFmpeg job
                     // must not overwrite the current preview on the same path.
+                    let output_name = if epoch == 0 {
+                        "current.mp4".to_owned()
+                    } else {
+                        format!("current-{}-{epoch}.mp4", std::process::id())
+                    };
                     let output = root
                         .join(".laputa")
                         .join("cache")
                         .join("preview")
-                        .join(format!("current-{}-{epoch}.mp4", std::process::id()));
+                        .join(output_name);
                     let request =
                         preview_render_request(&workspace, output, PreviewProfile::default());
                     FfmpegPreviewRenderer::default()
