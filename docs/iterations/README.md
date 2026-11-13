@@ -6,6 +6,8 @@ Use `docs/sop/START-ITERATION.md` to create a new iteration record and `docs/sop
 
 Current/latest records:
 
+- `2026-11-14-f3a-direct-scene-editing.md` — F3a product GUI direct edit controls, persisted workspace reprojection and preview refresh; F3b drag/language input and MA-F-01…04 remain pending.
+
 - `2026-11-07-talos-selection-revision.md` — F2 Talos timeline.get/timeline.edit technical checkpoint merged by PR #32; Story F still in progress pending F3/F4 and manual acceptance, MA-D-01 pending.
 
 - `2026-11-06-selection-revision-core.md` — F1 deterministic revision core merged by PR #31, main CI #42183222768 success; Story D human gate remains open and Story F is not complete.
