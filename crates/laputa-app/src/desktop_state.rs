@@ -558,7 +558,10 @@ mod tests {
     #[test]
     fn direct_drag_reorder_before_end_and_retained_rollback() -> Result<()> {
         let (temp, mut state) = scene_edit_fixture()?;
-        let scenes = state.workspace().context("workspace missing")?.scene_strip();
+        let scenes = state
+            .workspace()
+            .context("workspace missing")?
+            .scene_strip();
         let first = scenes[0].scene_id;
         let second = scenes[1].scene_id;
         let root = temp.path().join("story");
@@ -567,7 +570,10 @@ mod tests {
         let original_a = fs::read(temp.path().join("scene-a.jpg"))?;
         let original_b = fs::read(temp.path().join("scene-b.mp4"))?;
 
-        state.workspace_mut().context("workspace missing")?.select_scene(second)?;
+        state
+            .workspace_mut()
+            .context("workspace missing")?
+            .select_scene(second)?;
         state.apply_direct_scene_edit(DirectSceneEdit::ReorderBefore {
             scene_id: second,
             before: Some(first),
@@ -578,7 +584,11 @@ mod tests {
         assert_eq!(workspace.selected_scene(), Some(second));
         let reopened = DesktopState::from_project(&root, project.clone());
         assert_eq!(
-            reopened.workspace().context("reopened workspace missing")?.scene_strip()[0].scene_id,
+            reopened
+                .workspace()
+                .context("reopened workspace missing")?
+                .scene_strip()[0]
+                .scene_id,
             second
         );
 
@@ -587,20 +597,30 @@ mod tests {
             before: None,
         })?;
         assert_eq!(
-            state.workspace().context("workspace missing")?.scene_strip()[1].scene_id,
+            state
+                .workspace()
+                .context("workspace missing")?
+                .scene_strip()[1]
+                .scene_id,
             second
         );
         state.apply_direct_scene_edit(DirectSceneEdit::SetLocked(second, true))?;
         let unchanged_film = fs::read(store.path())?;
         assert!(
-            state.apply_direct_scene_edit(DirectSceneEdit::ReorderBefore {
-                scene_id: second,
-                before: Some(first),
-            }).is_err()
+            state
+                .apply_direct_scene_edit(DirectSceneEdit::ReorderBefore {
+                    scene_id: second,
+                    before: Some(first),
+                })
+                .is_err()
         );
         assert_eq!(fs::read(store.path())?, unchanged_film);
         assert_eq!(
-            state.workspace().context("workspace missing")?.scene_strip()[1].scene_id,
+            state
+                .workspace()
+                .context("workspace missing")?
+                .scene_strip()[1]
+                .scene_id,
             second
         );
         assert_eq!(fs::read(temp.path().join("scene-a.jpg"))?, original_a);
