@@ -1,6 +1,6 @@
 # Iteration — F3b1 Native Scene Strip Drag Reorder
 
-Status: planned — implementation and exact-head CI pending  
+Status: in progress — implementation proposed; exact-head CI and real-desktop acceptance pending  
 Date: 2026-11-14  
 Selected: `LAPUTA-001-F` / Issue #7, **bounded F3b1 drag-only**  
 Published baseline: `main` `37b105c5c5eeb182df6d358180608b484301f66c` (F3a code PR #34, checkpoint PR #35 already merged)
