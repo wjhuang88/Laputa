@@ -1297,7 +1297,12 @@ impl DesktopWindow {
                         .flex_col()
                         .gap_2()
                         .child(div().text_sm().text_color(rgb(MUTED)).child("直接修改片段"))
-                        .child(div().text_sm().text_color(rgb(MUTED)).child("也可拖动底部场景卡片调整顺序"))
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(rgb(MUTED))
+                                .child("也可拖动底部场景卡片调整顺序"),
+                        )
                         .child(
                             div()
                                 .flex()
