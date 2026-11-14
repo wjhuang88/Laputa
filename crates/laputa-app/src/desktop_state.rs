@@ -71,6 +71,11 @@ impl DesktopOperation {
 pub enum DirectSceneEdit {
     MoveEarlier(SceneId),
     MoveLater(SceneId),
+    /// Pointer drop: insert this Scene immediately before target, or at the end.
+    ReorderBefore {
+        scene_id: SceneId,
+        before: Option<SceneId>,
+    },
     Shorten(SceneId),
     Delete(SceneId),
     SetLocked(SceneId, bool),
@@ -263,6 +268,9 @@ impl DesktopState {
                     scene_id,
                     before: scenes.get(index + 2).map(|scene| scene.id),
                 }
+            }
+            DirectSceneEdit::ReorderBefore { scene_id, before } => {
+                RevisionAction::Reorder { scene_id, before }
             }
             DirectSceneEdit::Shorten(scene_id) => {
                 let scene = scenes
@@ -544,6 +552,79 @@ mod tests {
                 .scene_id,
             second
         );
+        Ok(())
+    }
+
+    #[test]
+    fn direct_drag_reorder_before_end_and_retained_rollback() -> Result<()> {
+        let (temp, mut state) = scene_edit_fixture()?;
+        let scenes = state
+            .workspace()
+            .context("workspace missing")?
+            .scene_strip();
+        let first = scenes[0].scene_id;
+        let second = scenes[1].scene_id;
+        let root = temp.path().join("story");
+        let project = state.project().context("project missing")?.clone();
+        let store = FilmStore::at(&root);
+        let original_a = fs::read(temp.path().join("scene-a.jpg"))?;
+        let original_b = fs::read(temp.path().join("scene-b.mp4"))?;
+
+        state
+            .workspace_mut()
+            .context("workspace missing")?
+            .select_scene(second)?;
+        state.apply_direct_scene_edit(DirectSceneEdit::ReorderBefore {
+            scene_id: second,
+            before: Some(first),
+        })?;
+        let workspace = state.workspace().context("workspace missing")?;
+        assert_eq!(workspace.scene_strip()[0].scene_id, second);
+        assert_eq!(workspace.preview_plan()[0].scene_id, second);
+        assert_eq!(workspace.selected_scene(), Some(second));
+        let reopened = DesktopState::from_project(&root, project.clone());
+        assert_eq!(
+            reopened
+                .workspace()
+                .context("reopened workspace missing")?
+                .scene_strip()[0]
+                .scene_id,
+            second
+        );
+
+        state.apply_direct_scene_edit(DirectSceneEdit::ReorderBefore {
+            scene_id: second,
+            before: None,
+        })?;
+        assert_eq!(
+            state
+                .workspace()
+                .context("workspace missing")?
+                .scene_strip()[1]
+                .scene_id,
+            second
+        );
+        state.apply_direct_scene_edit(DirectSceneEdit::SetLocked(second, true))?;
+        let unchanged_film = fs::read(store.path())?;
+        assert!(
+            state
+                .apply_direct_scene_edit(DirectSceneEdit::ReorderBefore {
+                    scene_id: second,
+                    before: Some(first),
+                })
+                .is_err()
+        );
+        assert_eq!(fs::read(store.path())?, unchanged_film);
+        assert_eq!(
+            state
+                .workspace()
+                .context("workspace missing")?
+                .scene_strip()[1]
+                .scene_id,
+            second
+        );
+        assert_eq!(fs::read(temp.path().join("scene-a.jpg"))?, original_a);
+        assert_eq!(fs::read(temp.path().join("scene-b.mp4"))?, original_b);
         Ok(())
     }
 
