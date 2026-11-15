@@ -86,6 +86,16 @@ Scope: `LAPUTA-001` V0.1 · Owner of Story status: `docs/backlog/active/` and ar
 - Epic：`docs/backlog/active/LAPUTA-001-agentic-vlog-mvp.md`。
 - Story F/G/H 的人工检查依赖届时的真实产品接线；不以目前的 D UI 或 E provider 基础能力替代未来行为。
 
+### F3b1 场景卡片拖动的独立人工预检 — CONDITIONAL / UNRUN
+
+- **范围**：F3b1 native GPUI pointer drag slice, [iteration](../iterations/2026-11-14-f3b1-scene-drag-reorder.md)。**只有实现 PR 合并并确认 post-merge main CI 成功后才能开展**；截至登记时仍为 UNRUN，不等于 MA-F-02 正式 PASS。
+- **准备**：使用 MA-D-01 上方列出的本机 FFmpeg fixture + `laputa-desktop` 真实窗口启动命令；每次使用新的空项目目录，不使用模拟点击/Xvfb 代替人工确认。
+- **拖入前面**：按住“街头漫步”Scene 02 卡片并真实移动指针到“京都静景”Scene 01 卡片上松开；确认卡片顺序变为 02 → 01，真实预览顺序一致，不需要 Agent turn。
+- **拖到末尾**：将“街头漫步”拖动至 Scene Strip 末尾标有“拖到末尾”的投放区，确认恢复 01 → 02；关闭窗口并重新打开同一项目，验证顺序持久化。
+- **锁定和错误回滚**：选中“街头漫步”，点击“保留这个片段”；再尝试拖动它到前面，应显示错误且影片顺序/预览不发生变化；解锁后可以重新拖动。
+- **点击/Selection 与媒体**：普通单击仍只切换 Selection，拖放之后有效 Selection 保持，原始照片/视频文件完整；观察预览是否出现旧帧回写，如不能复现旧帧竞态记录 N/A。
+- **实际证据**：日期、OS/桌面、被测 main SHA、每项 PASS/FAIL/BLOCKED、截图/录屏和错误文本。不执行不勾选；F3b1 不代表可提交语言命令、精细裁切或 F4 生成变体已实现。
+
 ## 3. 外部 Provider 的可选真实 smoke（不要与人工关闭门槛混淆）
 
 | ID | Story | 状态 | 执行前提 / 既有事实 |

@@ -60,6 +60,32 @@ enum ProjectPromptMode {
     Open,
 }
 
+/// Stable Scene identity travels with the native GPUI drag gesture.
+#[derive(Clone)]
+struct SceneDrag {
+    scene_id: SceneId,
+    title: String,
+}
+
+struct SceneDragPreview {
+    title: String,
+}
+
+impl Render for SceneDragPreview {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .w(px(154.))
+            .h(px(76.))
+            .rounded_md()
+            .border_1()
+            .border_color(rgb(BLUE))
+            .bg(rgb(PAPER))
+            .p_2()
+            .text_sm()
+            .child(self.title.clone())
+    }
+}
+
 struct DesktopWindow {
     state: DesktopState,
     controller: Option<PreviewController>,
@@ -1273,6 +1299,12 @@ impl DesktopWindow {
                         .child(div().text_sm().text_color(rgb(MUTED)).child("直接修改片段"))
                         .child(
                             div()
+                                .text_sm()
+                                .text_color(rgb(MUTED))
+                                .child("也可拖动底部场景卡片调整顺序"),
+                        )
+                        .child(
+                            div()
                                 .flex()
                                 .gap_2()
                                 .child(self.scene_edit_button(
@@ -1375,13 +1407,14 @@ impl DesktopWindow {
         let scene_id = scene.scene_id;
         let duration = format_time(scene.duration_ms());
         let title = scene.title;
+        let drag_title = title.clone();
         let card = div()
             .id(("product-scene", index))
             .w(px(154.))
             .h(px(76.))
             .flex_shrink_0()
             .rounded_md()
-            .cursor_pointer()
+            .cursor_move()
             .border_1()
             .p_2()
             .flex()
@@ -1416,6 +1449,28 @@ impl DesktopWindow {
                 .child(div().text_sm().child(title))
                 .child(div().text_sm().text_color(rgb(MUTED)).child(duration)),
         )
+        .on_drag(
+            SceneDrag {
+                scene_id,
+                title: drag_title,
+            },
+            |drag: &SceneDrag, _, _, cx| {
+                cx.new(|_| SceneDragPreview {
+                    title: drag.title.clone(),
+                })
+            },
+        )
+        .on_drop(cx.listener(move |this, drag: &SceneDrag, _, cx| {
+            if drag.scene_id != scene_id {
+                this.edit_scene(
+                    DirectSceneEdit::ReorderBefore {
+                        scene_id: drag.scene_id,
+                        before: Some(scene_id),
+                    },
+                    cx,
+                );
+            }
+        }))
         .on_click(cx.listener(move |this, _, _, cx| this.select_scene(scene_id, cx)))
         .into_any_element()
     }
@@ -1471,7 +1526,34 @@ impl DesktopWindow {
                     .overflow_x_scroll()
                     .flex()
                     .gap_3()
-                    .children(cards),
+                    .children(cards)
+                    .child(
+                        div()
+                            .id("product-scene-drop-end")
+                            .w(px(96.))
+                            .h(px(76.))
+                            .flex_shrink_0()
+                            .rounded_md()
+                            .border_1()
+                            .border_color(rgb(HAIRLINE))
+                            .bg(rgb(OAT_SOFT))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .p_2()
+                            .text_sm()
+                            .text_color(rgb(MUTED))
+                            .child("拖到末尾")
+                            .on_drop(cx.listener(|this, drag: &SceneDrag, _, cx| {
+                                this.edit_scene(
+                                    DirectSceneEdit::ReorderBefore {
+                                        scene_id: drag.scene_id,
+                                        before: None,
+                                    },
+                                    cx,
+                                );
+                            })),
+                    ),
             )
     }
 }

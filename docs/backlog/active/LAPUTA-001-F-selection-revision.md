@@ -30,6 +30,10 @@ The [F3a iteration](../../iterations/2026-11-14-f3a-direct-scene-editing.md) is 
 
 The human gate for Story D (#5, MA-D-01) remains Open; no automated CI test converts it to a human PASS.
 
+## F3b1 native pointer drag implementation — 2026-11-14
+
+The [F3b1 iteration](../../iterations/2026-11-14-f3b1-scene-drag-reorder.md) is a bounded implementation slice: native GPUI drag payload carries stable Scene IDs; dropping onto a Scene inserts before it, and a trailing drop target moves to the end. It reuses the F1 canonical validated persistence and F3a preview invalidation path, with deterministic reorder/rollback tests. **Status: code proposed on a feature branch; CI/review and manual real-desktop drag confirmation pending.** The click-to-select and direct-edit buttons remain available. This is not acceptance of full F3b/F4; Issue #7 stays Open, and MA-F-02 remains unaccepted without human verification.
+
 ## Scope
 
 - Deterministic selection-scope resolution.
