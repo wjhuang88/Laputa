@@ -24,7 +24,7 @@ Laputa 不希望把传统专业剪辑软件简单“套一层 AI”，也不希�
 
 ## 当前状态
 
-截至 2026-11-04，Story **A/B/C/E 已 Complete/Closed**，包括 Story A 于 2026-10-20 获得用户“符合预期”确认的真实桌面导入/重开验收；Story E 的 E1–E5b 已闭环。Story **D / Issue #5** 已合并真实 GPUI Film Workspace、Preview 与 Scene Strip/Selection 产品接线，自动化 CI 通过，但**仍缺 MA-D-01 真实桌面人工交互验收**，因此保持 Open。Story **F / Issue #7** 进行中：F1 确定性编辑核心、F2 Talos 编辑 Tool 已合并，F3a 为 Scene Strip 提供直接操作按钮与预览更新；F3b1 原生拖放排序已由 PR #36 合并（真实桌面鼠标验收尚未执行）；F3b 自然语言输入和精细裁切、F4 生成变体及真人验收仍未完成。Story G/H 尚待实现。
+截至 2026-11-15，Story **A/B/C/E 已 Complete/Closed**，包括 Story A 于 2026-10-20 获得用户“符合预期”确认的真实桌面导入/重开验收；Story E 的 E1–E5b 已闭环。Story **D / Issue #5** 已合并真实 GPUI Film Workspace、Preview 与 Scene Strip/Selection 产品接线，自动化 CI 通过，但**仍缺 MA-D-01 真实桌面人工交互验收**，因此保持 Open。Story **F / Issue #7** 进行中：F1 确定性编辑核心、F2 Talos 编辑 Tool 已合并，F3a 为 Scene Strip 提供直接操作按钮与预览更新；F3b1 原生拖放排序已由 PR #36 合并（真实桌面鼠标验收尚未执行）；F3b 自然语言输入和精细裁切、F4 生成变体及真人验收仍未完成。Story G/H 尚待实现。
 
 所有当前需要你人工执行、未来才可执行以及可选的外部 API 真实烟测，统一记录在 **[人工验收台账](docs/acceptance/MANUAL-ACCEPTANCE.md)**。自动化 Xvfb/CI 结果不替代人工验收，也不需要重复验收已完成的 Story A。
 
