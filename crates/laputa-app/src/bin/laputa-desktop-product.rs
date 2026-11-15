@@ -1334,6 +1334,7 @@ impl DesktopWindow {
         div()
             .w(px(266.))
             .min_h_0()
+            .overflow_y_scroll()
             .flex_shrink_0()
             .bg(rgb(PAPER))
             .border_l_1()
