@@ -2,7 +2,7 @@
 
 Parent: LAPUTA-001  
 Type: Product Story  
-Status: In Progress — F1/F2/F3a merged, F3b drag/language, F4 variants and manual acceptance pending  
+Status: In Progress — F1/F2/F3a/F3b1 merged, F3b language/trim, F4 variants and manual acceptance pending  
 Dependencies: LAPUTA-001-D  
 Decision links: `docs/decisions/ADR-0003-agent-first-consumer-interaction.md`
 
@@ -20,7 +20,7 @@ F1 implements:
 
 **F2 (2026-11-07):** The bounded Talos `timeline.get` / `timeline.edit` Runtime integration was **merged in PR #32** (main `33d07aea`; exact-head push CI `42342269218` and PR CI `42342273404` success). See [F2 iteration](../../iterations/2026-11-07-talos-selection-revision.md). It supports staged single-turn natural-language **shorten** and **delete selected** operations with explicit whole-video override, model-invalid scope rejection and post-success single-commit semantics. The initial 20% shortening is a tracked UX assumption, not a full general-language semantic editor.
 
-**Remaining F3b/F4:** pointer drag sorting, real submit-ready language input routed to Talos, adjustable trim controls, generated variant retry, product interaction and MA-F-01…04. F1/F2 technical checkpoints do **not** fulfill the Given/When/Then user-facing Story acceptance; Issue #7 stays Open.
+**Remaining F3b/F4:** real submit-ready language input routed to Talos, adjustable trim controls, generated variant retry, product interaction and MA-F-01…04. Native drag code is merged as F3b1 but real pointer acceptance is unrun. F1/F2 technical checkpoints do **not** fulfill the Given/When/Then user-facing Story acceptance; Issue #7 stays Open.
 
 ## F3a merged code checkpoint — 2026-11-14
 
@@ -32,7 +32,7 @@ The human gate for Story D (#5, MA-D-01) remains Open; no automated CI test conv
 
 ## F3b1 native pointer drag implementation — 2026-11-14
 
-The [F3b1 iteration](../../iterations/2026-11-14-f3b1-scene-drag-reorder.md) is a bounded implementation slice: native GPUI drag payload carries stable Scene IDs; dropping onto a Scene inserts before it, and a trailing drop target moves to the end. It reuses the F1 canonical validated persistence and F3a preview invalidation path, with deterministic reorder/rollback tests. **Status: code proposed on a feature branch; CI/review and manual real-desktop drag confirmation pending.** The click-to-select and direct-edit buttons remain available. This is not acceptance of full F3b/F4; Issue #7 stays Open, and MA-F-02 remains unaccepted without human verification.
+The [F3b1 iteration](../../iterations/2026-11-14-f3b1-scene-drag-reorder.md) is a bounded implementation slice: native GPUI drag payload carries stable Scene IDs; dropping onto a Scene inserts before it, and a trailing drop target moves to the end. It reuses the F1 canonical validated persistence and F3a preview invalidation path, with deterministic reorder/rollback tests. **Status: PR #36 squash merged to main `310efecb87cdac70312907da5d99ffd55bff6344`; exact-head push CI `43555989104` and PR CI `43555991244` both succeeded; independent post-merge main CI `43732451595` succeeded. Real-desktop pointer acceptance is still UNRUN.** The click-to-select and direct-edit buttons remain available. This is not acceptance of full F3b/F4; Issue #7 stays Open, and MA-F-02 remains unaccepted without human verification.
 
 ## Scope
 
