@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use laputa_domain::{Asset, AssetId, MediaKind, ProjectManifest};
 use laputa_timeline::{
-    FilmState, FilmStore, SceneId,
+    FilmState, FilmStore, SceneId, SceneSource,
     revision::{RevisionAction, RevisionOrigin, shortened_source},
 };
 
@@ -66,6 +66,13 @@ impl DesktopOperation {
     }
 }
 
+/// A selected source boundary for the consumer's small-step trim controls.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TrimBoundary {
+    Start,
+    End,
+}
+
 /// An immediate, direct user action on a known Scene ID. No Agent turn required.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DirectSceneEdit {
@@ -77,6 +84,12 @@ pub enum DirectSceneEdit {
         before: Option<SceneId>,
     },
     Shorten(SceneId),
+    /// Adjust one non-destructive source boundary by a signed number of milliseconds.
+    AdjustTrim {
+        scene_id: SceneId,
+        boundary: TrimBoundary,
+        delta_ms: i64,
+    },
     Delete(SceneId),
     SetLocked(SceneId, bool),
 }
@@ -282,6 +295,20 @@ impl DesktopState {
                     source: shortened_source(&scene.source)?,
                 }
             }
+            DirectSceneEdit::AdjustTrim {
+                scene_id,
+                boundary,
+                delta_ms,
+            } => {
+                let scene = scenes
+                    .iter()
+                    .find(|scene| scene.id == scene_id)
+                    .context("scene is missing from the film")?;
+                RevisionAction::Trim {
+                    scene_id,
+                    source: adjusted_trim_source(&scene.source, boundary, delta_ms)?,
+                }
+            }
             DirectSceneEdit::Delete(scene_id) => RevisionAction::Delete { scene_id },
             DirectSceneEdit::SetLocked(scene_id, locked) => {
                 RevisionAction::SetLocked { scene_id, locked }
@@ -368,6 +395,52 @@ impl DesktopState {
     }
 }
 
+/// Applies a bounded direct trim step. Canonical FilmState validation still checks
+/// original-video source bounds before anything is persisted.
+fn adjusted_trim_source(
+    source: &SceneSource,
+    boundary: TrimBoundary,
+    delta_ms: i64,
+) -> Result<SceneSource> {
+    ensure!(
+        matches!(delta_ms, -500 | 500),
+        "only 0.5-second direct trim steps are supported"
+    );
+    let next = match (source, boundary) {
+        (SceneSource::Image { duration_ms }, TrimBoundary::End) => {
+            let duration_ms = duration_ms
+                .checked_add_signed(delta_ms)
+                .context("image duration adjustment overflows")?;
+            ensure!(duration_ms > 0, "image scene must have positive duration");
+            SceneSource::Image { duration_ms }
+        }
+        (SceneSource::Video { start_ms, end_ms }, TrimBoundary::Start) => {
+            let start_ms = start_ms
+                .checked_add_signed(delta_ms)
+                .context("video start adjustment overflows")?;
+            ensure!(start_ms < *end_ms, "video source window must be positive");
+            SceneSource::Video {
+                start_ms,
+                end_ms: *end_ms,
+            }
+        }
+        (SceneSource::Video { start_ms, end_ms }, TrimBoundary::End) => {
+            let end_ms = end_ms
+                .checked_add_signed(delta_ms)
+                .context("video end adjustment overflows")?;
+            ensure!(*start_ms < end_ms, "video source window must be positive");
+            SceneSource::Video {
+                start_ms: *start_ms,
+                end_ms,
+            }
+        }
+        (SceneSource::Image { .. }, TrimBoundary::Start) => {
+            bail!("photo scenes have no source start boundary");
+        }
+    };
+    Ok(next)
+}
+
 fn asset_detail(asset: &Asset) -> String {
     let dimensions = match (asset.technical.width, asset.technical.height) {
         (Some(width), Some(height)) => Some(format!("{width}×{height}")),
@@ -402,7 +475,7 @@ mod tests {
     };
     use tempfile::tempdir;
 
-    use super::{AssetFilter, DesktopOperation, DesktopState, DirectSceneEdit};
+    use super::{AssetFilter, DesktopOperation, DesktopState, DirectSceneEdit, TrimBoundary};
 
     struct FixtureProbe;
 
@@ -625,6 +698,98 @@ mod tests {
         );
         assert_eq!(fs::read(temp.path().join("scene-a.jpg"))?, original_a);
         assert_eq!(fs::read(temp.path().join("scene-b.mp4"))?, original_b);
+        Ok(())
+    }
+
+    #[test]
+    fn fine_trim_steps_persist_source_ranges_and_preserve_original_bytes() -> Result<()> {
+        let (temp, mut state) = scene_edit_fixture()?;
+        let first = state.workspace().context("workspace missing")?.scene_strip()[0].scene_id;
+        let second = state.workspace().context("workspace missing")?.scene_strip()[1].scene_id;
+        let root = temp.path().join("story");
+        let source_a = fs::read(temp.path().join("scene-a.jpg"))?;
+        let source_b = fs::read(temp.path().join("scene-b.mp4"))?;
+
+        state.workspace_mut().context("workspace missing")?.select_scene(second)?;
+        state.apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
+            scene_id: first,
+            boundary: TrimBoundary::End,
+            delta_ms: -500,
+        })?;
+        state.apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
+            scene_id: second,
+            boundary: TrimBoundary::Start,
+            delta_ms: 500,
+        })?;
+        state.apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
+            scene_id: second,
+            boundary: TrimBoundary::End,
+            delta_ms: -500,
+        })?;
+
+        let workspace = state.workspace().context("workspace missing")?;
+        assert_eq!(workspace.selected_scene(), Some(second));
+        assert_eq!(workspace.scene_strip()[0].duration_ms(), 3_500);
+        assert_eq!(workspace.scene_strip()[1].duration_ms(), 5_000);
+        assert_eq!(
+            workspace.film().timeline.scenes[1].source,
+            SceneSource::Video {
+                start_ms: 1_500,
+                end_ms: 6_500,
+            }
+        );
+        let reopened = DesktopState::from_project(
+            &root,
+            state.project().context("project missing")?.clone(),
+        );
+        assert_eq!(
+            reopened.workspace().context("reopened workspace missing")?.film(),
+            workspace.film()
+        );
+        assert_eq!(fs::read(temp.path().join("scene-a.jpg"))?, source_a);
+        assert_eq!(fs::read(temp.path().join("scene-b.mp4"))?, source_b);
+        Ok(())
+    }
+
+    #[test]
+    fn fine_trim_invalid_range_and_locked_scene_do_not_commit() -> Result<()> {
+        let (temp, mut state) = scene_edit_fixture()?;
+        let first = state.workspace().context("workspace missing")?.scene_strip()[0].scene_id;
+        let second = state.workspace().context("workspace missing")?.scene_strip()[1].scene_id;
+        let store = FilmStore::at(temp.path().join("story"));
+        let before = fs::read(store.path())?;
+        let original_workspace = state.workspace().context("workspace missing")?.film().clone();
+
+        assert!(
+            state.apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
+                scene_id: first,
+                boundary: TrimBoundary::Start,
+                delta_ms: 500,
+            }).is_err()
+        );
+        assert!(
+            state.apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
+                scene_id: second,
+                boundary: TrimBoundary::End,
+                delta_ms: 3_000,
+            }).is_err()
+        );
+        assert_eq!(fs::read(store.path())?, before);
+        assert_eq!(
+            state.workspace().context("workspace missing")?.film(),
+            &original_workspace
+        );
+
+        state.apply_direct_scene_edit(DirectSceneEdit::SetLocked(second, true))?;
+        let locked_bytes = fs::read(store.path())?;
+        assert!(
+            state.apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
+                scene_id: second,
+                boundary: TrimBoundary::End,
+                delta_ms: -500,
+            }).is_err()
+        );
+        assert_eq!(fs::read(store.path())?, locked_bytes);
         Ok(())
     }
 
