@@ -704,13 +704,24 @@ mod tests {
     #[test]
     fn fine_trim_steps_persist_source_ranges_and_preserve_original_bytes() -> Result<()> {
         let (temp, mut state) = scene_edit_fixture()?;
-        let first = state.workspace().context("workspace missing")?.scene_strip()[0].scene_id;
-        let second = state.workspace().context("workspace missing")?.scene_strip()[1].scene_id;
+        let first = state
+            .workspace()
+            .context("workspace missing")?
+            .scene_strip()[0]
+            .scene_id;
+        let second = state
+            .workspace()
+            .context("workspace missing")?
+            .scene_strip()[1]
+            .scene_id;
         let root = temp.path().join("story");
         let source_a = fs::read(temp.path().join("scene-a.jpg"))?;
         let source_b = fs::read(temp.path().join("scene-b.mp4"))?;
 
-        state.workspace_mut().context("workspace missing")?.select_scene(second)?;
+        state
+            .workspace_mut()
+            .context("workspace missing")?
+            .select_scene(second)?;
         state.apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
             scene_id: first,
             boundary: TrimBoundary::End,
@@ -743,7 +754,10 @@ mod tests {
             state.project().context("project missing")?.clone(),
         );
         assert_eq!(
-            reopened.workspace().context("reopened workspace missing")?.film(),
+            reopened
+                .workspace()
+                .context("reopened workspace missing")?
+                .film(),
             workspace.film()
         );
         assert_eq!(fs::read(temp.path().join("scene-a.jpg"))?, source_a);
@@ -754,25 +768,41 @@ mod tests {
     #[test]
     fn fine_trim_invalid_range_and_locked_scene_do_not_commit() -> Result<()> {
         let (temp, mut state) = scene_edit_fixture()?;
-        let first = state.workspace().context("workspace missing")?.scene_strip()[0].scene_id;
-        let second = state.workspace().context("workspace missing")?.scene_strip()[1].scene_id;
+        let first = state
+            .workspace()
+            .context("workspace missing")?
+            .scene_strip()[0]
+            .scene_id;
+        let second = state
+            .workspace()
+            .context("workspace missing")?
+            .scene_strip()[1]
+            .scene_id;
         let store = FilmStore::at(temp.path().join("story"));
         let before = fs::read(store.path())?;
-        let original_workspace = state.workspace().context("workspace missing")?.film().clone();
+        let original_workspace = state
+            .workspace()
+            .context("workspace missing")?
+            .film()
+            .clone();
 
         assert!(
-            state.apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
-                scene_id: first,
-                boundary: TrimBoundary::Start,
-                delta_ms: 500,
-            }).is_err()
+            state
+                .apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
+                    scene_id: first,
+                    boundary: TrimBoundary::Start,
+                    delta_ms: 500,
+                })
+                .is_err()
         );
         assert!(
-            state.apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
-                scene_id: second,
-                boundary: TrimBoundary::End,
-                delta_ms: 3_000,
-            }).is_err()
+            state
+                .apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
+                    scene_id: second,
+                    boundary: TrimBoundary::End,
+                    delta_ms: 3_000,
+                })
+                .is_err()
         );
         assert_eq!(fs::read(store.path())?, before);
         assert_eq!(
@@ -783,11 +813,13 @@ mod tests {
         state.apply_direct_scene_edit(DirectSceneEdit::SetLocked(second, true))?;
         let locked_bytes = fs::read(store.path())?;
         assert!(
-            state.apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
-                scene_id: second,
-                boundary: TrimBoundary::End,
-                delta_ms: -500,
-            }).is_err()
+            state
+                .apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
+                    scene_id: second,
+                    boundary: TrimBoundary::End,
+                    delta_ms: -500,
+                })
+                .is_err()
         );
         assert_eq!(fs::read(store.path())?, locked_bytes);
         Ok(())
