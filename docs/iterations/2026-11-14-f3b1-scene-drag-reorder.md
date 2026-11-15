@@ -1,6 +1,6 @@
 # Iteration — F3b1 Native Scene Strip Drag Reorder
 
-Status: in progress — implementation proposed; exact-head CI and real-desktop acceptance pending  
+Status: partial — implementation merged with exact-head CI; real-desktop pointer acceptance UNRUN  
 Date: 2026-11-14  
 Selected: `LAPUTA-001-F` / Issue #7, **bounded F3b1 drag-only**  
 Published baseline: `main` `37b105c5c5eeb182df6d358180608b484301f66c` (F3a code PR #34, checkpoint PR #35 already merged)
@@ -38,4 +38,4 @@ Story D's canonical Film Workspace/Selection product code and F1/F2/F3a are merg
 
 ## Disposition
 
-**Planned.** Work is limited to the drag slice. F3b natural-language submit and richer trimming remain pending, as does F4. MA-D-01 remains CURRENT/REQUIRED; full MA-F-01…04 stay pending and must not be pre-checked. Complete this record with actual CI/review results, not predictions.
+**Partial (2026-11-15).** F3b1 was merged via [PR #36](https://github.com/wjhuang88/Laputa/pull/36) to `main` commit `310efecb87cdac70312907da5d99ffd55bff6344`, after exact-head push CI [43555989104](https://github.com/wjhuang88/Laputa/actions/runs/43555989104) and PR CI [43555991244](https://github.com/wjhuang88/Laputa/actions/runs/43555991244) succeeded. Independent post-merge main CI [43732451595](https://github.com/wjhuang88/Laputa/actions/runs/43732451595) must be confirmed from its actual outcome. Native GPUI drag wiring and deterministic tests are merged, but real-desktop pointer behavior has not been human-confirmed; F3b natural-language submit and richer trimming, F4 generated variants, Story D MA-D-01 and Story F MA-F-01…04 remain pending. No human PASS is claimed.
