@@ -810,6 +810,36 @@ mod tests {
             &original_workspace
         );
 
+        // The source video ends at 12_400 ms. The next 500 ms must fail
+        // without writing or replacing the live workspace projection.
+        for _ in 0..10 {
+            state.apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
+                scene_id: second,
+                boundary: TrimBoundary::End,
+                delta_ms: 500,
+            })?;
+        }
+        let at_source_limit = fs::read(store.path())?;
+        let at_source_limit_workspace = state
+            .workspace()
+            .context("workspace missing")?
+            .film()
+            .clone();
+        assert!(
+            state
+                .apply_direct_scene_edit(DirectSceneEdit::AdjustTrim {
+                    scene_id: second,
+                    boundary: TrimBoundary::End,
+                    delta_ms: 500,
+                })
+                .is_err()
+        );
+        assert_eq!(fs::read(store.path())?, at_source_limit);
+        assert_eq!(
+            state.workspace().context("workspace missing")?.film(),
+            &at_source_limit_workspace
+        );
+
         state.apply_direct_scene_edit(DirectSceneEdit::SetLocked(second, true))?;
         let locked_bytes = fs::read(store.path())?;
         assert!(
