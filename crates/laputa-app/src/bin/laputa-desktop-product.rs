@@ -951,9 +951,64 @@ impl DesktopWindow {
             )
     }
 
-    fn moments_rail(&self, cards: Vec<AssetCard>, cx: &mut Context<Self>) -> impl IntoElement {
+    fn moment_card(&self, card: AssetCard, index: usize) -> impl IntoElement {
+        let tone = match card.kind {
+            MediaKind::Image => SAND,
+            MediaKind::Video => SKY_BLOCK,
+        };
+        let thumbnail = self.thumbnails.get(&card.id).cloned();
         div()
-            .w(px(208.))
+            .id(("product-moment", index))
+            .w(px(103.))
+            .flex_shrink_0()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .child(
+                div()
+                    .w_full()
+                    .h(px(82.))
+                    .rounded_md()
+                    .overflow_hidden()
+                    .bg(rgb(tone))
+                    .when_some(thumbnail, |view, image| {
+                        view.child(img(image).object_fit(ObjectFit::Cover).size_full())
+                    })
+                    .when(self.thumbnails.get(&card.id).is_none(), |view| {
+                        view.flex()
+                            .items_end()
+                            .p_2()
+                            .child(
+                                div()
+                                    .px_2()
+                                    .py_1()
+                                    .rounded_md()
+                                    .bg(rgb(PAPER))
+                                    .text_xs()
+                                    .child(card.kind_label),
+                            )
+                    }),
+            )
+            .child(
+                div()
+                    .w_full()
+                    .overflow_hidden()
+                    .text_xs()
+                    .text_color(rgb(TEXT))
+                    .child(card.display_name),
+            )
+    }
+
+    fn moments_rail(&self, cards: Vec<AssetCard>, cx: &mut Context<Self>) -> impl IntoElement {
+        let count = cards.len();
+        let numbered = cards.into_iter().enumerate().collect::<Vec<_>>();
+        let rows = numbered
+            .chunks(2)
+            .map(|pair| pair.to_vec())
+            .collect::<Vec<_>>();
+
+        div()
+            .w(px(248.))
             .min_h_0()
             .flex_shrink_0()
             .bg(rgb(OAT))
@@ -964,7 +1019,7 @@ impl DesktopWindow {
             .child(
                 div()
                     .px_4()
-                    .pt_5()
+                    .pt_4()
                     .pb_3()
                     .flex()
                     .flex_col()
@@ -974,12 +1029,12 @@ impl DesktopWindow {
                             .flex()
                             .items_center()
                             .justify_between()
-                            .child(div().text_xl().child("片段素材"))
+                            .child(div().text_lg().child("片段素材"))
                             .child(
                                 div()
                                     .text_sm()
                                     .text_color(rgb(MUTED))
-                                    .child(cards.len().to_string()),
+                                    .child(format!("{count} 个素材")),
                             ),
                     )
                     .child(
@@ -1005,43 +1060,35 @@ impl DesktopWindow {
                     .min_h_0()
                     .overflow_y_scroll()
                     .px_4()
-                    .pb_5()
+                    .pb_4()
                     .flex()
                     .flex_col()
                     .gap_3()
-                    .children(cards.into_iter().enumerate().map(|(index, card)| {
-                        let tone = match card.kind {
-                            MediaKind::Image => SAND,
-                            MediaKind::Video => SKY_BLOCK,
-                        };
+                    .children(rows.into_iter().map(|row| {
                         div()
-                            .id(("product-moment", index))
                             .w_full()
                             .flex()
-                            .flex_col()
                             .gap_2()
-                            .child(
-                                div()
-                                    .w_full()
-                                    .h(px(74.))
-                                    .rounded_md()
-                                    .bg(rgb(tone))
-                                    .flex()
-                                    .items_end()
-                                    .p_2()
-                                    .child(
-                                        div()
-                                            .px_2()
-                                            .py_1()
-                                            .rounded_md()
-                                            .bg(rgb(PAPER))
-                                            .text_sm()
-                                            .child(card.kind_label),
-                                    ),
-                            )
-                            .child(div().text_sm().child(card.display_name))
+                            .children(row.into_iter().map(|(index, card)| {
+                                self.moment_card(card, index)
+                            }))
                     })),
             )
+            .when(!self.thumbnails_failed.is_empty(), |view| {
+                view.child(
+                    div()
+                        .id("product-thumbnail-retry")
+                        .px_4()
+                        .py_2()
+                        .text_sm()
+                        .text_color(rgb(BLUE))
+                        .cursor_pointer()
+                        .child("部分缩略图不可用 · 重新加载")
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.execute(UiCommand::RetryThumbnails, cx);
+                        })),
+                )
+            })
     }
 
     fn film_workspace(&self, cx: &mut Context<Self>) -> impl IntoElement {
