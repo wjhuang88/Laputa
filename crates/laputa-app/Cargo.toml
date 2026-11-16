@@ -32,7 +32,7 @@ required-features = ["desktop-ui"]
 anyhow.workspace = true
 gpui = { workspace = true, optional = true }
 gpui_platform = { workspace = true, optional = true }
-image = { workspace = true, optional = true }
+image = { workspace = true, optional = true, features = ["png"] }
 laputa-domain = { path = "../laputa-domain" }
 laputa-agent = { path = "../laputa-agent" }
 laputa-media = { path = "../laputa-media" }
