@@ -1309,16 +1309,14 @@ impl DesktopWindow {
                                     .flex_col()
                                     .gap_1()
                                     .child(div().text_lg().child("初剪已完成"))
-                                    .child(div().text_sm().text_color(rgb(MUTED)).child(
-                                        format!(
-                                            "{} · {} 个片段 · {}",
-                                            format_time(duration_ms),
-                                            self.state.workspace().map_or(0, |workspace| {
-                                                workspace.scene_strip().len()
-                                            }),
-                                            scene_title
-                                        ),
-                                    )),
+                                    .child(div().text_sm().text_color(rgb(MUTED)).child(format!(
+                                        "{} · {} 个片段 · {}",
+                                        format_time(duration_ms),
+                                        self.state.workspace().map_or(0, |workspace| {
+                                            workspace.scene_strip().len()
+                                        }),
+                                        scene_title
+                                    ))),
                             ),
                     )
                     .when_some(self.preview_error.as_deref(), |view, error| {
