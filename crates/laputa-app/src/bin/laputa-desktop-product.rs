@@ -1,4 +1,5 @@
 use std::{
+    collections::{HashMap, HashSet},
     env,
     panic::{AssertUnwindSafe, catch_unwind},
     path::{Path, PathBuf},
@@ -10,7 +11,7 @@ use std::{
 
 use anyhow::Result;
 use gpui::{
-    App, Bounds, Context, InteractiveElement, ObjectFit, Render, Window, WindowBounds,
+    App, Bounds, Context, InteractiveElement, ObjectFit, Render, RenderImage, Window, WindowBounds,
     WindowOptions, div, img, prelude::*, px, rgb, size,
 };
 use laputa_app::{
@@ -21,9 +22,10 @@ use laputa_app::{
     preview_player::PreviewPlayerState,
     preview_request::{PreviewProfile, preview_render_request},
     project_session::open_project_state,
+    thumbnail::load_thumbnail,
     workspace_state::{DefaultEditTarget, SceneStripItem},
 };
-use laputa_domain::MediaKind;
+use laputa_domain::{AssetId, MediaKind};
 use laputa_media::{FfprobeMediaProbe, ProjectStore};
 use laputa_render::{FfmpegPreviewDecoder, FfmpegPreviewRenderer, PreviewDecodeRequest};
 use laputa_timeline::SceneId;
@@ -52,7 +54,8 @@ enum UiCommand {
     AddMedia,
     Filter(AssetFilter),
     RetryPreview,
-}
+    RetryThumbnails,
+
 
 #[derive(Clone, Copy)]
 enum ProjectPromptMode {
@@ -95,6 +98,12 @@ struct DesktopWindow {
     preview_preparing: bool,
     /// Fences old async renders after a successful scene edit or project switch.
     preview_epoch: u64,
+    /// Render-only derived images. Never part of the canonical project state.
+    thumbnails: HashMap<AssetId, Arc<RenderImage>>,
+    thumbnails_loading: HashSet<AssetId>,
+    thumbnails_failed: HashSet<AssetId>,
+    /// Fences stale work when switching projects or rebuilding derivative images.
+    thumbnail_epoch: u64,
 }
 
 impl DesktopWindow {
@@ -107,6 +116,10 @@ impl DesktopWindow {
             preview_error: None,
             preview_preparing: false,
             preview_epoch: 0,
+            thumbnails: HashMap::new(),
+            thumbnails_loading: HashSet::new(),
+            thumbnails_failed: HashSet::new(),
+            thumbnail_epoch: 0,
         }
     }
 
@@ -123,6 +136,74 @@ impl DesktopWindow {
                 self.reset_preview();
                 self.prepare_preview(cx);
             }
+            UiCommand::RetryThumbnails => {
+                self.reset_thumbnails();
+                self.prepare_thumbnails(cx);
+                cx.notify();
+            }
+        }
+    }
+
+    fn reset_thumbnails(&mut self) {
+        self.thumbnail_epoch = self.thumbnail_epoch.wrapping_add(1);
+        self.thumbnails.clear();
+        self.thumbnails_loading.clear();
+        self.thumbnails_failed.clear();
+    }
+
+    fn prepare_thumbnails(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.state.project() else {
+            return;
+        };
+        let Some(root) = self.state.project_root() else {
+            return;
+        };
+        // Bound in-flight decode/resize tasks. Project changes fence every
+        // completion, so old media cannot appear in a new project's UI.
+        let capacity = 4_usize.saturating_sub(self.thumbnails_loading.len());
+        let pending = project
+            .assets
+            .iter()
+            .filter(|asset| {
+                !self.thumbnails.contains_key(&asset.id)
+                    && !self.thumbnails_loading.contains(&asset.id)
+                    && !self.thumbnails_failed.contains(&asset.id)
+            })
+            .take(capacity)
+            .cloned()
+            .collect::<Vec<_>>();
+        let root = root.to_path_buf();
+        let epoch = self.thumbnail_epoch;
+        for asset in pending {
+            let id = asset.id;
+            self.thumbnails_loading.insert(id);
+            let root = root.clone();
+            cx.spawn(async move |this, cx| {
+                let result = cx
+                    .background_spawn(async move {
+                        load_thumbnail(&ProjectStore::at(root), &asset)
+                            .map_err(|error| error.to_string())
+                    })
+                    .await;
+                let _ = this.update(cx, |this, cx| {
+                    if epoch != this.thumbnail_epoch {
+                        return;
+                    }
+                    this.thumbnails_loading.remove(&id);
+                    match result {
+                        Ok(image) => {
+                            this.thumbnails.insert(id, image);
+                        }
+                        Err(_) => {
+                            // Surface a quiet placeholder rather than blocking the
+                            // film. A project reopen/retry rebuilds failed entries.
+                            this.thumbnails_failed.insert(id);
+                        }
+                    }
+                    cx.notify();
+                });
+            })
+            .detach();
         }
     }
 
@@ -240,6 +321,7 @@ impl DesktopWindow {
                 match result {
                     Ok(state) => {
                         this.reset_preview();
+                        this.reset_thumbnails();
                         this.state = state;
                     }
                     Err(error) => this.state.fail(error),
@@ -1560,6 +1642,9 @@ impl DesktopWindow {
 
 impl Render for DesktopWindow {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.state.project().is_some() {
+            self.prepare_thumbnails(cx);
+        }
         if self.state.workspace().is_some()
             && self.controller.is_none()
             && !self.preview_preparing
