@@ -1527,27 +1527,28 @@ impl DesktopWindow {
         let drag_title = title.clone();
         let card = div()
             .id(("product-scene", index))
-            .w(px(196.))
-            .h(px(94.))
+            .w(px(208.))
+            .h(px(128.))
             .flex_shrink_0()
             .rounded_md()
             .cursor_move()
             .border_1()
-            .p_2()
+            .p_1()
             .flex()
-            .gap_2();
+            .flex_col()
+            .gap_1();
         let card = if selected {
-            card.bg(rgb(PAPER)).border_color(rgb(BLUE))
+            card.bg(rgb(BLUE_SOFT)).border_color(rgb(BLUE))
         } else if current {
-            card.bg(rgb(BLUE_SOFT)).border_color(rgb(HAIRLINE))
+            card.bg(rgb(PAPER)).border_color(rgb(BLUE_SOFT))
         } else {
-            card.bg(rgb(OAT_SOFT)).border_color(rgb(HAIRLINE))
+            card.bg(rgb(PAPER)).border_color(rgb(HAIRLINE))
         };
 
         card.child(
             div()
-                .w(px(108.))
-                .h_full()
+                .w_full()
+                .h(px(91.))
                 .rounded_md()
                 .overflow_hidden()
                 .bg(rgb(tone))
@@ -1556,20 +1557,23 @@ impl DesktopWindow {
                 })
                 .when(!self.thumbnails.contains_key(&scene.asset_id), |view| {
                     view.flex()
-                        .items_end()
-                        .p_1()
+                        .items_center()
+                        .justify_center()
                         .text_sm()
-                        .child(format!("{:02}", index + 1))
+                        .text_color(rgb(TEXT))
+                        .child(format!("片段 {:02}", index + 1))
                 }),
         )
         .child(
             div()
+                .w_full()
                 .min_w_0()
-                .flex_1()
+                .h(px(22.))
                 .flex()
-                .flex_col()
+                .items_center()
                 .justify_between()
-                .child(div().text_sm().child(format!("{:02} · {title}", index + 1)))
+                .gap_1()
+                .child(div().text_sm().child(format!("{:02}  {title}", index + 1)))
                 .child(div().text_sm().text_color(rgb(MUTED)).child(duration)),
         )
         .on_drag(
@@ -1606,7 +1610,6 @@ impl DesktopWindow {
         let scenes = workspace.scene_strip().to_vec();
         let selected = workspace.selected_scene();
         let current = workspace.scene_at_playhead().scene_id;
-        let count = scenes.len();
         let cards = scenes
             .into_iter()
             .enumerate()
@@ -1622,25 +1625,15 @@ impl DesktopWindow {
             .collect::<Vec<_>>();
 
         div()
-            .h(px(144.))
+            .h(px(158.))
             .flex_shrink_0()
             .bg(rgb(PAPER))
             .border_t_1()
             .border_color(rgb(HAIRLINE))
-            .px_5()
+            .px_4()
+            .py_3()
             .flex()
             .items_center()
-            .gap_4()
-            .child(
-                div()
-                    .w(px(62.))
-                    .flex_shrink_0()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(div().text_sm().text_color(rgb(MUTED)).child("场景"))
-                    .child(div().text_sm().child(format!("{count} 个"))),
-            )
             .child(
                 div()
                     .id("product-scenes-scroll")
@@ -1653,8 +1646,8 @@ impl DesktopWindow {
                     .child(
                         div()
                             .id("product-scene-drop-end")
-                            .w(px(96.))
-                            .h(px(94.))
+                            .w(px(92.))
+                            .h(px(128.))
                             .flex_shrink_0()
                             .rounded_md()
                             .border_1()
@@ -1679,6 +1672,7 @@ impl DesktopWindow {
                     ),
             )
     }
+
 }
 
 impl Render for DesktopWindow {
