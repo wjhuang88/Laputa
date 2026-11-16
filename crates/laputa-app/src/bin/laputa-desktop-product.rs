@@ -1041,7 +1041,7 @@ impl DesktopWindow {
                             .child(self.filter_button(AssetFilter::All, 0, cx))
                             .child(self.filter_button(AssetFilter::Photos, 1, cx))
                             .child(self.filter_button(AssetFilter::Videos, 2, cx)),
-                    )
+                    ),
             )
             .child(
                 div()
@@ -1309,19 +1309,16 @@ impl DesktopWindow {
                                     .flex_col()
                                     .gap_1()
                                     .child(div().text_lg().child("初剪已完成"))
-                                    .child(
-                                        div()
-                                            .text_sm()
-                                            .text_color(rgb(MUTED))
-                                            .child(format!(
-                                                "{} · {} 个片段 · {}",
-                                                format_time(duration_ms),
-                                                self.state
-                                                    .workspace()
-                                                    .map_or(0, |workspace| workspace.scene_strip().len()),
-                                                scene_title
-                                            )),
-                                    ),
+                                    .child(div().text_sm().text_color(rgb(MUTED)).child(
+                                        format!(
+                                            "{} · {} 个片段 · {}",
+                                            format_time(duration_ms),
+                                            self.state.workspace().map_or(0, |workspace| {
+                                                workspace.scene_strip().len()
+                                            }),
+                                            scene_title
+                                        ),
+                                    )),
                             ),
                     )
                     .when_some(self.preview_error.as_deref(), |view, error| {
@@ -1491,15 +1488,9 @@ impl DesktopWindow {
                                         .flex()
                                         .flex_col()
                                         .gap_1()
-                                        .child(
-                                            div()
-                                                .text_sm()
-                                                .text_color(rgb(MUTED))
-                                                .child(format!(
-                                                    "片段 {:02}",
-                                                    scene_number.unwrap_or(1)
-                                                )),
-                                        )
+                                        .child(div().text_sm().text_color(rgb(MUTED)).child(
+                                            format!("片段 {:02}", scene_number.unwrap_or(1)),
+                                        ))
                                         .child(div().text_sm().child(item.title.clone()))
                                         .child(
                                             div()
@@ -1766,7 +1757,6 @@ impl DesktopWindow {
                     ),
             )
     }
-
 }
 
 impl Render for DesktopWindow {
