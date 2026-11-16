@@ -975,18 +975,15 @@ impl DesktopWindow {
                         view.child(img(image).object_fit(ObjectFit::Cover).size_full())
                     })
                     .when(self.thumbnails.get(&card.id).is_none(), |view| {
-                        view.flex()
-                            .items_end()
-                            .p_2()
-                            .child(
-                                div()
-                                    .px_2()
-                                    .py_1()
-                                    .rounded_md()
-                                    .bg(rgb(PAPER))
-                                    .text_xs()
-                                    .child(card.kind_label),
-                            )
+                        view.flex().items_end().p_2().child(
+                            div()
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .bg(rgb(PAPER))
+                                .text_xs()
+                                .child(card.kind_label),
+                        )
                     }),
             )
             .child(
@@ -1065,13 +1062,10 @@ impl DesktopWindow {
                     .flex_col()
                     .gap_3()
                     .children(rows.into_iter().map(|row| {
-                        div()
-                            .w_full()
-                            .flex()
-                            .gap_2()
-                            .children(row.into_iter().map(|(index, card)| {
-                                self.moment_card(card, index)
-                            }))
+                        div().w_full().flex().gap_2().children(
+                            row.into_iter()
+                                .map(|(index, card)| self.moment_card(card, index)),
+                        )
                     })),
             )
             .when(!self.thumbnails_failed.is_empty(), |view| {
@@ -1300,15 +1294,10 @@ impl DesktopWindow {
                             .items_center()
                             .gap_2()
                             .child(div().w(px(7.)).h(px(7.)).rounded_full().bg(rgb(SAGE)))
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(rgb(MUTED))
-                                    .child(format!(
-                                        "初剪已完成 · {scene_title} · {} 个片段",
-                                        self.state.workspace().map_or(0, |w| w.scene_strip().len())
-                                    )),
-                            ),
+                            .child(div().text_sm().text_color(rgb(MUTED)).child(format!(
+                                "初剪已完成 · {scene_title} · {} 个片段",
+                                self.state.workspace().map_or(0, |w| w.scene_strip().len())
+                            ))),
                     )
                     .when_some(self.preview_error.as_deref(), |view, error| {
                         view.child(
