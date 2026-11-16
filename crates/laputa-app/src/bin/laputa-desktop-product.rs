@@ -1576,7 +1576,7 @@ impl DesktopWindow {
                 .flex()
                 .flex_col()
                 .justify_between()
-                .child(div().text_sm().child(title))
+                .child(div().text_sm().child(format!("{:02} · {title}", index + 1)))
                 .child(div().text_sm().text_color(rgb(MUTED)).child(duration)),
         )
         .on_drag(
