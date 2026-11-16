@@ -12,7 +12,7 @@ use std::{
 use anyhow::{Context, Result, ensure};
 use gpui::RenderImage;
 use image::{Frame, GenericImageView};
-use laputa_domain::{Asset, MediaKind};
+use laputa_domain::Asset;
 use laputa_media::ProjectStore;
 
 const THUMBNAIL_VERSION: &str = "thumbnail-v1";
