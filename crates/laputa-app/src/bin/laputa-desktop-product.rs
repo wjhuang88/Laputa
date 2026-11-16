@@ -1365,6 +1365,7 @@ impl DesktopWindow {
             .unwrap_or_else(|| "整部影片".to_owned());
 
         div()
+            .id("product-director-scroll")
             .w(px(252.))
             .min_h_0()
             .flex_shrink_0()
