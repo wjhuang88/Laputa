@@ -974,7 +974,7 @@ impl DesktopWindow {
                     .when_some(thumbnail, |view, image| {
                         view.child(img(image).object_fit(ObjectFit::Cover).size_full())
                     })
-                    .when(self.thumbnails.get(&card.id).is_none(), |view| {
+                    .when(!self.thumbnails.contains_key(&card.id), |view| {
                         view.flex().items_end().p_2().child(
                             div()
                                 .px_2()
@@ -1561,7 +1561,7 @@ impl DesktopWindow {
                 .when_some(thumbnail, |view, image| {
                     view.child(img(image).object_fit(ObjectFit::Cover).size_full())
                 })
-                .when(self.thumbnails.get(&scene.asset_id).is_none(), |view| {
+                .when(!self.thumbnails.contains_key(&scene.asset_id), |view| {
                     view.flex()
                         .items_end()
                         .p_1()
