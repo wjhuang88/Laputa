@@ -1337,6 +1337,15 @@ impl DesktopWindow {
                 })
                 .unwrap_or_else(|| workspace.scene_at_playhead())
         });
+        let scene_number = scene.and_then(|item| {
+            workspace.and_then(|workspace| {
+                workspace
+                    .scene_strip()
+                    .iter()
+                    .position(|candidate| candidate.scene_id == item.scene_id)
+                    .map(|index| index + 1)
+            })
+        });
         let active_edit = workspace.and_then(|workspace| {
             workspace.selected_scene().and_then(|scene_id| {
                 workspace
@@ -1348,18 +1357,10 @@ impl DesktopWindow {
                     .map(|scene| (scene_id, scene.locked))
             })
         });
-        let target = workspace
-            .map(
-                |workspace| match workspace.command_context().default_target {
-                    DefaultEditTarget::Project => "整部影片".to_owned(),
-                    DefaultEditTarget::Scene(_) => "当前选中片段".to_owned(),
-                },
-            )
-            .unwrap_or_else(|| "整部影片".to_owned());
 
         div()
             .id("product-director-scroll")
-            .w(px(252.))
+            .w(px(285.))
             .min_h_0()
             .flex_shrink_0()
             .bg(rgb(PAPER))
@@ -1376,35 +1377,122 @@ impl DesktopWindow {
                 div()
                     .flex()
                     .items_center()
-                    .gap_2()
-                    .child(div().text_xl().child("Laputa"))
-                    .child(div().w(px(8.)).h(px(8.)).rounded_full().bg(rgb(CLAY))),
+                    .justify_between()
+                    .child(div().text_2xl().child("Laputa"))
+                    .child(div().w(px(18.)).h(px(18.)).rounded_full().bg(rgb(CLAY))),
             )
-            .when_some(scene, |view, scene| {
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex_1()
+                            .px_3()
+                            .py_2()
+                            .rounded_md()
+                            .bg(rgb(BLUE))
+                            .text_color(rgb(0xffffff))
+                            .text_sm()
+                            .child("片段"),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .px_3()
+                            .py_2()
+                            .text_sm()
+                            .text_color(rgb(MUTED))
+                            .child("风格"),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .px_3()
+                            .py_2()
+                            .text_sm()
+                            .text_color(rgb(MUTED))
+                            .child("故事"),
+                    ),
+            )
+            .when_some(scene, |view, item| {
                 view.child(
                     div()
                         .flex()
                         .flex_col()
-                        .gap_2()
-                        .child(div().text_sm().text_color(rgb(MUTED)).child("当前片段"))
-                        .child(div().text_xl().child(scene.title.clone()))
-                        .child(div().text_sm().text_color(rgb(MUTED)).child(format!(
-                            "{} · {}",
-                            scene.display_name,
-                            format_time(scene.duration_ms())
-                        ))),
+                        .gap_3()
+                        .child(
+                            div()
+                                .rounded_lg()
+                                .border_1()
+                                .border_color(rgb(HAIRLINE))
+                                .p_2()
+                                .flex()
+                                .gap_3()
+                                .child(
+                                    div()
+                                        .w(px(82.))
+                                        .h(px(70.))
+                                        .flex_shrink_0()
+                                        .rounded_md()
+                                        .overflow_hidden()
+                                        .bg(rgb(OAT_SOFT))
+                                        .when_some(
+                                            self.thumbnails.get(&item.asset_id).cloned(),
+                                            |view, image| {
+                                                view.child(
+                                                    img(image)
+                                                        .object_fit(ObjectFit::Cover)
+                                                        .size_full(),
+                                                )
+                                            },
+                                        ),
+                                )
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w_0()
+                                        .flex()
+                                        .flex_col()
+                                        .gap_1()
+                                        .child(
+                                            div()
+                                                .text_sm()
+                                                .text_color(rgb(MUTED))
+                                                .child(format!(
+                                                    "片段 {:02}",
+                                                    scene_number.unwrap_or(1)
+                                                )),
+                                        )
+                                        .child(div().text_sm().child(item.title.clone()))
+                                        .child(
+                                            div()
+                                                .text_sm()
+                                                .text_color(rgb(MUTED))
+                                                .child(format_time(item.duration_ms())),
+                                        ),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(rgb(MUTED))
+                                .child(format!("素材：{}", item.display_name)),
+                        ),
                 )
             })
             .child(
                 div()
                     .rounded_lg()
-                    .bg(rgb(OAT_SOFT))
+                    .border_1()
+                    .border_color(rgb(BLUE))
+                    .bg(rgb(PAPER))
                     .p_3()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(div().text_sm().text_color(rgb(MUTED)).child("正在编辑"))
-                    .child(div().text_sm().child(target)),
+                    .text_sm()
+                    .text_color(rgb(MUTED))
+                    .child("✦  告诉 Laputa 你的想法…（即将开放）"),
             )
             .when_some(active_edit, |view, (scene_id, locked)| {
                 view.child(
@@ -1412,53 +1500,42 @@ impl DesktopWindow {
                         .flex()
                         .flex_col()
                         .gap_2()
-                        .child(div().text_sm().text_color(rgb(MUTED)).child("直接修改片段"))
                         .child(
                             div()
                                 .text_sm()
                                 .text_color(rgb(MUTED))
-                                .child("拖动下方片段即可调整播放顺序"),
+                                .child("修改选中的片段"),
                         )
-                        .child(
-                            div()
-                                .flex()
-                                .gap_2()
-                                .child(self.scene_edit_button(
-                                    "scene-move-earlier",
-                                    "← 前移",
-                                    DirectSceneEdit::MoveEarlier(scene_id),
-                                    cx,
-                                ))
-                                .child(self.scene_edit_button(
-                                    "scene-move-later",
-                                    "后移 →",
-                                    DirectSceneEdit::MoveLater(scene_id),
-                                    cx,
-                                )),
-                        )
-                        .child(
-                            div()
-                                .flex()
-                                .gap_2()
-                                .child(self.scene_edit_button(
-                                    "scene-shorten",
-                                    "缩短 20%",
-                                    DirectSceneEdit::Shorten(scene_id),
-                                    cx,
-                                ))
-                                .child(self.scene_edit_button(
-                                    "scene-delete",
-                                    "删除片段",
-                                    DirectSceneEdit::Delete(scene_id),
-                                    cx,
-                                )),
-                        )
+                        .child(self.scene_edit_button(
+                            "scene-shorten",
+                            "✂  缩短这一段 · 20%",
+                            DirectSceneEdit::Shorten(scene_id),
+                            cx,
+                        ))
+                        .child(self.scene_edit_button(
+                            "scene-move-earlier",
+                            "←  向前移动",
+                            DirectSceneEdit::MoveEarlier(scene_id),
+                            cx,
+                        ))
+                        .child(self.scene_edit_button(
+                            "scene-move-later",
+                            "→  向后移动",
+                            DirectSceneEdit::MoveLater(scene_id),
+                            cx,
+                        ))
+                        .child(self.scene_edit_button(
+                            "scene-delete",
+                            "删除这个片段",
+                            DirectSceneEdit::Delete(scene_id),
+                            cx,
+                        ))
                         .child(self.scene_edit_button(
                             "scene-lock",
                             if locked {
-                                "取消保留"
+                                "♡  取消保留"
                             } else {
-                                "保留这个片段"
+                                "♡  保留这个片段"
                             },
                             DirectSceneEdit::SetLocked(scene_id, !locked),
                             cx,
@@ -1470,7 +1547,7 @@ impl DesktopWindow {
                     div()
                         .text_sm()
                         .text_color(rgb(MUTED))
-                        .child("先在底部选择片段，即可直接调整排序、时长与锁定。"),
+                        .child("选择底部的片段后，可调整顺序、时长或保留它。"),
                 )
             })
             .when_some(self.state.notice(), |view, notice| {
@@ -1489,23 +1566,6 @@ impl DesktopWindow {
                         .child(error.to_owned()),
                 )
             })
-            .child(
-                div()
-                    .rounded_lg()
-                    .border_1()
-                    .border_color(rgb(HAIRLINE))
-                    .bg(rgb(PAPER))
-                    .p_3()
-                    .text_sm()
-                    .text_color(rgb(MUTED))
-                    .child("告诉 Laputa 你的想法…（即将开放）"),
-            )
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(rgb(MUTED))
-                    .child("选择片段后，只修改这一段；未选择时针对整部影片。"),
-            )
     }
 
     fn scene_card(
