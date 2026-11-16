@@ -694,7 +694,7 @@ impl DesktopWindow {
             .text_sm()
             .child(filter.label());
         let button = if selected {
-            button.bg(rgb(BLUE_SOFT)).text_color(rgb(BLUE))
+            button.bg(rgb(BLUE)).text_color(rgb(0xffffff))
         } else {
             button.text_color(rgb(MUTED))
         };
@@ -959,7 +959,7 @@ impl DesktopWindow {
         let thumbnail = self.thumbnails.get(&card.id).cloned();
         div()
             .id(("product-moment", index))
-            .w(px(103.))
+            .w(px(121.))
             .flex_shrink_0()
             .flex()
             .flex_col()
@@ -967,7 +967,7 @@ impl DesktopWindow {
             .child(
                 div()
                     .w_full()
-                    .h(px(82.))
+                    .h(px(97.))
                     .rounded_md()
                     .overflow_hidden()
                     .bg(rgb(tone))
@@ -997,7 +997,6 @@ impl DesktopWindow {
     }
 
     fn moments_rail(&self, cards: Vec<AssetCard>, cx: &mut Context<Self>) -> impl IntoElement {
-        let count = cards.len();
         let numbered = cards.into_iter().enumerate().collect::<Vec<_>>();
         let rows = numbered
             .chunks(2)
@@ -1005,7 +1004,7 @@ impl DesktopWindow {
             .collect::<Vec<_>>();
 
         div()
-            .w(px(248.))
+            .w(px(290.))
             .min_h_0()
             .flex_shrink_0()
             .bg(rgb(OAT))
@@ -1027,12 +1026,13 @@ impl DesktopWindow {
                             .items_center()
                             .justify_between()
                             .child(div().text_lg().child("片段素材"))
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(rgb(MUTED))
-                                    .child(format!("{count} 个素材")),
-                            ),
+                            .child(self.action_button(
+                                "add-media-sidebar",
+                                "＋ 添加素材",
+                                UiCommand::AddMedia,
+                                false,
+                                cx,
+                            )),
                     )
                     .child(
                         div()
@@ -1042,13 +1042,6 @@ impl DesktopWindow {
                             .child(self.filter_button(AssetFilter::Photos, 1, cx))
                             .child(self.filter_button(AssetFilter::Videos, 2, cx)),
                     )
-                    .child(self.action_button(
-                        "add-media-sidebar",
-                        "＋ 添加素材",
-                        UiCommand::AddMedia,
-                        false,
-                        cx,
-                    )),
             )
             .child(
                 div()
