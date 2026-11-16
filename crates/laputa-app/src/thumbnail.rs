@@ -21,13 +21,15 @@ const MAX_THUMBNAIL_SIDE: u32 = 384;
 pub fn cache_path(store: &ProjectStore, asset: &Asset) -> Result<PathBuf> {
     ensure!(
         asset.source_sha256.len() == 64
-            && asset.source_sha256.bytes().all(|byte| byte.is_ascii_hexdigit()),
+            && asset
+                .source_sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit()),
         "invalid imported media checksum"
     );
-    Ok(store.asset_cache_dir(asset.id).join(format!(
-        "{THUMBNAIL_VERSION}-{}.png",
-        asset.source_sha256
-    )))
+    Ok(store
+        .asset_cache_dir(asset.id)
+        .join(format!("{THUMBNAIL_VERSION}-{}.png", asset.source_sha256)))
 }
 
 /// Called only on GPUI's background executor. Decodes at most a small,
@@ -39,9 +41,8 @@ pub fn load_thumbnail(store: &ProjectStore, asset: &Asset) -> Result<Arc<RenderI
             return Ok(image);
         }
         // This is a disposable derived file, never the imported original.
-        fs::remove_file(&path).with_context(|| {
-            format!("failed to discard corrupt thumbnail {}", path.display())
-        })?;
+        fs::remove_file(&path)
+            .with_context(|| format!("failed to discard corrupt thumbnail {}", path.display()))?;
     }
     generate_thumbnail(asset, &path)?;
     decode_cached(&path)
@@ -54,10 +55,7 @@ fn decode_cached(path: &Path) -> Result<Arc<RenderImage>> {
         .with_context(|| format!("cannot decode {}", path.display()))?;
     let (width, height) = image.dimensions();
     ensure!(
-        width > 0
-            && height > 0
-            && width <= MAX_THUMBNAIL_SIDE
-            && height <= MAX_THUMBNAIL_SIDE,
+        width > 0 && height > 0 && width <= MAX_THUMBNAIL_SIDE && height <= MAX_THUMBNAIL_SIDE,
         "cached thumbnail dimensions are out of bounds"
     );
     Ok(Arc::new(RenderImage::new(vec![Frame::new(
@@ -85,12 +83,18 @@ fn generate_thumbnail(asset: &Asset, destination: &Path) -> Result<()> {
         // same bounded resize path. Neither code path opens the source for writing.
         command.arg("-i").arg(&asset.original_path);
         command.args([
-            "-map", "0:v:0",
-            "-frames:v", "1",
-            "-vf", "scale=384:216:force_original_aspect_ratio=decrease",
-            "-c:v", "png",
-            "-f", "image2",
-            "-update", "1",
+            "-map",
+            "0:v:0",
+            "-frames:v",
+            "1",
+            "-vf",
+            "scale=384:216:force_original_aspect_ratio=decrease",
+            "-c:v",
+            "png",
+            "-f",
+            "image2",
+            "-update",
+            "1",
         ]);
         let output = command
             .arg(&temporary)
@@ -103,9 +107,8 @@ fn generate_thumbnail(asset: &Asset, destination: &Path) -> Result<()> {
         );
         // Preflight the derivative before publishing it as cache.
         decode_cached(&temporary)?;
-        fs::rename(&temporary, destination).with_context(|| {
-            format!("cannot publish thumbnail {}", destination.display())
-        })?;
+        fs::rename(&temporary, destination)
+            .with_context(|| format!("cannot publish thumbnail {}", destination.display()))?;
         Ok(())
     })();
     if result.is_err() {
