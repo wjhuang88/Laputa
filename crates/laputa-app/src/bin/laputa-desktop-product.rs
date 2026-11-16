@@ -55,7 +55,7 @@ enum UiCommand {
     Filter(AssetFilter),
     RetryPreview,
     RetryThumbnails,
-
+}
 
 #[derive(Clone, Copy)]
 enum ProjectPromptMode {
