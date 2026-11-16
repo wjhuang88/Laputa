@@ -8,8 +8,8 @@ pub mod preview_controller;
 pub mod preview_frame_image;
 pub mod preview_playback;
 pub mod preview_player;
-#[cfg(feature = "desktop-ui")]
-pub mod thumbnail;
 pub mod preview_request;
 pub mod project_session;
+#[cfg(feature = "desktop-ui")]
+pub mod thumbnail;
 pub mod workspace_state;
