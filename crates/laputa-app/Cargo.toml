@@ -20,6 +20,10 @@ path = "examples/workspace_visual.rs"
 required-features = ["desktop-ui"]
 
 [[example]]
+name = "workspace_visual_fixture"
+path = "examples/workspace_visual_fixture.rs"
+
+[[example]]
 name = "workspace_playback"
 path = "examples/workspace_playback.rs"
 required-features = ["desktop-ui"]
