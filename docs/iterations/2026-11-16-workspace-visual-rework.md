@@ -1,6 +1,6 @@
 # Film Workspace 高保真返工方案
 
-Status: planned — implementation UNSTARTED; current visual acceptance FAIL
+Status: implementation in progress — V1 image/video thumbnail pipeline and workspace layout candidate proposed; visual acceptance FAIL
 Date: 2026-11-16
 Selected Story: LAPUTA-001-D / Issue #5 — bounded visual rework, Ready for this slice
 Published baseline: main `310efecb87cdac70312907da5d99ffd55bff6344`
@@ -88,3 +88,11 @@ Given 只有 example 截图或 CI 通过，When 请求关闭视觉缺陷，Then 
 - GitHub Issue #5 和 Epic #1 的正文已更新；回读与准备正文一致，均保持 OPEN。未新增评论或关闭 Issue。
 - 截图已落入仓库证据目录，与状态和方案一起交付；GitHub Issue 的证据链接在远端提交可达后同步。
 - 生产代码修复、丰富素材 fixture、新截图对照及用户复验均 UNRUN。未改产品代码，因此本次不重跑 Rust 行为测试。
+
+## V1 开发阶段 — 技术实现待验证（2026-11-16）
+
+- 生产 UI：素材栏使用真实 ProjectManifest asset 构建双列缩略图，Scene Strip 同步显示项目素材的真实缩略画面；加大场景卡片的视觉面积，压低非必要工程文案；保留原有播放、seek、Selection、拖动及修改。
+- 缩略图：新增 `laputa-app::thumbnail`，FFmpeg 从原始图片/视频只读解码至项目缓存 `.laputa/cache/<asset-id>/thumbnail-v1-<source-sha256>.png`；缓存损坏可重建，独立线程上限 4，切换项目以 epoch 丢弃过期结果，缺失媒体回退到类型占位并显示重试。缓存不得成为项目事实来源。
+- 产品回归：`workspace_visual_fixture` 产生六段具有独立媒体文件、经过 ProjectStore/FilmStore 持久化的**合成测试媒体**；`product-visual-regression.yml` 在 Xvfb 启动**真实产品**，等待六张缩略图与真实 Preview，生成布局截图并校验测试原素材哈希。这些合成媒体**绝不是**面向用户的高保真摄影素材，也不能代签人工视觉 PASS。
+- 当前证据：代码在独立 feature 分支，CI 和真实桌面摄影素材复验必须独立记录结果；MA-D-VIS-01 保持 **FAIL**，MA-D-01 保持 **PENDING**。尚未宣称实现完所有参考稿细节，Story D / Issue #5 保持 Open。
+- 与 Story F 协同：PR #37、#38 不在本分支中顺带合并；后续要将 F 的 GUI 控件与视觉布局集成，不得覆盖这次视觉失败状态。
