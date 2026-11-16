@@ -1276,8 +1276,13 @@ impl DesktopWindow {
             )
             .child(
                 div()
-                    .h(px(28.))
+                    .h(px(76.))
                     .flex_shrink_0()
+                    .rounded_lg()
+                    .border_1()
+                    .border_color(rgb(HAIRLINE))
+                    .bg(rgb(PAPER))
+                    .px_4()
                     .flex()
                     .items_center()
                     .justify_between()
@@ -1285,19 +1290,46 @@ impl DesktopWindow {
                         div()
                             .flex()
                             .items_center()
-                            .gap_2()
-                            .child(div().w(px(7.)).h(px(7.)).rounded_full().bg(rgb(SAGE)))
-                            .child(div().text_sm().text_color(rgb(MUTED)).child(format!(
-                                "初剪已完成 · {scene_title} · {} 个片段",
-                                self.state.workspace().map_or(0, |w| w.scene_strip().len())
-                            ))),
+                            .gap_3()
+                            .child(
+                                div()
+                                    .w(px(34.))
+                                    .h(px(34.))
+                                    .rounded_full()
+                                    .bg(rgb(BLUE))
+                                    .text_color(rgb(0xffffff))
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .child("✓"),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .gap_1()
+                                    .child(div().text_lg().child("初剪已完成"))
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .text_color(rgb(MUTED))
+                                            .child(format!(
+                                                "{} · {} 个片段 · {}",
+                                                format_time(duration_ms),
+                                                self.state
+                                                    .workspace()
+                                                    .map_or(0, |workspace| workspace.scene_strip().len()),
+                                                scene_title
+                                            )),
+                                    ),
+                            ),
                     )
                     .when_some(self.preview_error.as_deref(), |view, error| {
                         view.child(
                             div()
                                 .text_sm()
                                 .text_color(rgb(ERROR))
-                                .child(error.to_owned()),
+                                .child(format!("预览需要重试：{error}")),
                         )
                     }),
             )
@@ -1312,13 +1344,15 @@ impl DesktopWindow {
     ) -> impl IntoElement {
         div()
             .id(id)
-            .px_2()
-            .py_2()
-            .rounded_md()
+            .w_full()
+            .px_3()
+            .py_3()
+            .rounded_lg()
             .border_1()
             .border_color(rgb(HAIRLINE))
-            .bg(rgb(PAPER))
+            .bg(rgb(OAT_SOFT))
             .text_sm()
+            .text_color(rgb(TEXT))
             .cursor_pointer()
             .child(label)
             .on_click(cx.listener(move |this, _, _, cx| this.edit_scene(action, cx)))
