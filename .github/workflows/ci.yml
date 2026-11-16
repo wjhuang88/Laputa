@@ -44,5 +44,6 @@ jobs:
           cargo check --workspace --locked
           cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
           cargo test --workspace --locked
+          cargo test -p laputa-app --features desktop-ui --lib --locked
           cargo test -p laputa-app --features desktop-ui --bin laputa-desktop --locked
           scripts/validate_project_governance.sh .
