@@ -77,8 +77,8 @@ struct SceneDragPreview {
 impl Render for SceneDragPreview {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .w(px(154.))
-            .h(px(76.))
+            .w(px(196.))
+            .h(px(94.))
             .rounded_md()
             .border_1()
             .border_color(rgb(BLUE))
@@ -1304,7 +1304,10 @@ impl DesktopWindow {
                                 div()
                                     .text_sm()
                                     .text_color(rgb(MUTED))
-                                    .child(format!("真实预览 · {scene_title}")),
+                                    .child(format!(
+                                        "初剪已完成 · {scene_title} · {} 个片段",
+                                        self.state.workspace().map_or(0, |w| w.scene_strip().len())
+                                    )),
                             ),
                     )
                     .when_some(self.preview_error.as_deref(), |view, error| {
@@ -1373,18 +1376,19 @@ impl DesktopWindow {
             .unwrap_or_else(|| "整部影片".to_owned());
 
         div()
-            .w(px(266.))
+            .w(px(252.))
             .min_h_0()
             .flex_shrink_0()
             .bg(rgb(PAPER))
             .border_l_1()
             .border_color(rgb(HAIRLINE))
-            .px_5()
-            .pt_5()
+            .px_4()
+            .pt_4()
             .pb_4()
+            .overflow_y_scroll()
             .flex()
             .flex_col()
-            .gap_5()
+            .gap_4()
             .child(
                 div()
                     .flex()
@@ -1416,7 +1420,7 @@ impl DesktopWindow {
                     .flex()
                     .flex_col()
                     .gap_1()
-                    .child(div().text_sm().text_color(rgb(MUTED)).child("默认编辑目标"))
+                    .child(div().text_sm().text_color(rgb(MUTED)).child("正在编辑"))
                     .child(div().text_sm().child(target)),
             )
             .when_some(active_edit, |view, (scene_id, locked)| {
@@ -1430,7 +1434,7 @@ impl DesktopWindow {
                             div()
                                 .text_sm()
                                 .text_color(rgb(MUTED))
-                                .child("也可拖动底部场景卡片调整顺序"),
+                                .child("拖动下方片段即可调整播放顺序"),
                         )
                         .child(
                             div()
@@ -1511,13 +1515,13 @@ impl DesktopWindow {
                     .p_3()
                     .text_sm()
                     .text_color(rgb(MUTED))
-                    .child("自然语言修改接入中（F3b）；当前请使用上方直接操作。"),
+                    .child("告诉 Laputa 你的想法…（即将开放）"),
             )
             .child(
                 div()
                     .text_sm()
                     .text_color(rgb(MUTED))
-                    .child("点击底部场景会更新默认编辑目标；播放跨场景不会改变 Selection。"),
+                    .child("选择片段后，只修改这一段；未选择时针对整部影片。"),
             )
     }
 
@@ -1533,14 +1537,15 @@ impl DesktopWindow {
             MediaKind::Image => SAND,
             MediaKind::Video => SKY_BLOCK,
         };
+        let thumbnail = self.thumbnails.get(&scene.asset_id).cloned();
         let scene_id = scene.scene_id;
         let duration = format_time(scene.duration_ms());
         let title = scene.title;
         let drag_title = title.clone();
         let card = div()
             .id(("product-scene", index))
-            .w(px(154.))
-            .h(px(76.))
+            .w(px(196.))
+            .h(px(94.))
             .flex_shrink_0()
             .rounded_md()
             .cursor_move()
@@ -1558,15 +1563,21 @@ impl DesktopWindow {
 
         card.child(
             div()
-                .w(px(50.))
+                .w(px(108.))
                 .h_full()
                 .rounded_md()
+                .overflow_hidden()
                 .bg(rgb(tone))
-                .flex()
-                .items_end()
-                .p_1()
-                .text_sm()
-                .child(format!("{:02}", index + 1)),
+                .when_some(thumbnail, |view, image| {
+                    view.child(img(image).object_fit(ObjectFit::Cover).size_full())
+                })
+                .when(self.thumbnails.get(&scene.asset_id).is_none(), |view| {
+                    view.flex()
+                        .items_end()
+                        .p_1()
+                        .text_sm()
+                        .child(format!("{:02}", index + 1))
+                }),
         )
         .child(
             div()
@@ -1628,7 +1639,7 @@ impl DesktopWindow {
             .collect::<Vec<_>>();
 
         div()
-            .h(px(112.))
+            .h(px(144.))
             .flex_shrink_0()
             .bg(rgb(PAPER))
             .border_t_1()
@@ -1645,7 +1656,7 @@ impl DesktopWindow {
                     .flex_col()
                     .gap_1()
                     .child(div().text_sm().text_color(rgb(MUTED)).child("场景"))
-                    .child(div().text_sm().child(count.to_string())),
+                    .child(div().text_sm().child(format!("{count} 个"))),
             )
             .child(
                 div()
@@ -1660,7 +1671,7 @@ impl DesktopWindow {
                         div()
                             .id("product-scene-drop-end")
                             .w(px(96.))
-                            .h(px(76.))
+                            .h(px(94.))
                             .flex_shrink_0()
                             .rounded_md()
                             .border_1()
