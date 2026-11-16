@@ -2,11 +2,17 @@
 
 Parent: LAPUTA-001  
 Type: Product Story  
-Status: In Progress — awaiting MA-D-01 real-desktop human acceptance  
+Status: In Progress — visual acceptance FAIL; rework planned; MA-D-01 pending
 Dependencies: LAPUTA-001-C  
 Decision links: `docs/decisions/ADR-0003-agent-first-consumer-interaction.md`
 
 As a normal user, I want to watch the first cut and see its ordered scenes without learning tracks, so that I can understand what the AI made and choose what to change.
+
+## Current visual acceptance — 2026-11-16
+
+**MA-D-VIS-01: FAIL.** 用户在 main `310efec` 的真实桌面验收中明确否定整体视觉还原。素材缩略图、场景卡片、布局和上下文面板均有明显差距。历史 PR #17 的接受记录保留，但不证明当前产品达到高保真要求。
+
+[返工方案](../../iterations/2026-11-16-workspace-visual-rework.md) 已准备，限定为本 Story 原有视觉要求的缺陷修复；依赖已合入的真实 Workspace/Preview/Selection 和 F 编辑契约。本视觉切片 Ready，代码尚未开始。必须用实际产品、丰富非私人媒体和并排截图复验，用户确认前不得关闭视觉缺陷。MA-D-01 仍独立待验，两个门槛都满足后才能关闭 Story。
 
 ## Delivery sequencing
 
@@ -18,7 +24,7 @@ This sequencing change does not relax Story acceptance. The Story remains open u
 
 **Human gate: NOT YET ACCEPTED.** The canonical `laputa-desktop` Film Workspace and automated Xvfb Scene Strip/selection checks are merged (PR #21; post-merge CI success). Real GUI user playback, seek, Selection, default edit target, and product-boundary confirmation are still required before Story D or Issue #5 can be closed.
 
-Follow **[MA-D-01 checklist](../../acceptance/MANUAL-ACCEPTANCE.md#1-当前需要你人工执行唯一已知阻塞项)**. The checklist owns executable steps, evidence fields, and PASS/FAIL/BLOCKED recording; do not infer completion from CI or from the already accepted visual checkpoint.
+Follow **[MA-D-01 checklist](../../acceptance/MANUAL-ACCEPTANCE.md#ma-d-01--story-d--issue-5--film-workspace-真实桌面交互)**. The checklist owns executable steps, evidence fields, and PASS/FAIL/BLOCKED recording; do not infer completion from CI or from the historical visual checkpoint (current visual review failed).
 
 ## Scope
 

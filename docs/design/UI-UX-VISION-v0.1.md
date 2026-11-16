@@ -3,7 +3,7 @@
 Status: approved visual direction  
 Date: 2026-10-16  
 Behavior owner: `docs/reference/PRODUCT-REQUIREMENTS-v0.1.md`  
-Current implementation focus: `LAPUTA-001-D` Film Workspace visual baseline checkpoint
+Current implementation focus: `LAPUTA-001-D` Film Workspace visual rework — MA-D-VIS-01 FAIL on 2026-11-16; see [plan](../iterations/2026-11-16-workspace-visual-rework.md)
 
 ## Purpose
 
@@ -121,6 +121,10 @@ For subsequent feature work:
 - use design tokens/components for spacing, typography, surfaces, accent and selection rather than one-off styling.
 
 If implementation evidence shows that this hierarchy prevents a required V0.1 task, route the behavior change through the normal requirement/change-control process rather than silently expanding the interface.
+
+## Visual acceptance evidence
+
+High-fidelity closure requires current `laputa-desktop` screenshots against the approved reference, recorded viewport/state/media provenance and explicit user acceptance. A development example, layout tokens, compile success or historical acceptance alone is insufficient. Use real image/video thumbnails and representative scene counts; pure-color playback fixtures only prove technical paths. Record unsupported reference controls honestly. Current acceptance is FAIL; the original design remains authoritative.
 
 ## Asset archive
 

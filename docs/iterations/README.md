@@ -6,6 +6,8 @@ Use `docs/sop/START-ITERATION.md` to create a new iteration record and `docs/sop
 
 Current/latest records:
 
+- `2026-11-16-workspace-visual-rework.md` — planned; MA-D-VIS-01 FAIL confirmed by user, rework UNSTARTED; MA-D-01 remains pending.
+
 - `2026-11-14-f3b1-scene-drag-reorder.md` — native GPUI Scene Strip drag/release reorder slice in implementation; pointer acceptance, exact-head CI, F3b language/trim and F4 remain pending.
 
 - `2026-11-14-f3a-direct-scene-editing.md` — F3a product GUI direct edit buttons, save/reopen and preview refresh merged by PR #34 (human preflight UNRUN); F3b drag/language input and MA-F-01…04 remain pending.
@@ -15,7 +17,7 @@ Current/latest records:
 - `2026-11-06-selection-revision-core.md` — F1 deterministic revision core merged by PR #31, main CI #42183222768 success; Story D human gate remains open and Story F is not complete.
 
 - `2026-10-31-generative-media-foundation.md` — complete; Story E / Issue #6 archived and closed (E1–E5b), credential-gated Runway live smoke explicitly unrun and optional.
-- `2026-10-23-workspace-visual-baseline.md` — complete for its visual-baseline goal; Story D retains a separate final real-desktop acceptance residual in Issue #5.
+- `2026-10-23-workspace-visual-baseline.md` — historically closed; current visual acceptance superseded by 2026-11-16 FAIL/rework; Story D also retains MA-D-01.
 
 Human validation handoff: [manual acceptance ledger](../acceptance/MANUAL-ACCEPTANCE.md). **MA-D-01 is pending real-desktop confirmation**; do not infer acceptance from automated CI or mark future/optional tests completed.
 

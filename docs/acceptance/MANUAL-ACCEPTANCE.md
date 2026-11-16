@@ -1,6 +1,6 @@
 # Laputa 人工验收台账（Manual Acceptance Ledger）
 
-Status: maintained · Updated: 2026-11-04  
+Status: maintained · Updated: 2026-11-16
 Scope: `LAPUTA-001` V0.1 · Owner of Story status: `docs/backlog/active/` and archived Story files
 
 > **用途**：这是跨会话的人工验收入口。自动化 CI / Xvfb / fixture 测试不等于真实桌面用户确认；没有执行的操作必须保持未勾选。此文件记录待人工验证的事项和验收操作，不替代各 Story 的正式验收结论。
@@ -12,7 +12,18 @@ Scope: `LAPUTA-001` V0.1 · Owner of Story status: `docs/backlog/active/` and ar
 - **OPTIONAL / CREDENTIAL-GATED**：需要用户自愿配置外部凭证/成本/素材的真实 Provider 试验；若 Story 已以确定性证据闭环，这类烟测不是追溯式的必需关闭门槛。
 - **DONE / RECORDED**：历史验收已有证据；无需重新验收，除非新变更确实引入回归风险。
 
-## 1. 当前需要你人工执行（唯一已知阻塞项）
+## 1. 当前未通过的验收（视觉返工 + 交互确认）
+
+### MA-D-VIS-01 · Story D / Issue #5 · 高保真还原 — FAIL
+
+- 日期：2026-11-16；真实 macOS 26.5.2 (25F84) Apple Silicon 桌面；main `310efecb87cdac70312907da5d99ffd55bff6344`，窗口逻辑尺寸 1440×805。
+- 用户实际反馈：“这个明显整体上都不好看啊,跟设计稿相差甚远”。**FAIL，待返工和复验**，不是单纯未执行。
+- [完整窗口截图](evidence/2026-11-16-workspace/actual-main-310efec.png)；测试工程由 `workspace_fixture` 生成，包含两段非私人纯色素材；中央蓝色不能据此判断播放故障。
+- 截图 SHA-256：`f0ae1f1297f5b64a8124314da91ada89e70835511d4005df6beb531a7e8f1517`。
+- 观察：单列色块素材、缩小的色块场景卡、顶部/播放器布局偏差、右侧工程说明和整体视觉层级不符合[批准设计稿](../design/assets/v0.1/03-workspace.jpg)。
+- [处理方案](../iterations/2026-11-16-workspace-visual-rework.md)：先准备丰富媒体真实工程，再还原构图、真实缩略图和上下文面板，最后截图回归与用户确认。
+- 复验：在真实产品中逐项对照布局比例、媒体卡片、字体/配色/留白、选中和未选中状态、不同尺寸；记录版本/窗口/素材来源及允许差异。用户明确认可前不改为 PASS。
+- MA-D-01 仍 PENDING；本次只验视觉，未执行其完整操作清单。
 
 ### MA-D-01 · Story D / Issue #5 · Film Workspace 真实桌面交互
 
@@ -109,13 +120,13 @@ Scope: `LAPUTA-001` V0.1 · Owner of Story status: `docs/backlog/active/` and ar
 ## 4. 历史已完成的人工验收（勿重复列入待办）
 
 - **MA-A-01 · Story A / #2 — DONE / RECORDED**：2026-10-20 用户在真实桌面完成素材导入 → 关闭/重启 → 重开同一项目 → Asset Browser 素材清单恢复，并确认“符合预期”。详见 `docs/backlog/archive/LAPUTA-001-A-project-media-import.md` 与 `docs/iterations/2026-10-17-gpui-project-import.md`。除真实回归问题外无需重新验收。
-- **Story D 视觉 checkpoint — DONE / RECORDED**：PR #17 的视觉基线及迭代 `2026-10-23-workspace-visual-baseline.md` 已接受；**不等同于** MA-D-01 真机交互验收。
+- **Story D 历史视觉 checkpoint — HISTORICAL / SUPERSEDED**：保留 PR #17 的历史接受记录；2026-11-16 当前产品被用户判定视觉 FAIL，现由 MA-D-VIS-01 和返工方案持有，不能再将历史记录作为当前完成证明。MA-D-01 交互验收仍独立待验。
 
 ## 5. 另一个会话的接力入口
 
 在新会话中直接粘贴：
 
-> 请接手 `wjhuang88/Laputa` 的人工验收引导。首先读取 `docs/acceptance/MANUAL-ACCEPTANCE.md` 和对应 Issue/Story。优先执行 **MA-D-01 / Issue #5**，逐步指导我在真实桌面操作，每一步问我实际结果并记录 PASS/FAIL/BLOCKED。不得把自动化 Xvfb/CI 当成人工确认；不得擅自把 FUTURE 或 OPTIONAL 项勾选为通过。验收后通过 GitHub 更新实际证据与状态。保留已完成 Story A/E 的历史事实。
+> 请接手 `wjhuang88/Laputa` 的人工验收引导。首先读取 `docs/acceptance/MANUAL-ACCEPTANCE.md` 和对应 Issue/Story。先核对 **MA-D-VIS-01 / Issue #5** 的视觉返工状态，修复后开展截图对照复验；另行执行 **MA-D-01**，逐步指导我在真实桌面操作，每一步问我实际结果并记录 PASS/FAIL/BLOCKED。不得把自动化 Xvfb/CI 当成人工确认；不得擅自把 FUTURE 或 OPTIONAL 项勾选为通过。验收后通过 GitHub 更新实际证据与状态。保留已完成 Story A/E 的历史事实。
 
 ## 6. 台账维护规则
 

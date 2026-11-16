@@ -1,10 +1,14 @@
 # Iteration — Film Workspace Visual Baseline
 
-Status: complete  
-Date: 2026-10-23  
+Status: historically closed; current visual acceptance superseded by 2026-11-16 FAIL/rework
+Date: 2026-10-23
 Closed: 2026-10-31  
-Selected Story: `LAPUTA-001-D` (visual checkpoint only; Story remains incomplete pending final real-desktop acceptance)  
+Selected Story: `LAPUTA-001-D` (visual checkpoint only; Story remains incomplete pending final real-desktop acceptance)
 Issue: #5
+
+## Current correction — 2026-11-16
+
+Historical merge/CI and the original closure below are retained as history. User review of actual main `310efec` rejected overall fidelity; **the historical complete claim does not establish current visual acceptance**. Current Story D residuals include visual rework (MA-D-VIS-01 FAIL) as well as MA-D-01 interaction acceptance. See [current rework plan](2026-11-16-workspace-visual-rework.md) and the acceptance ledger; implementation has not started.
 
 ## Goal
 
@@ -90,11 +94,11 @@ Automated validation for the visual checkpoint and subsequent Story D stack cove
 
 Visual review accepted the `03-workspace.jpg` direction. Later product-level Xvfb smoke in PR #21 also confirmed that the canonical `laputa-desktop` preserved the accepted workspace while showing real preview and Scene Strip state.
 
-## Closure result
+## Historical closure result — superseded for current visual acceptance
 
 **complete** for this iteration's stated visual-baseline goal.
 
-This closure does **not** close Story D. Issue #5 still retains one independent residual: real-desktop human interaction acceptance of the canonical product workspace. That residual is tracked by #5 and does not keep this historical visual-baseline iteration open.
+At historical closure, the recorded residual was real-desktop interaction acceptance. As of 2026-11-16, Issue #5 also requires visual rework and renewed acceptance under MA-D-VIS-01; this historical record must not be read as current visual completion.
 
 ## Risks / assumptions disposition
 

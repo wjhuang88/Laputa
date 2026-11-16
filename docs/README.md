@@ -9,7 +9,7 @@ This directory separates stable facts, executable work, decisions, repeatable pr
 - [Architecture baseline](reference/ARCHITECTURE.md)
 - [V0.1 UI/UX & visual vision](design/UI-UX-VISION-v0.1.md)
 - [Product backlog](backlog/PRODUCT-BACKLOG.md)
-- [Manual acceptance ledger (current blockers, future GUI checks, optional live smokes)](acceptance/MANUAL-ACCEPTANCE.md)
+- [Manual acceptance ledger](acceptance/MANUAL-ACCEPTANCE.md)
 - [Implementation roadmap](roadmap/IMPLEMENTATION-ROADMAP.md)
 
 ## Responsibilities
