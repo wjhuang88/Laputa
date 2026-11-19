@@ -629,6 +629,7 @@ impl GenerationOrchestrator {
         M: GenerationOutputMaterializer,
         V: GenerationOutputValidator,
     {
+        *state = self.load_state(project)?;
         if let Some(artifact) = state
             .artifacts
             .iter()
@@ -665,23 +666,40 @@ impl GenerationOrchestrator {
         );
         ensure!(metadata.len() > 0, "verified generation output is empty");
         let sha256 = sha256_file(&destination)?;
-        let job = state
-            .job(job_id)
-            .with_context(|| format!("completed generation job {job_id} is missing"))?
-            .clone();
-        let artifact = DerivedArtifact::from_verified_materialization(
-            &job,
-            MediaKind::Video,
-            relative,
-            sha256,
-            metadata.len(),
-        )
-        .map_err(anyhow::Error::new)
-        .context("verified generation output could not be published as an artifact")?;
-        state.artifacts.push(artifact.clone());
-        self.store
-            .save(project, state)
+        let artifact = self
+            .store
+            .update(project, |current| {
+                // Two finalizers may race. Reuse the existing published artifact
+                // rather than creating duplicate records for the same job.
+                if let Some(existing) = current
+                    .artifacts
+                    .iter()
+                    .find(|artifact| artifact.job_id() == job_id)
+                {
+                    return Ok(existing.clone());
+                }
+                let job = current
+                    .job(job_id)
+                    .with_context(|| format!("completed generation job {job_id} is missing"))?
+                    .clone();
+                ensure!(
+                    matches!(job.state(), GenerationJobState::Completed { output: stored, .. } if stored == output),
+                    "generation job completion changed before artifact publication"
+                );
+                let artifact = DerivedArtifact::from_verified_materialization(
+                    &job,
+                    MediaKind::Video,
+                    relative,
+                    sha256,
+                    metadata.len(),
+                )
+                .map_err(anyhow::Error::new)
+                .context("verified generation output could not be published as an artifact")?;
+                current.artifacts.push(artifact.clone());
+                Ok(artifact)
+            })
             .context("failed to persist published generation artifact")?;
+        *state = self.load_state(project)?;
         Ok(artifact)
     }
 }
