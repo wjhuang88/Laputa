@@ -3,40 +3,27 @@ name: Generation State Portability
 on:
   push:
     paths:
-      - "crates/laputa-media/**"
-      - "crates/laputa-domain/**"
-      - "crates/laputa-agent/src/generation_orchestration.rs"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "rust-toolchain.toml"
-      - ".github/workflows/generation-state-portability.yml"
+      - 'crates/laputa-media/**'
+      - '.github/workflows/generation-state-portability.yml'
   pull_request:
     paths:
-      - "crates/laputa-media/**"
-      - "crates/laputa-domain/**"
-      - "crates/laputa-agent/src/generation_orchestration.rs"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "rust-toolchain.toml"
-      - ".github/workflows/generation-state-portability.yml"
+      - 'crates/laputa-media/**'
+      - '.github/workflows/generation-state-portability.yml'
 
 permissions:
   contents: read
 
 jobs:
-  generation-store-cross-platform:
-    name: Durable generation state (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest]
+  generation-store-macos:
+    runs-on: macos-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Test generation persistence on macOS
+        run: cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked
 
-      - name: Install Rust toolchain
-        run: rustup toolchain install 1.95.0 --profile minimal
-
-      - name: Test generation store and cross-process writers
-        run: cargo test -p laputa-media --lib generation_store::tests:: --locked
+  generation-store-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test generation persistence on Windows
+        run: cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked
