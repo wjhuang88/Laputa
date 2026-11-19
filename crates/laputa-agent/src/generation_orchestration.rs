@@ -642,14 +642,14 @@ impl GenerationOrchestrator {
             .join("output.mp4");
         let destination = self.project_root.join(&relative);
 
-        if let Err(error) = materializer.materialize(output, &destination) {
-            remove_file_if_exists(&destination);
-            return Err(error).context("failed to materialize completed generation output");
-        }
-        if let Err(error) = validator.validate(&destination, MediaKind::Video) {
-            remove_file_if_exists(&destination);
-            return Err(error).context("materialized generation output failed validation");
-        }
+        // Do not delete the destination on failure: a concurrent finalizer may
+        // already have installed and published a valid output for this job.
+        materializer
+            .materialize(output, &destination)
+            .context("failed to materialize completed generation output")?;
+        validator
+            .validate(&destination, MediaKind::Video)
+            .context("materialized generation output failed validation")?;
 
         let metadata = fs::metadata(&destination).with_context(|| {
             format!(
@@ -713,12 +713,6 @@ fn provider_error_message(prefix: &str, error: &GenerationProviderError) -> Stri
         prefix.to_owned()
     } else {
         format!("{prefix}: {}", error.message())
-    }
-}
-
-fn remove_file_if_exists(path: &Path) {
-    if path.exists() {
-        let _ = fs::remove_file(path);
     }
 }
 
