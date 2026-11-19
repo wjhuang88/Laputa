@@ -1,6 +1,6 @@
 # Iteration — Generation State Concurrency Repair
 
-Status: planned (code not yet changed)  
+Status: in progress — implementation branch exists; CI verification pending  
 Date: 2026-11-19  
 Selected Story: `LAPUTA-001-I` (Ready technical corrective Story)  
 Issue: [#40](https://github.com/wjhuang88/Laputa/issues/40)  
@@ -42,4 +42,4 @@ The 2026-11-16 workspace visual rework and F3b iteration(s) remain separately no
 
 ## Evidence / disposition
 
-Planning snapshot only. Implementation, automated runtime tests and CI are initially UNRUN. Final status must be `complete`, `partial`, or `blocked` with actual run URLs.
+Initial implementation has been committed on `fix/laputa-001-i-generation-state-transaction`: transaction-locked state updates, distinct state/materialization temp files, concurrency regression tests (stale polling snapshot, artifact publication, cancelled terminal state, independent threaded and process writers). These are **unverified code changes**, not a successful test result. The environment providing GitHub access does not have Rust toolchain or dependencies; exact-head GitHub CI is the validation gate. Record its actual results before closing this Story.

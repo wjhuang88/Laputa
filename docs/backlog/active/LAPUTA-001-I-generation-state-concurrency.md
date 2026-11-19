@@ -2,7 +2,7 @@
 
 Parent: LAPUTA-001  
 Type: Technical defect follow-up Story  
-Status: Ready — triaged; implementation NOT STARTED  
+Status: In Progress — fix branch under CI validation  
 Priority: P1 proposed (lost durable remote-job handle)  
 Issue: [#40](https://github.com/wjhuang88/Laputa/issues/40) (reported by @mattabate)  
 Historical dependency: LAPUTA-001-E / [#6](https://github.com/wjhuang88/Laputa/issues/6) (Complete/Closed 2026-11-04)  
@@ -11,7 +11,7 @@ Required reads: `AGENTS.md`, `docs/sop/REQUIREMENT-INTAKE.md`, `docs/sop/CHANGE-
 
 ## Outcome / change-control decision
 
-Concurrent generation operations within one project must never erase already-persisted jobs, remote provider handles or published artifacts. Track this as a **new corrective child Story** of LAPUTA-001; preserve Story E's historical 2026-11-04 acceptance and keep #6 closed. This triage does not start implementation.
+Concurrent generation operations within one project must never erase already-persisted jobs, remote provider handles or published artifacts. Track this as a **new corrective child Story** of LAPUTA-001; preserve Story E's historical 2026-11-04 acceptance and keep #6 closed. Implementation is underway in a separate fix branch; closure requires regression and exact-head CI evidence.
 
 ## Evidence status (2026-11-19)
 
@@ -47,4 +47,4 @@ No model/provider selection UI, vendor routing changes, broad storage redesign, 
 
 ## Delivery gate
 
-Select this Ready Story into a bounded iteration before production changes. The governance PR records triage only. Keep [#40](https://github.com/wjhuang88/Laputa/issues/40) open until a separate implementation PR, regression/CI evidence and backlog/Epic updates are complete. No human or live-provider evidence is fabricated.
+This Story was selected into `docs/iterations/2026-11-19-generation-state-concurrency-repair.md` before production changes. The governance PR records triage only. Keep [#40](https://github.com/wjhuang88/Laputa/issues/40) open until a separate implementation PR, regression/CI evidence and backlog/Epic updates are complete. No human or live-provider evidence is fabricated.
