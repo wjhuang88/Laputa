@@ -90,7 +90,10 @@ impl GenerationStore {
         self.update(project, |current| {
             for previous in &current.jobs {
                 let next = state.job(previous.id()).with_context(|| {
-                    format!("snapshot would discard durable generation job {}", previous.id())
+                    format!(
+                        "snapshot would discard durable generation job {}",
+                        previous.id()
+                    )
                 })?;
                 ensure!(
                     next.request() == previous.request(),
@@ -429,7 +432,8 @@ mod tests {
         })?;
         let stale = store.load(&project)?.expect("first snapshot");
         let second = GenerationJob::new(GenerationRequest::new(
-            GenerationOperation::GenerateBroll, vec![],
+            GenerationOperation::GenerateBroll,
+            vec![],
         ))?;
         store.update(&project, |state| {
             state.jobs.push(second.clone());
