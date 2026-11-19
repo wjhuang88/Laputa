@@ -51,30 +51,23 @@ impl GenerationOutputMaterializer for LocalFileGenerationOutputMaterializer {
                 parent.display()
             )
         })?;
-        let temporary = parent.join(format!(
-            ".{}.tmp-{}",
-            destination
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or("generation-output"),
-            std::process::id()
-        ));
-        fs::copy(source, &temporary).with_context(|| {
-            format!(
-                "failed to materialize generation output {} to {}",
-                source.display(),
-                temporary.display()
-            )
+        let mut source_file = File::open(source)
+            .with_context(|| format!("failed to read generation output {}", source.display()))?;
+        let mut temporary = tempfile::NamedTempFile::new_in(parent)
+            .context("failed to create unique materialization temporary file")?;
+        std::io::copy(&mut source_file, temporary.as_file_mut())
+            .context("failed to copy generation output into temporary file")?;
+        temporary
+            .as_file()
+            .sync_all()
+            .context("failed to sync materialized generation output")?;
+        let installed = temporary.persist(destination).map_err(|error| {
+            anyhow::Error::new(error.error).context(format!(
+                "failed to install materialized generation output {}", destination.display()
+            ))
         })?;
-        File::open(&temporary)
-            .and_then(|file| file.sync_all())
-            .with_context(|| {
-                format!(
-                    "failed to sync materialized generation output {}",
-                    temporary.display()
-                )
-            })?;
-        install_replacement(&temporary, destination)
+        drop(installed);
+        Ok(())
     }
 }
 
@@ -716,22 +709,6 @@ fn provider_error_message(prefix: &str, error: &GenerationProviderError) -> Stri
         prefix.to_owned()
     } else {
         format!("{prefix}: {}", error.message())
-    }
-}
-
-fn install_replacement(temporary: &Path, destination: &Path) -> Result<()> {
-    match fs::rename(temporary, destination) {
-        Ok(()) => Ok(()),
-        Err(error) if destination.exists() => {
-            fs::remove_file(destination).with_context(|| {
-                format!(
-                    "failed to replace materialized generation output after rename error: {error}"
-                )
-            })?;
-            fs::rename(temporary, destination)
-                .context("failed to install replacement materialized generation output")
-        }
-        Err(error) => Err(error).context("failed to install materialized generation output"),
     }
 }
 
