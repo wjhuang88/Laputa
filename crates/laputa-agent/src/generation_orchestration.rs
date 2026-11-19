@@ -536,32 +536,36 @@ impl GenerationOrchestrator {
         provenance: &ProviderProvenance,
         running: bool,
     ) -> Result<()> {
-        let current = job_state(state, job_id)?;
-        match (current, running) {
-            (GenerationJobState::Submitted { .. }, false)
-            | (GenerationJobState::Running { .. }, true) => Ok(()),
-            (GenerationJobState::Submitted { .. }, true) => self.transition_job(
-                project,
-                state,
-                job_id,
-                GenerationJobState::Running {
+        // Inspect and mutate the latest phase in the same transaction.
+        let regressed = self.store.update(project, |current| {
+            let phase = job_state(current, job_id)?.clone();
+            let next = match (&phase, running) {
+                (GenerationJobState::Submitted { .. }, false)
+                | (GenerationJobState::Running { .. }, true) => return Ok(false),
+                (GenerationJobState::Submitted { .. }, true) => GenerationJobState::Running {
                     provenance: provenance.clone(),
                 },
-            ),
-            (GenerationJobState::Running { .. }, false) => {
-                self.fail_job(
-                    project,
-                    state,
-                    job_id,
-                    Some(provenance.clone()),
-                    "generation provider status regressed from running to submitted".to_owned(),
-                )?;
-                bail!("generation provider status regressed from running to submitted")
-            }
-            _ => {
-                bail!("generation provider returned non-terminal status after job became terminal")
-            }
+                (GenerationJobState::Running { .. }, false) => GenerationJobState::Failed {
+                    provenance: Some(provenance.clone()),
+                    message: "generation provider status regressed from running to submitted".to_owned(),
+                },
+                _ => bail!("generation provider returned non-terminal status after job became terminal"),
+            };
+            let job = current
+                .jobs
+                .iter_mut()
+                .find(|job| job.id() == job_id)
+                .with_context(|| format!("generation job {job_id} is missing"))?;
+            job.transition_to(next)
+                .map_err(anyhow::Error::new)
+                .context("invalid durable generation job transition")?;
+            Ok(matches!(phase, GenerationJobState::Running { .. }) && !running)
+        })?;
+        *state = self.load_state(project)?;
+        if regressed {
+            bail!("generation provider status regressed from running to submitted")
         }
+        Ok(())
     }
 
     fn transition_job(
