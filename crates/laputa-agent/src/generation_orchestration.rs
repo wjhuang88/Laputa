@@ -166,9 +166,11 @@ impl GenerationOrchestrator {
             .map_err(anyhow::Error::new)
             .context("invalid durable generation request")?;
         let job_id = job.id();
-        state.jobs.push(job);
         self.store
-            .save(project, &state)
+            .update(project, |current| {
+                current.jobs.push(job);
+                Ok(())
+            })
             .context("failed to persist queued generation job")?;
 
         let handle = match provider.submit(&provider_request).await {
@@ -569,17 +571,21 @@ impl GenerationOrchestrator {
         job_id: GenerationJobId,
         next: GenerationJobState,
     ) -> Result<()> {
-        let job = state
-            .jobs
-            .iter_mut()
-            .find(|job| job.id() == job_id)
-            .with_context(|| format!("generation job {job_id} is missing"))?;
-        job.transition_to(next)
-            .map_err(anyhow::Error::new)
-            .context("invalid durable generation job transition")?;
         self.store
-            .save(project, state)
-            .context("failed to persist durable generation job transition")
+            .update(project, |current| {
+                let job = current
+                    .jobs
+                    .iter_mut()
+                    .find(|job| job.id() == job_id)
+                    .with_context(|| format!("generation job {job_id} is missing"))?;
+                job.transition_to(next)
+                    .map_err(anyhow::Error::new)
+                    .context("invalid durable generation job transition")?;
+                Ok(())
+            })
+            .context("failed to persist durable generation job transition")?;
+        *state = self.load_state(project)?;
+        Ok(())
     }
 
     fn fail_job(
