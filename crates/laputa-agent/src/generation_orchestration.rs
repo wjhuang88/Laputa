@@ -63,7 +63,8 @@ impl GenerationOutputMaterializer for LocalFileGenerationOutputMaterializer {
             .context("failed to sync materialized generation output")?;
         let installed = temporary.persist(destination).map_err(|error| {
             anyhow::Error::new(error.error).context(format!(
-                "failed to install materialized generation output {}", destination.display()
+                "failed to install materialized generation output {}",
+                destination.display()
             ))
         })?;
         drop(installed);
@@ -540,9 +541,12 @@ impl GenerationOrchestrator {
                 },
                 (GenerationJobState::Running { .. }, false) => GenerationJobState::Failed {
                     provenance: Some(provenance.clone()),
-                    message: "generation provider status regressed from running to submitted".to_owned(),
+                    message: "generation provider status regressed from running to submitted"
+                        .to_owned(),
                 },
-                _ => bail!("generation provider returned non-terminal status after job became terminal"),
+                _ => bail!(
+                    "generation provider returned non-terminal status after job became terminal"
+                ),
             };
             let job = current
                 .jobs
@@ -1082,7 +1086,10 @@ mod tests {
         ]));
         let orchestrator = GenerationOrchestrator::at(&project_root);
         let first = block_on_ready(orchestrator.submit_video_generation(
-            &project, request_for(&project), "First job", &provider_a,
+            &project,
+            request_for(&project),
+            "First job",
+            &provider_a,
         ))?;
         // A begins polling with this snapshot, then B is submitted meanwhile.
         let mut polling_snapshot = orchestrator.load_state(&project)?;
@@ -1091,7 +1098,10 @@ mod tests {
             state => anyhow::bail!("unexpected first job phase: {state:?}"),
         };
         let second = block_on_ready(orchestrator.submit_video_generation(
-            &project, request_for(&project), "Second job", &provider_b,
+            &project,
+            request_for(&project),
+            "Second job",
+            &provider_b,
         ))?;
         let before = orchestrator.load_state(&project)?;
         let second_provenance = match before.job(second).expect("B exists").state() {
@@ -1103,7 +1113,9 @@ mod tests {
             &project,
             &mut polling_snapshot,
             first,
-            GenerationJobState::Running { provenance: first_provenance },
+            GenerationJobState::Running {
+                provenance: first_provenance,
+            },
         )?;
         let reopened = GenerationStore::at(&project_root)
             .load(&project)?
@@ -1137,7 +1149,10 @@ mod tests {
         ]));
         let orchestrator = GenerationOrchestrator::at(&project_root);
         let first = block_on_ready(orchestrator.submit_video_generation(
-            &project, request_for(&project), "First job", &provider_a,
+            &project,
+            request_for(&project),
+            "First job",
+            &provider_a,
         ))?;
         let mut snapshot = orchestrator.load_state(&project)?;
         let provenance = match snapshot.job(first).expect("A exists").state() {
@@ -1157,7 +1172,10 @@ mod tests {
             },
         )?;
         let second = block_on_ready(orchestrator.submit_video_generation(
-            &project, request_for(&project), "Second job", &provider_b,
+            &project,
+            request_for(&project),
+            "Second job",
+            &provider_b,
         ))?;
         let artifact = orchestrator.finalize_video_artifact(
             &project,
@@ -1191,7 +1209,10 @@ mod tests {
         ]));
         let orchestrator = GenerationOrchestrator::at(&root);
         let job_id = block_on_ready(orchestrator.submit_video_generation(
-            &project, request_for(&project), "Test cancellation race", &provider,
+            &project,
+            request_for(&project),
+            "Test cancellation race",
+            &provider,
         ))?;
         let mut polling_snapshot = orchestrator.load_state(&project)?;
         let provenance = match polling_snapshot.job(job_id).expect("job exists").state() {
@@ -1203,7 +1224,9 @@ mod tests {
             &project,
             &mut cancelling_snapshot,
             job_id,
-            GenerationJobState::Cancelled { provenance: Some(provenance.clone()) },
+            GenerationJobState::Cancelled {
+                provenance: Some(provenance.clone()),
+            },
         )?;
         let stale_result = orchestrator.transition_job(
             &project,
