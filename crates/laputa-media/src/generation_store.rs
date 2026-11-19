@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use laputa_domain::{GenerationState, ProjectManifest};
 use tempfile::NamedTempFile;
 
@@ -81,9 +81,32 @@ impl GenerationStore {
         Ok(result)
     }
 
-    /// Replace the entire state. Callers doing read/modify/write MUST use `update` instead.
+    /// Replace the entire state, rejecting stale snapshots that remove or roll back
+    /// committed jobs/artifacts. Callers doing read/modify/write should use `update`.
     pub fn save(&self, project: &ProjectManifest, state: &GenerationState) -> Result<()> {
         self.update(project, |current| {
+            for previous in &current.jobs {
+                let next = state.job(previous.id()).with_context(|| {
+                    format!("snapshot would discard durable generation job {}", previous.id())
+                })?;
+                ensure!(
+                    next.request() == previous.request(),
+                    "snapshot would rewrite a committed generation request"
+                );
+                if next.state() != previous.state() {
+                    let mut checked = previous.clone();
+                    checked
+                        .transition_to(next.state().clone())
+                        .map_err(anyhow::Error::new)
+                        .context("snapshot would roll back or skip a generation transition")?;
+                }
+            }
+            for artifact in &current.artifacts {
+                ensure!(
+                    state.artifacts.contains(artifact),
+                    "snapshot would remove or rewrite a published generation artifact"
+                );
+            }
             *current = state.clone();
             Ok(())
         })
@@ -373,6 +396,35 @@ mod tests {
             .load(&project)?
             .expect("state should exist");
         assert_eq!(state.jobs.len(), 36);
+        Ok(())
+    }
+
+    #[test]
+    fn stale_whole_snapshot_cannot_erase_a_newly_submitted_job() -> Result<()> {
+        let temp = tempdir()?;
+        let project = ProjectManifest::new("Concurrent");
+        let store = GenerationStore::at(temp.path().join("project"));
+        let first = GenerationJob::new(GenerationRequest::new(
+            GenerationOperation::GenerateBroll, vec![],
+        ))?;
+        store.update(&project, |state| {
+            state.jobs.push(first.clone());
+            Ok(())
+        })?;
+        let stale = store.load(&project)?.expect("first snapshot");
+        let second = GenerationJob::new(GenerationRequest::new(
+            GenerationOperation::GenerateBroll, vec![],
+        ))?;
+        store.update(&project, |state| {
+            state.jobs.push(second.clone());
+            Ok(())
+        })?;
+        let bytes = fs::read(store.path())?;
+        assert!(store.save(&project, &stale).is_err());
+        assert_eq!(fs::read(store.path())?, bytes);
+        let reopened = store.load(&project)?.expect("both jobs remain durable");
+        assert!(reopened.job(first.id()).is_some());
+        assert!(reopened.job(second.id()).is_some());
         Ok(())
     }
 }
