@@ -732,7 +732,7 @@ mod tests {
     use anyhow::{Context as _, Result, ensure};
     use laputa_domain::{
         Asset, AssetId, AssetTechnicalMetadata, GenerationJobState, GenerationOperation,
-        GenerationRequest, GenerationSource, MediaKind, ProjectManifest,
+        GenerationProviderOutput, GenerationRequest, GenerationSource, MediaKind, ProjectManifest,
     };
     use laputa_provider::{
         FakeGenerationScenario, FakeGenerationStep, FakeVideoGenerationProvider,
@@ -1065,6 +1065,158 @@ mod tests {
             .expect("generation state should exist");
         assert_eq!(state.jobs.len(), 1);
         assert_eq!(state.artifacts.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn polling_job_transition_keeps_job_submitted_during_stale_snapshot() -> Result<()> {
+        let temp = tempdir()?;
+        let project_root = temp.path().join("project");
+        let (project, original) = project_with_original(temp.path())?;
+        let original_hash = sha256_file(&original)?;
+        let provider_a = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+            FakeGenerationStep::Running,
+        ]));
+        let provider_b = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+            FakeGenerationStep::Running,
+        ]));
+        let orchestrator = GenerationOrchestrator::at(&project_root);
+        let first = block_on_ready(orchestrator.submit_video_generation(
+            &project, request_for(&project), "First job", &provider_a,
+        ))?;
+        // A begins polling with this snapshot, then B is submitted meanwhile.
+        let mut polling_snapshot = orchestrator.load_state(&project)?;
+        let first_provenance = match polling_snapshot.job(first).expect("A exists").state() {
+            GenerationJobState::Submitted { provenance } => provenance.clone(),
+            state => anyhow::bail!("unexpected first job phase: {state:?}"),
+        };
+        let second = block_on_ready(orchestrator.submit_video_generation(
+            &project, request_for(&project), "Second job", &provider_b,
+        ))?;
+        let before = orchestrator.load_state(&project)?;
+        let second_provenance = match before.job(second).expect("B exists").state() {
+            GenerationJobState::Submitted { provenance } => provenance.clone(),
+            state => anyhow::bail!("unexpected second job phase: {state:?}"),
+        };
+
+        orchestrator.transition_job(
+            &project,
+            &mut polling_snapshot,
+            first,
+            GenerationJobState::Running { provenance: first_provenance },
+        )?;
+        let reopened = GenerationStore::at(&project_root)
+            .load(&project)?
+            .expect("both jobs must remain durable");
+        assert_eq!(reopened.jobs.len(), 2);
+        assert!(matches!(
+            reopened.job(first).expect("A must survive").state(),
+            GenerationJobState::Running { .. }
+        ));
+        assert!(matches!(
+            reopened.job(second).expect("B must survive").state(),
+            GenerationJobState::Submitted { provenance } if *provenance == second_provenance
+        ));
+        assert_eq!(sha256_file(&original)?, original_hash);
+        Ok(())
+    }
+
+    #[test]
+    fn artifact_publication_after_concurrent_submission_preserves_other_job() -> Result<()> {
+        let temp = tempdir()?;
+        let project_root = temp.path().join("project");
+        let (project, original) = project_with_original(temp.path())?;
+        let original_hash = sha256_file(&original)?;
+        let source = temp.path().join("generation-result.mp4");
+        write_video_fixture(&source)?;
+        let provider_a = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+            FakeGenerationStep::Running,
+        ]));
+        let provider_b = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+            FakeGenerationStep::Running,
+        ]));
+        let orchestrator = GenerationOrchestrator::at(&project_root);
+        let first = block_on_ready(orchestrator.submit_video_generation(
+            &project, request_for(&project), "First job", &provider_a,
+        ))?;
+        let mut snapshot = orchestrator.load_state(&project)?;
+        let provenance = match snapshot.job(first).expect("A exists").state() {
+            GenerationJobState::Submitted { provenance } => provenance.clone(),
+            state => anyhow::bail!("unexpected first job phase: {state:?}"),
+        };
+        let output = GenerationProviderOutput {
+            locator: source.display().to_string(),
+        };
+        orchestrator.transition_job(
+            &project,
+            &mut snapshot,
+            first,
+            GenerationJobState::Completed {
+                provenance,
+                output: output.clone(),
+            },
+        )?;
+        let second = block_on_ready(orchestrator.submit_video_generation(
+            &project, request_for(&project), "Second job", &provider_b,
+        ))?;
+        let artifact = orchestrator.finalize_video_artifact(
+            &project,
+            &mut snapshot,
+            first,
+            &output,
+            &LocalFileGenerationOutputMaterializer,
+            &FfprobeGenerationOutputValidator,
+        )?;
+        let reopened = GenerationStore::at(&project_root)
+            .load(&project)?
+            .expect("state must exist");
+        assert_eq!(reopened.jobs.len(), 2);
+        assert_eq!(reopened.artifacts.len(), 1);
+        assert_eq!(reopened.artifacts[0].id(), artifact.id());
+        assert!(matches!(
+            reopened.job(second).expect("B must survive").state(),
+            GenerationJobState::Submitted { .. }
+        ));
+        assert_eq!(sha256_file(&original)?, original_hash);
+        Ok(())
+    }
+
+    #[test]
+    fn stale_poll_cannot_resurrect_cancelled_job() -> Result<()> {
+        let temp = tempdir()?;
+        let root = temp.path().join("project");
+        let (project, _) = project_with_original(temp.path())?;
+        let provider = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+            FakeGenerationStep::Running,
+        ]));
+        let orchestrator = GenerationOrchestrator::at(&root);
+        let job_id = block_on_ready(orchestrator.submit_video_generation(
+            &project, request_for(&project), "Test cancellation race", &provider,
+        ))?;
+        let mut polling_snapshot = orchestrator.load_state(&project)?;
+        let provenance = match polling_snapshot.job(job_id).expect("job exists").state() {
+            GenerationJobState::Submitted { provenance } => provenance.clone(),
+            state => anyhow::bail!("unexpected initial phase: {state:?}"),
+        };
+        let mut cancelling_snapshot = orchestrator.load_state(&project)?;
+        orchestrator.transition_job(
+            &project,
+            &mut cancelling_snapshot,
+            job_id,
+            GenerationJobState::Cancelled { provenance: Some(provenance.clone()) },
+        )?;
+        let stale_result = orchestrator.transition_job(
+            &project,
+            &mut polling_snapshot,
+            job_id,
+            GenerationJobState::Running { provenance },
+        );
+        assert!(stale_result.is_err());
+        let reopened = orchestrator.load_state(&project)?;
+        assert!(matches!(
+            reopened.job(job_id).expect("job exists").state(),
+            GenerationJobState::Cancelled { .. }
+        ));
         Ok(())
     }
 }
