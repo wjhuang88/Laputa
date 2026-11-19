@@ -119,6 +119,16 @@ impl GenerationStore {
     }
 
     fn persist_state(&self, project: &ProjectManifest, state: &GenerationState) -> Result<()> {
+        self.persist_state_with_before_install(project, state, || Ok(()))
+    }
+
+    // The hook enables deterministic replacement-failure injection in unit tests.
+    fn persist_state_with_before_install(
+        &self,
+        project: &ProjectManifest,
+        state: &GenerationState,
+        before_install: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
         state
             .validate_for(project)
             .context("cannot persist invalid generation state")?;
@@ -143,6 +153,7 @@ impl GenerationStore {
             .sync_all()
             .context("failed to sync temporary generation state")?;
         // Never remove a valid destination when replacement fails.
+        before_install()?;
         let installed = temporary.persist(&path).map_err(|error| {
             anyhow::Error::new(error.error).context(format!(
                 "failed to install generation state {}",
@@ -445,6 +456,35 @@ mod tests {
         let reopened = store.load(&project)?.expect("both jobs remain durable");
         assert!(reopened.job(first.id()).is_some());
         assert!(reopened.job(second.id()).is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn injected_replacement_failure_keeps_last_committed_state() -> Result<()> {
+        let temp = tempdir()?;
+        let (project, original) = project_with_original(temp.path())?;
+        let original_hash = sha256_file(&original)?;
+        let store = GenerationStore::at(temp.path().join("project"));
+        store.update(&project, |state| {
+            state.jobs.push(GenerationJob::new(GenerationRequest::new(
+                GenerationOperation::GenerateBroll,
+                vec![],
+            ))?);
+            Ok(())
+        })?;
+        let previous = fs::read(store.path())?;
+        let mut next = store.load(&project)?.expect("first generation state");
+        next.jobs.push(GenerationJob::new(GenerationRequest::new(
+            GenerationOperation::GenerateBroll,
+            vec![],
+        ))?);
+        let failed = store.persist_state_with_before_install(&project, &next, || {
+            anyhow::bail!("injected replacement failure")
+        });
+        assert!(failed.is_err());
+        assert_eq!(fs::read(store.path())?, previous);
+        assert_eq!(store.load(&project)?.expect("state is valid").jobs.len(), 1);
+        assert_eq!(sha256_file(&original)?, original_hash);
         Ok(())
     }
 }
