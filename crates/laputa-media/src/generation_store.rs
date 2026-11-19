@@ -61,7 +61,10 @@ impl GenerationStore {
             .parent()
             .context("generation state path has no parent directory")?;
         fs::create_dir_all(parent).with_context(|| {
-            format!("failed to create generation state directory {}", parent.display())
+            format!(
+                "failed to create generation state directory {}",
+                parent.display()
+            )
         })?;
         let lock_path = parent.join(GENERATION_LOCK_FILE);
         let lock = OpenOptions::new()
@@ -124,7 +127,10 @@ impl GenerationStore {
             serde_json::to_vec_pretty(state).context("failed to serialize generation state")?;
         // Each writer receives an exclusive, distinct tempfile in the target directory.
         let mut temporary = NamedTempFile::new_in(parent).with_context(|| {
-            format!("failed to create temporary generation state in {}", parent.display())
+            format!(
+                "failed to create temporary generation state in {}",
+                parent.display()
+            )
         })?;
         temporary
             .write_all(&bytes)
@@ -136,7 +142,8 @@ impl GenerationStore {
         // Never remove a valid destination when replacement fails.
         let installed = temporary.persist(&path).map_err(|error| {
             anyhow::Error::new(error.error).context(format!(
-                "failed to install generation state {}", path.display()
+                "failed to install generation state {}",
+                path.display()
             ))
         })?;
         drop(installed);
@@ -144,7 +151,10 @@ impl GenerationStore {
         std::fs::File::open(parent)
             .and_then(|directory| directory.sync_all())
             .with_context(|| {
-                format!("failed to sync generation state directory {}", parent.display())
+                format!(
+                    "failed to sync generation state directory {}",
+                    parent.display()
+                )
             })?;
         Ok(())
     }
@@ -302,7 +312,8 @@ mod tests {
         let original_hash = sha256_file(&original)?;
         let store = GenerationStore::at(temp.path().join("project"));
         let job = GenerationJob::new(GenerationRequest::new(
-            GenerationOperation::GenerateBroll, vec![],
+            GenerationOperation::GenerateBroll,
+            vec![],
         ))?;
         store.update(&project, |state| {
             state.jobs.push(job.clone());
@@ -338,7 +349,8 @@ mod tests {
                     for _ in 0..12 {
                         GenerationStore::at(&root).update(&project, |state| {
                             state.jobs.push(GenerationJob::new(GenerationRequest::new(
-                                GenerationOperation::GenerateBroll, vec![],
+                                GenerationOperation::GenerateBroll,
+                                vec![],
                             ))?);
                             std::thread::yield_now();
                             Ok(())
@@ -367,7 +379,8 @@ mod tests {
         for _ in 0..12 {
             GenerationStore::at(&root).update(&project, |state| {
                 state.jobs.push(GenerationJob::new(GenerationRequest::new(
-                    GenerationOperation::GenerateBroll, vec![],
+                    GenerationOperation::GenerateBroll,
+                    vec![],
                 ))?);
                 Ok(())
             })?;
@@ -382,11 +395,13 @@ mod tests {
         let test_binary = std::env::current_exe()?;
         let mut workers = Vec::new();
         for _ in 0..3 {
-            workers.push(std::process::Command::new(&test_binary)
-                .arg("--exact")
-                .arg("generation_store::tests::cross_process_writer_worker")
-                .env("LAPUTA_GENERATION_TEST_ROOT", &root)
-                .spawn()?);
+            workers.push(
+                std::process::Command::new(&test_binary)
+                    .arg("--exact")
+                    .arg("generation_store::tests::cross_process_writer_worker")
+                    .env("LAPUTA_GENERATION_TEST_ROOT", &root)
+                    .spawn()?,
+            );
         }
         for mut worker in workers {
             assert!(worker.wait()?.success(), "cross-process writer failed");
@@ -405,7 +420,8 @@ mod tests {
         let project = ProjectManifest::new("Concurrent");
         let store = GenerationStore::at(temp.path().join("project"));
         let first = GenerationJob::new(GenerationRequest::new(
-            GenerationOperation::GenerateBroll, vec![],
+            GenerationOperation::GenerateBroll,
+            vec![],
         ))?;
         store.update(&project, |state| {
             state.jobs.push(first.clone());
