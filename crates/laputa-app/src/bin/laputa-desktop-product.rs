@@ -14,7 +14,9 @@ use gpui::{
     WindowOptions, div, img, prelude::*, px, rgb, size,
 };
 use laputa_app::{
-    desktop_state::{AssetCard, AssetFilter, DesktopOperation, DesktopState, DirectSceneEdit},
+    desktop_state::{
+        AssetCard, AssetFilter, DesktopOperation, DesktopState, DirectSceneEdit, TrimBoundary,
+    },
     preview_controller::PreviewController,
     preview_frame_image::{RenderedPreviewFrame, into_rendered_preview_frame},
     preview_playback::{PreviewPlaybackEvent, spawn_preview_playback},
@@ -26,7 +28,7 @@ use laputa_app::{
 use laputa_domain::MediaKind;
 use laputa_media::{FfprobeMediaProbe, ProjectStore};
 use laputa_render::{FfmpegPreviewDecoder, FfmpegPreviewRenderer, PreviewDecodeRequest};
-use laputa_timeline::SceneId;
+use laputa_timeline::{SceneId, SceneSource};
 
 const CANVAS: u32 = 0xf3f0e8;
 const PAPER: u32 = 0xfcfbf7;
@@ -1210,6 +1212,86 @@ impl DesktopWindow {
             .on_click(cx.listener(move |this, _, _, cx| this.edit_scene(action, cx)))
     }
 
+    fn fine_trim_controls(
+        &self,
+        scene_id: SceneId,
+        is_video: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .when(is_video, |view| {
+                view.child(
+                    div()
+                        .text_sm()
+                        .text_color(rgb(MUTED))
+                        .child("片头位置 · 每次 0.5 秒"),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .gap_2()
+                        .child(self.scene_edit_button(
+                            "scene-start-earlier",
+                            "片头提前",
+                            DirectSceneEdit::AdjustTrim {
+                                scene_id,
+                                boundary: TrimBoundary::Start,
+                                delta_ms: -500,
+                            },
+                            cx,
+                        ))
+                        .child(self.scene_edit_button(
+                            "scene-start-later",
+                            "片头后移",
+                            DirectSceneEdit::AdjustTrim {
+                                scene_id,
+                                boundary: TrimBoundary::Start,
+                                delta_ms: 500,
+                            },
+                            cx,
+                        )),
+                )
+            })
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(rgb(MUTED))
+                    .child(if is_video {
+                        "片尾位置 · 每次 0.5 秒"
+                    } else {
+                        "照片时长 · 每次 0.5 秒"
+                    }),
+            )
+            .child(
+                div()
+                    .flex()
+                    .gap_2()
+                    .child(self.scene_edit_button(
+                        "scene-end-earlier",
+                        "− 0.5 秒",
+                        DirectSceneEdit::AdjustTrim {
+                            scene_id,
+                            boundary: TrimBoundary::End,
+                            delta_ms: -500,
+                        },
+                        cx,
+                    ))
+                    .child(self.scene_edit_button(
+                        "scene-end-later",
+                        "+ 0.5 秒",
+                        DirectSceneEdit::AdjustTrim {
+                            scene_id,
+                            boundary: TrimBoundary::End,
+                            delta_ms: 500,
+                        },
+                        cx,
+                    )),
+            )
+    }
+
     fn director_rail(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let workspace = self.state.workspace();
         let scene = workspace.map(|workspace| {
@@ -1231,7 +1313,13 @@ impl DesktopWindow {
                     .scenes
                     .iter()
                     .find(|scene| scene.id == scene_id)
-                    .map(|scene| (scene_id, scene.locked))
+                    .map(|scene| {
+                        (
+                            scene_id,
+                            scene.locked,
+                            matches!(&scene.source, SceneSource::Video { .. }),
+                        )
+                    })
             })
         });
         let target = workspace
@@ -1246,6 +1334,7 @@ impl DesktopWindow {
         div()
             .w(px(266.))
             .min_h_0()
+            .overflow_y_scroll()
             .flex_shrink_0()
             .bg(rgb(PAPER))
             .border_l_1()
@@ -1290,7 +1379,7 @@ impl DesktopWindow {
                     .child(div().text_sm().text_color(rgb(MUTED)).child("默认编辑目标"))
                     .child(div().text_sm().child(target)),
             )
-            .when_some(active_edit, |view, (scene_id, locked)| {
+            .when_some(active_edit, |view, (scene_id, locked, is_video)| {
                 view.child(
                     div()
                         .flex()
@@ -1337,6 +1426,7 @@ impl DesktopWindow {
                                     cx,
                                 )),
                         )
+                        .child(self.fine_trim_controls(scene_id, is_video, cx))
                         .child(self.scene_edit_button(
                             "scene-lock",
                             if locked {
