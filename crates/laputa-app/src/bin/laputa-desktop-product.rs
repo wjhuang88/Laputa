@@ -247,12 +247,12 @@ impl DesktopWindow {
         }
         let live = valid.keys().cloned().collect::<HashSet<_>>();
         self.scene_thumbnails.retain(|key, _| live.contains(key));
-        self.scene_thumbnails_failed.retain(|key| live.contains(key));
+        self.scene_thumbnails_failed
+            .retain(|key| live.contains(key));
         // In-flight old tasks keep counting toward the concurrency limit until
         // they finish, even after the film's start_ms changes.
-        let capacity = 4_usize.saturating_sub(
-            self.thumbnails_loading.len() + self.scene_thumbnails_loading.len(),
-        );
+        let capacity = 4_usize
+            .saturating_sub(self.thumbnails_loading.len() + self.scene_thumbnails_loading.len());
         let pending = valid
             .into_iter()
             .filter(|(key, _)| {
@@ -308,9 +308,8 @@ impl DesktopWindow {
         };
         // Bound in-flight decode/resize tasks. Project changes fence every
         // completion, so old media cannot appear in a new project's UI.
-        let capacity = 4_usize.saturating_sub(
-            self.thumbnails_loading.len() + self.scene_thumbnails_loading.len(),
-        );
+        let capacity = 4_usize
+            .saturating_sub(self.thumbnails_loading.len() + self.scene_thumbnails_loading.len());
         let pending = project
             .assets
             .iter()
@@ -1214,19 +1213,19 @@ impl DesktopWindow {
             .when(
                 !self.thumbnails_failed.is_empty() || !self.scene_thumbnails_failed.is_empty(),
                 |view| {
-                view.child(
-                    div()
-                        .id("product-thumbnail-retry")
-                        .px_4()
-                        .py_2()
-                        .text_sm()
-                        .text_color(rgb(BLUE))
-                        .cursor_pointer()
-                        .child("部分缩略图不可用 · 重新加载")
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.execute(UiCommand::RetryThumbnails, cx);
-                        })),
-                )
+                    view.child(
+                        div()
+                            .id("product-thumbnail-retry")
+                            .px_4()
+                            .py_2()
+                            .text_sm()
+                            .text_color(rgb(BLUE))
+                            .cursor_pointer()
+                            .child("部分缩略图不可用 · 重新加载")
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.execute(UiCommand::RetryThumbnails, cx);
+                            })),
+                    )
                 },
             )
     }
@@ -1791,14 +1790,17 @@ impl DesktopWindow {
                 .when_some(thumbnail, |view, image| {
                     view.child(img(image).object_fit(ObjectFit::Cover).size_full())
                 })
-                .when(self.scene_thumbnail(scene_id, scene.asset_id).is_none(), |view| {
-                    view.flex()
-                        .items_center()
-                        .justify_center()
-                        .text_sm()
-                        .text_color(rgb(TEXT))
-                        .child(format!("片段 {:02}", index + 1))
-                }),
+                .when(
+                    self.scene_thumbnail(scene_id, scene.asset_id).is_none(),
+                    |view| {
+                        view.flex()
+                            .items_center()
+                            .justify_center()
+                            .text_sm()
+                            .text_color(rgb(TEXT))
+                            .child(format!("片段 {:02}", index + 1))
+                    },
+                ),
         )
         .child(
             div()
