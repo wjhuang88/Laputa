@@ -6,6 +6,8 @@ Use `docs/sop/START-ITERATION.md` to create a new iteration record and `docs/sop
 
 Current/latest records:
 
+- `2026-11-21-scene-inpoint-thumbnails.md` — Story D / #5 in-point video thumbnail implementation in progress; V1 PR #39 merged with exact-head and post-merge CI success, human MA-D-VIS-01 remains FAIL and MA-D-01 PENDING.
+
 - `2026-11-19-generation-state-concurrency-repair.md` — LAPUTA-001-I / #40, PR #42 merged; Ubuntu-backed transactional generation state fix accepted on closeout after main CI #44863056584, with macOS/Windows verification tracked under #44 and CI fixture flake #43.
 
 - `2026-11-16-workspace-visual-rework.md` — planned; MA-D-VIS-01 FAIL confirmed by user, rework UNSTARTED; MA-D-01 remains pending.
