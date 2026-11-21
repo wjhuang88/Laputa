@@ -1,4 +1,5 @@
 use std::{
+    collections::{HashMap, HashSet},
     env,
     panic::{AssertUnwindSafe, catch_unwind},
     path::{Path, PathBuf},
@@ -10,7 +11,7 @@ use std::{
 
 use anyhow::Result;
 use gpui::{
-    App, Bounds, Context, InteractiveElement, ObjectFit, Render, Window, WindowBounds,
+    App, Bounds, Context, InteractiveElement, ObjectFit, Render, RenderImage, Window, WindowBounds,
     WindowOptions, div, img, prelude::*, px, rgb, size,
 };
 use laputa_app::{
@@ -21,9 +22,10 @@ use laputa_app::{
     preview_player::PreviewPlayerState,
     preview_request::{PreviewProfile, preview_render_request},
     project_session::open_project_state,
-    workspace_state::{DefaultEditTarget, SceneStripItem},
+    thumbnail::load_thumbnail,
+    workspace_state::SceneStripItem,
 };
-use laputa_domain::MediaKind;
+use laputa_domain::{AssetId, MediaKind};
 use laputa_media::{FfprobeMediaProbe, ProjectStore};
 use laputa_render::{FfmpegPreviewDecoder, FfmpegPreviewRenderer, PreviewDecodeRequest};
 use laputa_timeline::SceneId;
@@ -37,7 +39,6 @@ const MUTED: u32 = 0x6b706d;
 const HAIRLINE: u32 = 0xd8d3c9;
 const BLUE: u32 = 0x6f8fa8;
 const BLUE_SOFT: u32 = 0xdfe8ed;
-const SAGE: u32 = 0xa9b5a0;
 const CLAY: u32 = 0xc8795a;
 const FJORD: u32 = 0x30464b;
 const SAND: u32 = 0xd8c9b6;
@@ -52,6 +53,7 @@ enum UiCommand {
     AddMedia,
     Filter(AssetFilter),
     RetryPreview,
+    RetryThumbnails,
 }
 
 #[derive(Clone, Copy)]
@@ -74,8 +76,8 @@ struct SceneDragPreview {
 impl Render for SceneDragPreview {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .w(px(154.))
-            .h(px(76.))
+            .w(px(196.))
+            .h(px(94.))
             .rounded_md()
             .border_1()
             .border_color(rgb(BLUE))
@@ -95,6 +97,12 @@ struct DesktopWindow {
     preview_preparing: bool,
     /// Fences old async renders after a successful scene edit or project switch.
     preview_epoch: u64,
+    /// Render-only derived images. Never part of the canonical project state.
+    thumbnails: HashMap<AssetId, Arc<RenderImage>>,
+    thumbnails_loading: HashSet<AssetId>,
+    thumbnails_failed: HashSet<AssetId>,
+    /// Fences stale work when switching projects or rebuilding derivative images.
+    thumbnail_epoch: u64,
 }
 
 impl DesktopWindow {
@@ -107,6 +115,10 @@ impl DesktopWindow {
             preview_error: None,
             preview_preparing: false,
             preview_epoch: 0,
+            thumbnails: HashMap::new(),
+            thumbnails_loading: HashSet::new(),
+            thumbnails_failed: HashSet::new(),
+            thumbnail_epoch: 0,
         }
     }
 
@@ -123,6 +135,74 @@ impl DesktopWindow {
                 self.reset_preview();
                 self.prepare_preview(cx);
             }
+            UiCommand::RetryThumbnails => {
+                self.reset_thumbnails();
+                self.prepare_thumbnails(cx);
+                cx.notify();
+            }
+        }
+    }
+
+    fn reset_thumbnails(&mut self) {
+        self.thumbnail_epoch = self.thumbnail_epoch.wrapping_add(1);
+        self.thumbnails.clear();
+        self.thumbnails_loading.clear();
+        self.thumbnails_failed.clear();
+    }
+
+    fn prepare_thumbnails(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.state.project() else {
+            return;
+        };
+        let Some(root) = self.state.project_root() else {
+            return;
+        };
+        // Bound in-flight decode/resize tasks. Project changes fence every
+        // completion, so old media cannot appear in a new project's UI.
+        let capacity = 4_usize.saturating_sub(self.thumbnails_loading.len());
+        let pending = project
+            .assets
+            .iter()
+            .filter(|asset| {
+                !self.thumbnails.contains_key(&asset.id)
+                    && !self.thumbnails_loading.contains(&asset.id)
+                    && !self.thumbnails_failed.contains(&asset.id)
+            })
+            .take(capacity)
+            .cloned()
+            .collect::<Vec<_>>();
+        let root = root.to_path_buf();
+        let epoch = self.thumbnail_epoch;
+        for asset in pending {
+            let id = asset.id;
+            self.thumbnails_loading.insert(id);
+            let root = root.clone();
+            cx.spawn(async move |this, cx| {
+                let result = cx
+                    .background_spawn(async move {
+                        load_thumbnail(&ProjectStore::at(root), &asset)
+                            .map_err(|error| error.to_string())
+                    })
+                    .await;
+                let _ = this.update(cx, |this, cx| {
+                    if epoch != this.thumbnail_epoch {
+                        return;
+                    }
+                    this.thumbnails_loading.remove(&id);
+                    match result {
+                        Ok(image) => {
+                            this.thumbnails.insert(id, image);
+                        }
+                        Err(_) => {
+                            // Surface a quiet placeholder rather than blocking the
+                            // film. A project reopen/retry rebuilds failed entries.
+                            this.thumbnails_failed.insert(id);
+                        }
+                    }
+                    cx.notify();
+                });
+            })
+            .detach();
         }
     }
 
@@ -240,6 +320,7 @@ impl DesktopWindow {
                 match result {
                     Ok(state) => {
                         this.reset_preview();
+                        this.reset_thumbnails();
                         this.state = state;
                     }
                     Err(error) => this.state.fail(error),
@@ -612,7 +693,7 @@ impl DesktopWindow {
             .text_sm()
             .child(filter.label());
         let button = if selected {
-            button.bg(rgb(BLUE_SOFT)).text_color(rgb(BLUE))
+            button.bg(rgb(BLUE)).text_color(rgb(0xffffff))
         } else {
             button.text_color(rgb(MUTED))
         };
@@ -869,9 +950,60 @@ impl DesktopWindow {
             )
     }
 
-    fn moments_rail(&self, cards: Vec<AssetCard>, cx: &mut Context<Self>) -> impl IntoElement {
+    fn moment_card(&self, card: AssetCard, index: usize) -> impl IntoElement {
+        let tone = match card.kind {
+            MediaKind::Image => SAND,
+            MediaKind::Video => SKY_BLOCK,
+        };
+        let thumbnail = self.thumbnails.get(&card.id).cloned();
         div()
-            .w(px(208.))
+            .id(("product-moment", index))
+            .w(px(121.))
+            .flex_shrink_0()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .child(
+                div()
+                    .w_full()
+                    .h(px(97.))
+                    .rounded_md()
+                    .overflow_hidden()
+                    .bg(rgb(tone))
+                    .when_some(thumbnail, |view, image| {
+                        view.child(img(image).object_fit(ObjectFit::Cover).size_full())
+                    })
+                    .when(!self.thumbnails.contains_key(&card.id), |view| {
+                        view.flex().items_end().p_2().child(
+                            div()
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .bg(rgb(PAPER))
+                                .text_xs()
+                                .child(card.kind_label),
+                        )
+                    }),
+            )
+            .child(
+                div()
+                    .w_full()
+                    .overflow_hidden()
+                    .text_xs()
+                    .text_color(rgb(TEXT))
+                    .child(card.display_name),
+            )
+    }
+
+    fn moments_rail(&self, cards: Vec<AssetCard>, cx: &mut Context<Self>) -> impl IntoElement {
+        let numbered = cards.into_iter().enumerate().collect::<Vec<_>>();
+        let rows = numbered
+            .chunks(2)
+            .map(|pair| pair.to_vec())
+            .collect::<Vec<_>>();
+
+        div()
+            .w(px(290.))
             .min_h_0()
             .flex_shrink_0()
             .bg(rgb(OAT))
@@ -882,7 +1014,7 @@ impl DesktopWindow {
             .child(
                 div()
                     .px_4()
-                    .pt_5()
+                    .pt_4()
                     .pb_3()
                     .flex()
                     .flex_col()
@@ -892,13 +1024,14 @@ impl DesktopWindow {
                             .flex()
                             .items_center()
                             .justify_between()
-                            .child(div().text_xl().child("片段素材"))
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(rgb(MUTED))
-                                    .child(cards.len().to_string()),
-                            ),
+                            .child(div().text_lg().child("片段素材"))
+                            .child(self.action_button(
+                                "add-media-sidebar",
+                                "＋ 添加素材",
+                                UiCommand::AddMedia,
+                                false,
+                                cx,
+                            )),
                     )
                     .child(
                         div()
@@ -907,14 +1040,7 @@ impl DesktopWindow {
                             .child(self.filter_button(AssetFilter::All, 0, cx))
                             .child(self.filter_button(AssetFilter::Photos, 1, cx))
                             .child(self.filter_button(AssetFilter::Videos, 2, cx)),
-                    )
-                    .child(self.action_button(
-                        "add-media-sidebar",
-                        "＋ 添加素材",
-                        UiCommand::AddMedia,
-                        false,
-                        cx,
-                    )),
+                    ),
             )
             .child(
                 div()
@@ -923,43 +1049,32 @@ impl DesktopWindow {
                     .min_h_0()
                     .overflow_y_scroll()
                     .px_4()
-                    .pb_5()
+                    .pb_4()
                     .flex()
                     .flex_col()
                     .gap_3()
-                    .children(cards.into_iter().enumerate().map(|(index, card)| {
-                        let tone = match card.kind {
-                            MediaKind::Image => SAND,
-                            MediaKind::Video => SKY_BLOCK,
-                        };
-                        div()
-                            .id(("product-moment", index))
-                            .w_full()
-                            .flex()
-                            .flex_col()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .w_full()
-                                    .h(px(74.))
-                                    .rounded_md()
-                                    .bg(rgb(tone))
-                                    .flex()
-                                    .items_end()
-                                    .p_2()
-                                    .child(
-                                        div()
-                                            .px_2()
-                                            .py_1()
-                                            .rounded_md()
-                                            .bg(rgb(PAPER))
-                                            .text_sm()
-                                            .child(card.kind_label),
-                                    ),
-                            )
-                            .child(div().text_sm().child(card.display_name))
+                    .children(rows.into_iter().map(|row| {
+                        div().w_full().flex().gap_2().children(
+                            row.into_iter()
+                                .map(|(index, card)| self.moment_card(card, index)),
+                        )
                     })),
             )
+            .when(!self.thumbnails_failed.is_empty(), |view| {
+                view.child(
+                    div()
+                        .id("product-thumbnail-retry")
+                        .px_4()
+                        .py_2()
+                        .text_sm()
+                        .text_color(rgb(BLUE))
+                        .cursor_pointer()
+                        .child("部分缩略图不可用 · 重新加载")
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.execute(UiCommand::RetryThumbnails, cx);
+                        })),
+                )
+            })
     }
 
     fn film_workspace(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -1160,8 +1275,13 @@ impl DesktopWindow {
             )
             .child(
                 div()
-                    .h(px(28.))
+                    .h(px(76.))
                     .flex_shrink_0()
+                    .rounded_lg()
+                    .border_1()
+                    .border_color(rgb(HAIRLINE))
+                    .bg(rgb(PAPER))
+                    .px_4()
                     .flex()
                     .items_center()
                     .justify_between()
@@ -1169,13 +1289,33 @@ impl DesktopWindow {
                         div()
                             .flex()
                             .items_center()
-                            .gap_2()
-                            .child(div().w(px(7.)).h(px(7.)).rounded_full().bg(rgb(SAGE)))
+                            .gap_3()
                             .child(
                                 div()
-                                    .text_sm()
-                                    .text_color(rgb(MUTED))
-                                    .child(format!("真实预览 · {scene_title}")),
+                                    .w(px(34.))
+                                    .h(px(34.))
+                                    .rounded_full()
+                                    .bg(rgb(BLUE))
+                                    .text_color(rgb(0xffffff))
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .child("✓"),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .gap_1()
+                                    .child(div().text_lg().child("初剪已完成"))
+                                    .child(div().text_sm().text_color(rgb(MUTED)).child(format!(
+                                        "{} · {} 个片段 · {}",
+                                        format_time(duration_ms),
+                                        self.state.workspace().map_or(0, |workspace| {
+                                            workspace.scene_strip().len()
+                                        }),
+                                        scene_title
+                                    ))),
                             ),
                     )
                     .when_some(self.preview_error.as_deref(), |view, error| {
@@ -1183,7 +1323,7 @@ impl DesktopWindow {
                             div()
                                 .text_sm()
                                 .text_color(rgb(ERROR))
-                                .child(error.to_owned()),
+                                .child(format!("预览需要重试：{error}")),
                         )
                     }),
             )
@@ -1198,13 +1338,15 @@ impl DesktopWindow {
     ) -> impl IntoElement {
         div()
             .id(id)
-            .px_2()
-            .py_2()
-            .rounded_md()
+            .w_full()
+            .px_3()
+            .py_3()
+            .rounded_lg()
             .border_1()
             .border_color(rgb(HAIRLINE))
-            .bg(rgb(PAPER))
+            .bg(rgb(OAT_SOFT))
             .text_sm()
+            .text_color(rgb(TEXT))
             .cursor_pointer()
             .child(label)
             .on_click(cx.listener(move |this, _, _, cx| this.edit_scene(action, cx)))
@@ -1223,6 +1365,15 @@ impl DesktopWindow {
                 })
                 .unwrap_or_else(|| workspace.scene_at_playhead())
         });
+        let scene_number = scene.and_then(|item| {
+            workspace.and_then(|workspace| {
+                workspace
+                    .scene_strip()
+                    .iter()
+                    .position(|candidate| candidate.scene_id == item.scene_id)
+                    .map(|index| index + 1)
+            })
+        });
         let active_edit = workspace.and_then(|workspace| {
             workspace.selected_scene().and_then(|scene_id| {
                 workspace
@@ -1234,61 +1385,136 @@ impl DesktopWindow {
                     .map(|scene| (scene_id, scene.locked))
             })
         });
-        let target = workspace
-            .map(
-                |workspace| match workspace.command_context().default_target {
-                    DefaultEditTarget::Project => "整部影片".to_owned(),
-                    DefaultEditTarget::Scene(_) => "当前选中片段".to_owned(),
-                },
-            )
-            .unwrap_or_else(|| "整部影片".to_owned());
 
         div()
-            .w(px(266.))
+            .id("product-director-scroll")
+            .w(px(285.))
             .min_h_0()
             .flex_shrink_0()
             .bg(rgb(PAPER))
             .border_l_1()
             .border_color(rgb(HAIRLINE))
-            .px_5()
-            .pt_5()
+            .px_4()
+            .pt_4()
             .pb_4()
+            .overflow_y_scroll()
             .flex()
             .flex_col()
-            .gap_5()
+            .gap_4()
             .child(
                 div()
                     .flex()
                     .items_center()
-                    .gap_2()
-                    .child(div().text_xl().child("Laputa"))
-                    .child(div().w(px(8.)).h(px(8.)).rounded_full().bg(rgb(CLAY))),
+                    .justify_between()
+                    .child(div().text_2xl().child("Laputa"))
+                    .child(div().w(px(18.)).h(px(18.)).rounded_full().bg(rgb(CLAY))),
             )
-            .when_some(scene, |view, scene| {
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex_1()
+                            .px_3()
+                            .py_2()
+                            .rounded_md()
+                            .bg(rgb(BLUE))
+                            .text_color(rgb(0xffffff))
+                            .text_sm()
+                            .child("片段"),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .px_3()
+                            .py_2()
+                            .text_sm()
+                            .text_color(rgb(MUTED))
+                            .child("风格"),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .px_3()
+                            .py_2()
+                            .text_sm()
+                            .text_color(rgb(MUTED))
+                            .child("故事"),
+                    ),
+            )
+            .when_some(scene, |view, item| {
                 view.child(
                     div()
                         .flex()
                         .flex_col()
-                        .gap_2()
-                        .child(div().text_sm().text_color(rgb(MUTED)).child("当前片段"))
-                        .child(div().text_xl().child(scene.title.clone()))
-                        .child(div().text_sm().text_color(rgb(MUTED)).child(format!(
-                            "{} · {}",
-                            scene.display_name,
-                            format_time(scene.duration_ms())
-                        ))),
+                        .gap_3()
+                        .child(
+                            div()
+                                .rounded_lg()
+                                .border_1()
+                                .border_color(rgb(HAIRLINE))
+                                .p_2()
+                                .flex()
+                                .gap_3()
+                                .child(
+                                    div()
+                                        .w(px(82.))
+                                        .h(px(70.))
+                                        .flex_shrink_0()
+                                        .rounded_md()
+                                        .overflow_hidden()
+                                        .bg(rgb(OAT_SOFT))
+                                        .when_some(
+                                            self.thumbnails.get(&item.asset_id).cloned(),
+                                            |view, image| {
+                                                view.child(
+                                                    img(image)
+                                                        .object_fit(ObjectFit::Cover)
+                                                        .size_full(),
+                                                )
+                                            },
+                                        ),
+                                )
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w_0()
+                                        .flex()
+                                        .flex_col()
+                                        .gap_1()
+                                        .child(div().text_sm().text_color(rgb(MUTED)).child(
+                                            format!("片段 {:02}", scene_number.unwrap_or(1)),
+                                        ))
+                                        .child(div().text_sm().child(item.title.clone()))
+                                        .child(
+                                            div()
+                                                .text_sm()
+                                                .text_color(rgb(MUTED))
+                                                .child(format_time(item.duration_ms())),
+                                        ),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(rgb(MUTED))
+                                .child(format!("素材：{}", item.display_name)),
+                        ),
                 )
             })
             .child(
                 div()
                     .rounded_lg()
-                    .bg(rgb(OAT_SOFT))
+                    .border_1()
+                    .border_color(rgb(BLUE))
+                    .bg(rgb(PAPER))
                     .p_3()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(div().text_sm().text_color(rgb(MUTED)).child("默认编辑目标"))
-                    .child(div().text_sm().child(target)),
+                    .text_sm()
+                    .text_color(rgb(MUTED))
+                    .child("✦  告诉 Laputa 你的想法…（即将开放）"),
             )
             .when_some(active_edit, |view, (scene_id, locked)| {
                 view.child(
@@ -1296,53 +1522,42 @@ impl DesktopWindow {
                         .flex()
                         .flex_col()
                         .gap_2()
-                        .child(div().text_sm().text_color(rgb(MUTED)).child("直接修改片段"))
                         .child(
                             div()
                                 .text_sm()
                                 .text_color(rgb(MUTED))
-                                .child("也可拖动底部场景卡片调整顺序"),
+                                .child("修改选中的片段"),
                         )
-                        .child(
-                            div()
-                                .flex()
-                                .gap_2()
-                                .child(self.scene_edit_button(
-                                    "scene-move-earlier",
-                                    "← 前移",
-                                    DirectSceneEdit::MoveEarlier(scene_id),
-                                    cx,
-                                ))
-                                .child(self.scene_edit_button(
-                                    "scene-move-later",
-                                    "后移 →",
-                                    DirectSceneEdit::MoveLater(scene_id),
-                                    cx,
-                                )),
-                        )
-                        .child(
-                            div()
-                                .flex()
-                                .gap_2()
-                                .child(self.scene_edit_button(
-                                    "scene-shorten",
-                                    "缩短 20%",
-                                    DirectSceneEdit::Shorten(scene_id),
-                                    cx,
-                                ))
-                                .child(self.scene_edit_button(
-                                    "scene-delete",
-                                    "删除片段",
-                                    DirectSceneEdit::Delete(scene_id),
-                                    cx,
-                                )),
-                        )
+                        .child(self.scene_edit_button(
+                            "scene-shorten",
+                            "✂  缩短这一段 · 20%",
+                            DirectSceneEdit::Shorten(scene_id),
+                            cx,
+                        ))
+                        .child(self.scene_edit_button(
+                            "scene-move-earlier",
+                            "←  向前移动",
+                            DirectSceneEdit::MoveEarlier(scene_id),
+                            cx,
+                        ))
+                        .child(self.scene_edit_button(
+                            "scene-move-later",
+                            "→  向后移动",
+                            DirectSceneEdit::MoveLater(scene_id),
+                            cx,
+                        ))
+                        .child(self.scene_edit_button(
+                            "scene-delete",
+                            "删除这个片段",
+                            DirectSceneEdit::Delete(scene_id),
+                            cx,
+                        ))
                         .child(self.scene_edit_button(
                             "scene-lock",
                             if locked {
-                                "取消保留"
+                                "♡  取消保留"
                             } else {
-                                "保留这个片段"
+                                "♡  保留这个片段"
                             },
                             DirectSceneEdit::SetLocked(scene_id, !locked),
                             cx,
@@ -1354,7 +1569,7 @@ impl DesktopWindow {
                     div()
                         .text_sm()
                         .text_color(rgb(MUTED))
-                        .child("先在底部选择片段，即可直接调整排序、时长与锁定。"),
+                        .child("选择底部的片段后，可调整顺序、时长或保留它。"),
                 )
             })
             .when_some(self.state.notice(), |view, notice| {
@@ -1373,23 +1588,6 @@ impl DesktopWindow {
                         .child(error.to_owned()),
                 )
             })
-            .child(
-                div()
-                    .rounded_lg()
-                    .border_1()
-                    .border_color(rgb(HAIRLINE))
-                    .bg(rgb(PAPER))
-                    .p_3()
-                    .text_sm()
-                    .text_color(rgb(MUTED))
-                    .child("自然语言修改接入中（F3b）；当前请使用上方直接操作。"),
-            )
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(rgb(MUTED))
-                    .child("点击底部场景会更新默认编辑目标；播放跨场景不会改变 Selection。"),
-            )
     }
 
     fn scene_card(
@@ -1404,49 +1602,60 @@ impl DesktopWindow {
             MediaKind::Image => SAND,
             MediaKind::Video => SKY_BLOCK,
         };
+        let thumbnail = self.thumbnails.get(&scene.asset_id).cloned();
         let scene_id = scene.scene_id;
         let duration = format_time(scene.duration_ms());
         let title = scene.title;
         let drag_title = title.clone();
         let card = div()
             .id(("product-scene", index))
-            .w(px(154.))
-            .h(px(76.))
+            .w(px(208.))
+            .h(px(128.))
             .flex_shrink_0()
             .rounded_md()
             .cursor_move()
             .border_1()
-            .p_2()
+            .p_1()
             .flex()
-            .gap_2();
+            .flex_col()
+            .gap_1();
         let card = if selected {
-            card.bg(rgb(PAPER)).border_color(rgb(BLUE))
+            card.bg(rgb(BLUE_SOFT)).border_color(rgb(BLUE))
         } else if current {
-            card.bg(rgb(BLUE_SOFT)).border_color(rgb(HAIRLINE))
+            card.bg(rgb(PAPER)).border_color(rgb(BLUE_SOFT))
         } else {
-            card.bg(rgb(OAT_SOFT)).border_color(rgb(HAIRLINE))
+            card.bg(rgb(PAPER)).border_color(rgb(HAIRLINE))
         };
 
         card.child(
             div()
-                .w(px(50.))
-                .h_full()
+                .w_full()
+                .h(px(91.))
                 .rounded_md()
+                .overflow_hidden()
                 .bg(rgb(tone))
-                .flex()
-                .items_end()
-                .p_1()
-                .text_sm()
-                .child(format!("{:02}", index + 1)),
+                .when_some(thumbnail, |view, image| {
+                    view.child(img(image).object_fit(ObjectFit::Cover).size_full())
+                })
+                .when(!self.thumbnails.contains_key(&scene.asset_id), |view| {
+                    view.flex()
+                        .items_center()
+                        .justify_center()
+                        .text_sm()
+                        .text_color(rgb(TEXT))
+                        .child(format!("片段 {:02}", index + 1))
+                }),
         )
         .child(
             div()
+                .w_full()
                 .min_w_0()
-                .flex_1()
+                .h(px(22.))
                 .flex()
-                .flex_col()
+                .items_center()
                 .justify_between()
-                .child(div().text_sm().child(title))
+                .gap_1()
+                .child(div().text_sm().child(format!("{:02}  {title}", index + 1)))
                 .child(div().text_sm().text_color(rgb(MUTED)).child(duration)),
         )
         .on_drag(
@@ -1483,7 +1692,6 @@ impl DesktopWindow {
         let scenes = workspace.scene_strip().to_vec();
         let selected = workspace.selected_scene();
         let current = workspace.scene_at_playhead().scene_id;
-        let count = scenes.len();
         let cards = scenes
             .into_iter()
             .enumerate()
@@ -1499,25 +1707,15 @@ impl DesktopWindow {
             .collect::<Vec<_>>();
 
         div()
-            .h(px(112.))
+            .h(px(158.))
             .flex_shrink_0()
             .bg(rgb(PAPER))
             .border_t_1()
             .border_color(rgb(HAIRLINE))
-            .px_5()
+            .px_4()
+            .py_3()
             .flex()
             .items_center()
-            .gap_4()
-            .child(
-                div()
-                    .w(px(62.))
-                    .flex_shrink_0()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(div().text_sm().text_color(rgb(MUTED)).child("场景"))
-                    .child(div().text_sm().child(count.to_string())),
-            )
             .child(
                 div()
                     .id("product-scenes-scroll")
@@ -1530,8 +1728,8 @@ impl DesktopWindow {
                     .child(
                         div()
                             .id("product-scene-drop-end")
-                            .w(px(96.))
-                            .h(px(76.))
+                            .w(px(92.))
+                            .h(px(128.))
                             .flex_shrink_0()
                             .rounded_md()
                             .border_1()
@@ -1560,6 +1758,9 @@ impl DesktopWindow {
 
 impl Render for DesktopWindow {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.state.project().is_some() {
+            self.prepare_thumbnails(cx);
+        }
         if self.state.workspace().is_some()
             && self.controller.is_none()
             && !self.preview_preparing

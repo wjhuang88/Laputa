@@ -20,6 +20,10 @@ path = "examples/workspace_visual.rs"
 required-features = ["desktop-ui"]
 
 [[example]]
+name = "workspace_visual_fixture"
+path = "examples/workspace_visual_fixture.rs"
+
+[[example]]
 name = "workspace_playback"
 path = "examples/workspace_playback.rs"
 required-features = ["desktop-ui"]
@@ -28,7 +32,7 @@ required-features = ["desktop-ui"]
 anyhow.workspace = true
 gpui = { workspace = true, optional = true }
 gpui_platform = { workspace = true, optional = true }
-image = { workspace = true, optional = true }
+image = { workspace = true, optional = true, features = ["png"] }
 laputa-domain = { path = "../laputa-domain" }
 laputa-agent = { path = "../laputa-agent" }
 laputa-media = { path = "../laputa-media" }

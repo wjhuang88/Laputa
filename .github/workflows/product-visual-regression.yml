@@ -1,0 +1,111 @@
+name: Product visual regression
+
+on:
+  push:
+    branches:
+      - main
+      - feature/laputa-001-d-visual-rework-v1
+    paths:
+      - 'crates/laputa-app/**'
+      - '.github/workflows/product-visual-regression.yml'
+  pull_request:
+    paths:
+      - 'crates/laputa-app/**'
+      - '.github/workflows/product-visual-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visual-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup default 1.95.0
+
+      - name: Install FFmpeg and native desktop test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y clang ffmpeg imagemagick libclang-dev pkg-config libfontconfig1-dev libfreetype6-dev \
+            libx11-dev libx11-xcb-dev libxcb1-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libegl1-mesa-dev libvulkan-dev xdotool xvfb
+
+      - name: Build real product and persisted six-scene fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build -p laputa-app --features desktop-ui --bin laputa-desktop --locked
+          cargo build -p laputa-app --example workspace_visual_fixture --locked
+
+      - name: Validate project thumbnails and actual product window
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p visual-regression-artifacts
+          target/debug/examples/workspace_visual_fixture /tmp/laputa-six-scene-visual
+          find /tmp/laputa-six-scene-visual.sources -type f -print0 | sort -z | xargs -0 sha256sum > visual-regression-artifacts/original-before.sha256
+          xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
+            set -euo pipefail
+            target/debug/laputa-desktop /tmp/laputa-six-scene-visual > visual-regression-artifacts/desktop.log 2>&1 &
+            app_pid=$!
+            trap "kill $app_pid 2>/dev/null || true" EXIT
+            success=false
+            for _ in $(seq 1 90); do
+              kill -0 "$app_pid"
+              image_count=$(find /tmp/laputa-six-scene-visual/.laputa/cache -name "thumbnail-v1-*.png" -type f | wc -l)
+              if test "$image_count" -eq 6 && test -s /tmp/laputa-six-scene-visual/.laputa/cache/preview/current.mp4; then
+                success=true
+                break
+              fi
+              sleep 1
+            done
+            test "$success" = true
+            sleep 2
+            import -window root visual-regression-artifacts/product-six-scene.png
+
+            # Exercise a real pointer selection in the canonical product,
+            # not the development-only visual example. The fourth card is
+            # within the horizontal strip at ~54% of this window width.
+            product_window=""
+            for _ in $(seq 1 10); do
+              product_window=$(xdotool search --onlyvisible --pid "$app_pid" 2>/dev/null | head -n1 || true)
+              if test -n "$product_window"; then break; fi
+              kill -0 "$app_pid"
+              sleep 1
+            done
+            test -n "$product_window"
+            xdotool getwindowgeometry --shell "$product_window" > visual-regression-artifacts/window-geometry.env
+            . visual-regression-artifacts/window-geometry.env
+            scene_x=$((X + WIDTH * 54 / 100))
+            scene_y=$((Y + HEIGHT - 84))
+            xdotool mousemove --sync "$scene_x" "$scene_y" click 1
+            sleep 2
+            import -window root visual-regression-artifacts/product-six-scene-selected.png
+            test -s visual-regression-artifacts/product-six-scene-selected.png
+            kill -0 "$app_pid"
+          '
+          find /tmp/laputa-six-scene-visual.sources -type f -print0 | sort -z | xargs -0 sha256sum > visual-regression-artifacts/original-after.sha256
+          diff -u visual-regression-artifacts/original-before.sha256 visual-regression-artifacts/original-after.sha256
+          test -s visual-regression-artifacts/product-six-scene.png
+          test -s visual-regression-artifacts/product-six-scene-selected.png
+          # An actual scene click must change the rendered product surface.
+          ! cmp -s visual-regression-artifacts/product-six-scene.png visual-regression-artifacts/product-six-scene-selected.png
+
+      - name: Upload synthetic product regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: six-scene-product-visual-smoke
+          path: visual-regression-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
