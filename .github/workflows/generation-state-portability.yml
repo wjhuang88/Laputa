@@ -12,7 +12,8 @@ jobs:
       - name: Install Rust
         run: rustup toolchain install 1.95.0 --profile minimal
       - name: Test macOS generation state
-        run: cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked -- --nocapture
+        run: |
+          cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked -- --nocapture
 
   windows:
     runs-on: windows-latest
