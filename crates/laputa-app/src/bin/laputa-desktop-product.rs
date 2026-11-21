@@ -23,7 +23,7 @@ use laputa_app::{
     preview_request::{PreviewProfile, preview_render_request},
     project_session::open_project_state,
     thumbnail::load_thumbnail,
-    workspace_state::{DefaultEditTarget, SceneStripItem},
+    workspace_state::SceneStripItem,
 };
 use laputa_domain::{AssetId, MediaKind};
 use laputa_media::{FfprobeMediaProbe, ProjectStore};
@@ -39,7 +39,6 @@ const MUTED: u32 = 0x6b706d;
 const HAIRLINE: u32 = 0xd8d3c9;
 const BLUE: u32 = 0x6f8fa8;
 const BLUE_SOFT: u32 = 0xdfe8ed;
-const SAGE: u32 = 0xa9b5a0;
 const CLAY: u32 = 0xc8795a;
 const FJORD: u32 = 0x30464b;
 const SAND: u32 = 0xd8c9b6;
