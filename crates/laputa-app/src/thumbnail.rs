@@ -77,11 +77,11 @@ fn load_thumbnail_at_path(
     source_start_ms: Option<u64>,
 ) -> Result<Arc<RenderImage>> {
     if path.exists() {
-        if let Ok(image) = decode_cached(&path) {
+        if let Ok(image) = decode_cached(path) {
             return Ok(image);
         }
         // This is a disposable derived file, never the imported original.
-        fs::remove_file(&path)
+        fs::remove_file(path)
             .with_context(|| format!("failed to discard corrupt thumbnail {}", path.display()))?;
     }
     generate_thumbnail(asset, path, source_start_ms)?;
