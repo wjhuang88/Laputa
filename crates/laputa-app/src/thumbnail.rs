@@ -6,7 +6,10 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use anyhow::{Context, Result, ensure};
@@ -17,6 +20,7 @@ use laputa_media::ProjectStore;
 
 const THUMBNAIL_VERSION: &str = "thumbnail-v1";
 const MAX_THUMBNAIL_SIDE: u32 = 384;
+static NEXT_TEMPORARY_THUMBNAIL: AtomicU64 = AtomicU64::new(0);
 
 pub fn cache_path(store: &ProjectStore, asset: &Asset) -> Result<PathBuf> {
     ensure!(
@@ -63,6 +67,17 @@ fn decode_cached(path: &Path) -> Result<Arc<RenderImage>> {
     )])))
 }
 
+/// A retry can overlap an obsolete background job even after the UI epoch
+/// invalidates its completion. Give every attempt a distinct disposable path.
+fn temporary_thumbnail_path(asset: &Asset, parent: &Path) -> PathBuf {
+    let attempt = NEXT_TEMPORARY_THUMBNAIL.fetch_add(1, Ordering::Relaxed);
+    parent.join(format!(
+        ".thumbnail-{}-{}-{attempt}.png",
+        asset.id,
+        std::process::id()
+    ))
+}
+
 fn generate_thumbnail(asset: &Asset, destination: &Path) -> Result<()> {
     let parent = destination
         .parent()
@@ -71,11 +86,7 @@ fn generate_thumbnail(asset: &Asset, destination: &Path) -> Result<()> {
         .with_context(|| format!("cannot create thumbnail cache {}", parent.display()))?;
 
     // Named .png is explicit so FFmpeg never guesses a muxer from the temporary suffix.
-    let temporary = parent.join(format!(
-        ".thumbnail-{}-{}.png",
-        asset.id,
-        std::process::id()
-    ));
+    let temporary = temporary_thumbnail_path(asset, parent);
     let result = (|| {
         let mut command = Command::new("ffmpeg");
         command.args(["-hide_banner", "-loglevel", "error", "-nostdin", "-y"]);
@@ -126,7 +137,7 @@ mod tests {
     use laputa_domain::{Asset, AssetId, AssetTechnicalMetadata, MediaKind};
     use laputa_media::ProjectStore;
 
-    use super::{cache_path, load_thumbnail};
+    use super::{cache_path, load_thumbnail, temporary_thumbnail_path};
 
     fn fixture_asset(source: &std::path::Path, kind: MediaKind) -> Result<Asset> {
         Ok(Asset {
@@ -182,6 +193,27 @@ mod tests {
         let store = ProjectStore::at(temp.path().join("project"));
         assert_eq!(load_thumbnail(&store, &asset)?.frame_count(), 1);
         assert_eq!(fs::read(original)?, before);
+        Ok(())
+    }
+
+    #[test]
+    fn overlapping_thumbnail_retry_attempts_never_share_a_temporary_file() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let asset = Asset {
+            id: AssetId::new(),
+            original_path: temp.path().join("source.jpg"),
+            display_name: "source".to_owned(),
+            media_kind: MediaKind::Image,
+            source_sha256: "a".repeat(64),
+            byte_len: 0,
+            technical: AssetTechnicalMetadata::default(),
+        };
+        let one = temporary_thumbnail_path(&asset, temp.path());
+        let two = temporary_thumbnail_path(&asset, temp.path());
+        assert_ne!(one, two);
+        assert_eq!(one.parent(), Some(temp.path()));
+        assert_eq!(two.parent(), Some(temp.path()));
+        assert!(!one.exists() && !two.exists());
         Ok(())
     }
 
