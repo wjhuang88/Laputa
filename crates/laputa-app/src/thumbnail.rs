@@ -15,7 +15,7 @@ use std::{
 use anyhow::{Context, Result, ensure};
 use gpui::RenderImage;
 use image::{Frame, GenericImageView};
-use laputa_domain::Asset;
+use laputa_domain::{Asset, MediaKind};
 use laputa_media::ProjectStore;
 
 const THUMBNAIL_VERSION: &str = "thumbnail-v1";
@@ -40,6 +40,42 @@ pub fn cache_path(store: &ProjectStore, asset: &Asset) -> Result<PathBuf> {
 /// bounded, project-owned PNG; a malformed cache is discarded and rebuilt.
 pub fn load_thumbnail(store: &ProjectStore, asset: &Asset) -> Result<Arc<RenderImage>> {
     let path = cache_path(store, asset)?;
+    load_thumbnail_at_path(asset, &path, None)
+}
+
+/// The Scene Strip and selection rail must show the first frame *of the cut*,
+/// not the first frame of an imported video. A source-in-point change yields
+/// a different derivative key; no original bytes or project state are written.
+pub fn scene_video_cache_path(
+    store: &ProjectStore,
+    asset: &Asset,
+    source_start_ms: u64,
+) -> Result<PathBuf> {
+    ensure!(
+        asset.media_kind == MediaKind::Video,
+        "a scene video thumbnail requires a video source"
+    );
+    let _ = cache_path(store, asset)?; // reuse SHA-256 checksum validation
+    Ok(store.asset_cache_dir(asset.id).join(format!(
+        "scene-thumbnail-v1-{}-{source_start_ms}.png",
+        asset.source_sha256
+    )))
+}
+
+pub fn load_scene_video_thumbnail(
+    store: &ProjectStore,
+    asset: &Asset,
+    source_start_ms: u64,
+) -> Result<Arc<RenderImage>> {
+    let path = scene_video_cache_path(store, asset, source_start_ms)?;
+    load_thumbnail_at_path(asset, &path, Some(source_start_ms))
+}
+
+fn load_thumbnail_at_path(
+    asset: &Asset,
+    path: &Path,
+    source_start_ms: Option<u64>,
+) -> Result<Arc<RenderImage>> {
     if path.exists() {
         if let Ok(image) = decode_cached(&path) {
             return Ok(image);
@@ -48,8 +84,8 @@ pub fn load_thumbnail(store: &ProjectStore, asset: &Asset) -> Result<Arc<RenderI
         fs::remove_file(&path)
             .with_context(|| format!("failed to discard corrupt thumbnail {}", path.display()))?;
     }
-    generate_thumbnail(asset, &path)?;
-    decode_cached(&path)
+    generate_thumbnail(asset, path, source_start_ms)?;
+    decode_cached(path)
 }
 
 fn decode_cached(path: &Path) -> Result<Arc<RenderImage>> {
@@ -78,7 +114,11 @@ fn temporary_thumbnail_path(asset: &Asset, parent: &Path) -> PathBuf {
     ))
 }
 
-fn generate_thumbnail(asset: &Asset, destination: &Path) -> Result<()> {
+fn generate_thumbnail(
+    asset: &Asset,
+    destination: &Path,
+    source_start_ms: Option<u64>,
+) -> Result<()> {
     let parent = destination
         .parent()
         .context("thumbnail destination has no parent directory")?;
@@ -90,9 +130,14 @@ fn generate_thumbnail(asset: &Asset, destination: &Path) -> Result<()> {
     let result = (|| {
         let mut command = Command::new("ffmpeg");
         command.args(["-hide_banner", "-loglevel", "error", "-nostdin", "-y"]);
-        // Video decodes only its representative first frame; images use the
-        // same bounded resize path. Neither code path opens the source for writing.
+        // An output-side seek selects the scene's source in-point precisely.
+        // Originals are input-only and any generated image stays in the cache.
         command.arg("-i").arg(&asset.original_path);
+        if let Some(start_ms) = source_start_ms {
+            command
+                .arg("-ss")
+                .arg(format!("{}.{:03}", start_ms / 1_000, start_ms % 1_000));
+        }
         command.args([
             "-map",
             "0:v:0",
@@ -137,7 +182,10 @@ mod tests {
     use laputa_domain::{Asset, AssetId, AssetTechnicalMetadata, MediaKind};
     use laputa_media::ProjectStore;
 
-    use super::{cache_path, load_thumbnail, temporary_thumbnail_path};
+    use super::{
+        cache_path, load_scene_video_thumbnail, load_thumbnail, scene_video_cache_path,
+        temporary_thumbnail_path,
+    };
 
     fn fixture_asset(source: &std::path::Path, kind: MediaKind) -> Result<Asset> {
         Ok(Asset {
@@ -193,6 +241,54 @@ mod tests {
         let store = ProjectStore::at(temp.path().join("project"));
         assert_eq!(load_thumbnail(&store, &asset)?.frame_count(), 1);
         assert_eq!(fs::read(original)?, before);
+        Ok(())
+    }
+
+    #[test]
+    fn reused_video_at_two_inpoints_has_distinct_rebuildable_thumbnails() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let original = temp.path().join("moving.mp4");
+        let output = Command::new("ffmpeg")
+            .args(["-hide_banner", "-loglevel", "error", "-nostdin", "-y"])
+            .args(["-f", "lavfi", "-i", "testsrc2=size=320x180:rate=12"])
+            .args(["-t", "3", "-pix_fmt", "yuv420p", "-c:v", "mpeg4"])
+            .arg(&original)
+            .output()
+            .context("FFmpeg unavailable for moving video thumbnail fixture")?;
+        assert!(
+            output.status.success(),
+            "could not generate moving-video fixture: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let original_before = fs::read(&original)?;
+        let asset = fixture_asset(&original, MediaKind::Video)?;
+        let store = ProjectStore::at(temp.path().join("project"));
+        let first_path = scene_video_cache_path(&store, &asset, 0)?;
+        let later_path = scene_video_cache_path(&store, &asset, 1_500)?;
+        assert_ne!(first_path, later_path);
+        assert_eq!(
+            load_scene_video_thumbnail(&store, &asset, 0)?.frame_count(),
+            1
+        );
+        assert_eq!(
+            load_scene_video_thumbnail(&store, &asset, 1_500)?.frame_count(),
+            1
+        );
+        assert_ne!(
+            fs::read(&first_path)?,
+            fs::read(&later_path)?,
+            "two different video offsets must not show the same frame"
+        );
+        fs::write(&later_path, b"corrupted derivative")?;
+        assert_eq!(
+            load_scene_video_thumbnail(&store, &asset, 1_500)?.frame_count(),
+            1
+        );
+        assert_ne!(fs::read(later_path)?, b"corrupted derivative");
+        let beyond_path = scene_video_cache_path(&store, &asset, 8_000)?;
+        assert!(load_scene_video_thumbnail(&store, &asset, 8_000).is_err());
+        assert!(!beyond_path.exists());
+        assert_eq!(fs::read(&original)?, original_before);
         Ok(())
     }
 
