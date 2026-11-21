@@ -25,6 +25,14 @@ Scope: `LAPUTA-001` V0.1 · Owner of Story status: `docs/backlog/active/` and ar
 - 复验：在真实产品中逐项对照布局比例、媒体卡片、字体/配色/留白、选中和未选中状态、不同尺寸；记录版本/窗口/素材来源及允许差异。用户明确认可前不改为 PASS。
 - MA-D-01 仍 PENDING；本次只验视觉，未执行其完整操作清单。
 
+### Story D 视频片段入点缩略图复验 — CONDITIONAL / UNRUN
+
+- 适用条件：`2026-11-21-scene-inpoint-thumbnails.md` 的实现合入 `main` 并获得最新 CI 成功结果。未合入前不标记该能力已交付。
+- 在真实 macOS/桌面产品中，将**同一个 3 秒以上的视频**用于两个不同 Scene；Scene A 视频源入点为 0，Scene B 源入点为至少 1 秒。确认底部场景缩略图以及点击各自 Scene 后的右侧片段缩略图显示各自的实际源画面，而不是重复原视频首帧。
+- 调整其中一个 Scene 的片头位置后，在当前会话内确认新缩略图变化；关闭/重开工程后仍正确；素材浏览区继续显示原始资产的代表帧。对另一 Scene 的视觉内容不产生污染。
+- 记录实际 OS、窗口尺寸、产品 main SHA、媒体来源或授权情况、操作前后截图、PASS/FAIL/BLOCKED；用户未实际执行前一律 **UNRUN**。
+- 这项独立技术预检不等于 Story D 的整体验收。MA-D-VIS-01 仍为 **FAIL**、MA-D-01 仍为 **PENDING**，不得以六场景合成媒体 CI 代替真人确认。
+
 ### MA-D-01 · Story D / Issue #5 · Film Workspace 真实桌面交互
 
 - **状态**：**CURRENT / REQUIRED · PENDING HUMAN CONFIRMATION**
