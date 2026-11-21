@@ -6,6 +6,8 @@ Use `docs/sop/START-ITERATION.md` to create a new iteration record and `docs/sop
 
 Current/latest records:
 
+- `2026-11-19-generation-state-concurrency-repair.md` — LAPUTA-001-I / #40, transaction/lock/concurrent-job regression fix in progress; exact-head CI and review pending, no closure claimed.
+
 - `2026-11-16-workspace-visual-rework.md` — planned; MA-D-VIS-01 FAIL confirmed by user, rework UNSTARTED; MA-D-01 remains pending.
 
 - `2026-11-14-f3b1-scene-drag-reorder.md` — native GPUI Scene Strip drag/release reorder slice in implementation; pointer acceptance, exact-head CI, F3b language/trim and F4 remain pending.

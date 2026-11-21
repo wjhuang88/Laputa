@@ -1,13 +1,16 @@
 use std::{
-    fs::{self, File},
+    fs::{self, OpenOptions},
+    io::Write,
     path::PathBuf,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use laputa_domain::{GenerationState, ProjectManifest};
+use tempfile::NamedTempFile;
 
 const STATE_DIRECTORY: &str = ".laputa";
 const GENERATION_STATE_FILE: &str = "generation.json";
+const GENERATION_LOCK_FILE: &str = "generation.json.lock";
 
 #[derive(Clone, Debug)]
 pub struct GenerationStore {
@@ -44,10 +47,15 @@ impl GenerationStore {
         Ok(Some(state))
     }
 
-    pub fn save(&self, project: &ProjectManifest, state: &GenerationState) -> Result<()> {
-        state
-            .validate_for(project)
-            .context("cannot persist invalid generation state")?;
+    /// Serialize a read/modify/write of the *latest* state across independent processes.
+    ///
+    /// The sibling lock file is stable and must never be replaced or deleted.
+    /// Do not call provider/network operations while holding this synchronous lock.
+    pub fn update<T>(
+        &self,
+        project: &ProjectManifest,
+        mutate: impl FnOnce(&mut GenerationState) -> Result<T>,
+    ) -> Result<T> {
         let path = self.path();
         let parent = path
             .parent()
@@ -58,41 +66,111 @@ impl GenerationStore {
                 parent.display()
             )
         })?;
+        let lock_path = parent.join(GENERATION_LOCK_FILE);
+        let lock = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&lock_path)
+            .with_context(|| format!("failed to open generation lock {}", lock_path.display()))?;
+        lock.lock()
+            .with_context(|| format!("failed to lock generation state {}", lock_path.display()))?;
+
+        let mut state = self.load(project)?.unwrap_or_default();
+        let result = mutate(&mut state)?;
+        self.persist_state(project, &state)?;
+        // Dropping the handle releases the lock on success and on every failure path.
+        Ok(result)
+    }
+
+    /// Replace the entire state, rejecting stale snapshots that remove or roll back
+    /// committed jobs/artifacts. Callers doing read/modify/write should use `update`.
+    pub fn save(&self, project: &ProjectManifest, state: &GenerationState) -> Result<()> {
+        self.update(project, |current| {
+            for previous in &current.jobs {
+                let next = state.job(previous.id()).with_context(|| {
+                    format!(
+                        "snapshot would discard durable generation job {}",
+                        previous.id()
+                    )
+                })?;
+                ensure!(
+                    next.request() == previous.request(),
+                    "snapshot would rewrite a committed generation request"
+                );
+                if next.state() != previous.state() {
+                    let mut checked = previous.clone();
+                    checked
+                        .transition_to(next.state().clone())
+                        .map_err(anyhow::Error::new)
+                        .context("snapshot would roll back or skip a generation transition")?;
+                }
+            }
+            for artifact in &current.artifacts {
+                ensure!(
+                    state.artifacts.contains(artifact),
+                    "snapshot would remove or rewrite a published generation artifact"
+                );
+            }
+            *current = state.clone();
+            Ok(())
+        })
+    }
+
+    fn persist_state(&self, project: &ProjectManifest, state: &GenerationState) -> Result<()> {
+        self.persist_state_with_before_install(project, state, || Ok(()))
+    }
+
+    // The hook enables deterministic replacement-failure injection in unit tests.
+    fn persist_state_with_before_install(
+        &self,
+        project: &ProjectManifest,
+        state: &GenerationState,
+        before_install: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
+        state
+            .validate_for(project)
+            .context("cannot persist invalid generation state")?;
+        let path = self.path();
+        let parent = path
+            .parent()
+            .context("generation state path has no parent directory")?;
         let bytes =
             serde_json::to_vec_pretty(state).context("failed to serialize generation state")?;
-        let temporary = parent.join(format!(
-            ".{GENERATION_STATE_FILE}.tmp-{}",
-            std::process::id()
-        ));
-        fs::write(&temporary, bytes).with_context(|| {
+        // Each writer receives an exclusive, distinct tempfile in the target directory.
+        let mut temporary = NamedTempFile::new_in(parent).with_context(|| {
             format!(
-                "failed to write temporary generation state {}",
-                temporary.display()
+                "failed to create temporary generation state in {}",
+                parent.display()
             )
         })?;
-        File::open(&temporary)
-            .and_then(|file| file.sync_all())
+        temporary
+            .write_all(&bytes)
+            .context("failed to write temporary generation state")?;
+        temporary
+            .as_file()
+            .sync_all()
+            .context("failed to sync temporary generation state")?;
+        // Never remove a valid destination when replacement fails.
+        before_install()?;
+        let installed = temporary.persist(&path).map_err(|error| {
+            anyhow::Error::new(error.error).context(format!(
+                "failed to install generation state {}",
+                path.display()
+            ))
+        })?;
+        drop(installed);
+        #[cfg(unix)]
+        std::fs::File::open(parent)
+            .and_then(|directory| directory.sync_all())
             .with_context(|| {
                 format!(
-                    "failed to sync temporary generation state {}",
-                    temporary.display()
+                    "failed to sync generation state directory {}",
+                    parent.display()
                 )
             })?;
-        install_replacement(&temporary, &path)
-    }
-}
-
-fn install_replacement(temporary: &std::path::Path, destination: &std::path::Path) -> Result<()> {
-    match fs::rename(temporary, destination) {
-        Ok(()) => Ok(()),
-        Err(error) if destination.exists() => {
-            fs::remove_file(destination).with_context(|| {
-                format!("failed to replace generation state after rename error: {error}")
-            })?;
-            fs::rename(temporary, destination)
-                .context("failed to install replacement generation state")
-        }
-        Err(error) => Err(error).context("failed to install generation state"),
+        Ok(())
     }
 }
 
@@ -238,6 +316,175 @@ mod tests {
 
         assert!(store.save(&project, &state).is_err());
         assert!(!store.path().exists());
+        Ok(())
+    }
+
+    #[test]
+    fn failed_transaction_preserves_last_committed_state() -> Result<()> {
+        let temp = tempdir()?;
+        let (project, original) = project_with_original(temp.path())?;
+        let original_hash = sha256_file(&original)?;
+        let store = GenerationStore::at(temp.path().join("project"));
+        let job = GenerationJob::new(GenerationRequest::new(
+            GenerationOperation::GenerateBroll,
+            vec![],
+        ))?;
+        store.update(&project, |state| {
+            state.jobs.push(job.clone());
+            Ok(())
+        })?;
+        let bytes = fs::read(store.path())?;
+        let aborted = store.update(&project, |state| -> Result<()> {
+            state.jobs.clear();
+            anyhow::bail!("injected transaction failure")
+        });
+        assert!(aborted.is_err());
+        assert_eq!(fs::read(store.path())?, bytes);
+        let invalid = store.update(&project, |state| {
+            state.jobs.push(job.clone());
+            Ok(())
+        });
+        assert!(invalid.is_err());
+        assert_eq!(fs::read(store.path())?, bytes);
+        assert_eq!(sha256_file(&original)?, original_hash);
+        Ok(())
+    }
+
+    #[test]
+    fn concurrent_independent_stores_preserve_every_job() -> Result<()> {
+        let temp = tempdir()?;
+        let root = temp.path().join("project");
+        let project = ProjectManifest::new("Concurrent");
+        let writers: Vec<_> = (0..4)
+            .map(|_| {
+                let root = root.clone();
+                let project = project.clone();
+                std::thread::spawn(move || -> Result<()> {
+                    for _ in 0..12 {
+                        GenerationStore::at(&root).update(&project, |state| {
+                            state.jobs.push(GenerationJob::new(GenerationRequest::new(
+                                GenerationOperation::GenerateBroll,
+                                vec![],
+                            ))?);
+                            std::thread::yield_now();
+                            Ok(())
+                        })?;
+                    }
+                    Ok(())
+                })
+            })
+            .collect();
+        for writer in writers {
+            writer.join().expect("writer panicked")?;
+        }
+        let state = GenerationStore::at(&root)
+            .load(&project)?
+            .expect("state should exist");
+        assert_eq!(state.jobs.len(), 48);
+        Ok(())
+    }
+
+    #[test]
+    fn cross_process_writer_worker() -> Result<()> {
+        let Ok(root) = std::env::var("LAPUTA_GENERATION_TEST_ROOT") else {
+            return Ok(());
+        };
+        let project = ProjectManifest::new("Concurrent");
+        for _ in 0..12 {
+            GenerationStore::at(&root).update(&project, |state| {
+                state.jobs.push(GenerationJob::new(GenerationRequest::new(
+                    GenerationOperation::GenerateBroll,
+                    vec![],
+                ))?);
+                Ok(())
+            })?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn cross_process_writers_preserve_every_job() -> Result<()> {
+        let temp = tempdir()?;
+        let root = temp.path().join("project");
+        let test_binary = std::env::current_exe()?;
+        let mut workers = Vec::new();
+        for _ in 0..3 {
+            workers.push(
+                std::process::Command::new(&test_binary)
+                    .arg("--exact")
+                    .arg("generation_store::tests::cross_process_writer_worker")
+                    .env("LAPUTA_GENERATION_TEST_ROOT", &root)
+                    .spawn()?,
+            );
+        }
+        for mut worker in workers {
+            assert!(worker.wait()?.success(), "cross-process writer failed");
+        }
+        let project = ProjectManifest::new("Concurrent");
+        let state = GenerationStore::at(&root)
+            .load(&project)?
+            .expect("state should exist");
+        assert_eq!(state.jobs.len(), 36);
+        Ok(())
+    }
+
+    #[test]
+    fn stale_whole_snapshot_cannot_erase_a_newly_submitted_job() -> Result<()> {
+        let temp = tempdir()?;
+        let project = ProjectManifest::new("Concurrent");
+        let store = GenerationStore::at(temp.path().join("project"));
+        let first = GenerationJob::new(GenerationRequest::new(
+            GenerationOperation::GenerateBroll,
+            vec![],
+        ))?;
+        store.update(&project, |state| {
+            state.jobs.push(first.clone());
+            Ok(())
+        })?;
+        let stale = store.load(&project)?.expect("first snapshot");
+        let second = GenerationJob::new(GenerationRequest::new(
+            GenerationOperation::GenerateBroll,
+            vec![],
+        ))?;
+        store.update(&project, |state| {
+            state.jobs.push(second.clone());
+            Ok(())
+        })?;
+        let bytes = fs::read(store.path())?;
+        assert!(store.save(&project, &stale).is_err());
+        assert_eq!(fs::read(store.path())?, bytes);
+        let reopened = store.load(&project)?.expect("both jobs remain durable");
+        assert!(reopened.job(first.id()).is_some());
+        assert!(reopened.job(second.id()).is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn injected_replacement_failure_keeps_last_committed_state() -> Result<()> {
+        let temp = tempdir()?;
+        let (project, original) = project_with_original(temp.path())?;
+        let original_hash = sha256_file(&original)?;
+        let store = GenerationStore::at(temp.path().join("project"));
+        store.update(&project, |state| {
+            state.jobs.push(GenerationJob::new(GenerationRequest::new(
+                GenerationOperation::GenerateBroll,
+                vec![],
+            ))?);
+            Ok(())
+        })?;
+        let previous = fs::read(store.path())?;
+        let mut next = store.load(&project)?.expect("first generation state");
+        next.jobs.push(GenerationJob::new(GenerationRequest::new(
+            GenerationOperation::GenerateBroll,
+            vec![],
+        ))?);
+        let failed = store.persist_state_with_before_install(&project, &next, || {
+            anyhow::bail!("injected replacement failure")
+        });
+        assert!(failed.is_err());
+        assert_eq!(fs::read(store.path())?, previous);
+        assert_eq!(store.load(&project)?.expect("state is valid").jobs.len(), 1);
+        assert_eq!(sha256_file(&original)?, original_hash);
         Ok(())
     }
 }

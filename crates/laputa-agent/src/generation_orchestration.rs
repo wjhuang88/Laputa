@@ -51,30 +51,24 @@ impl GenerationOutputMaterializer for LocalFileGenerationOutputMaterializer {
                 parent.display()
             )
         })?;
-        let temporary = parent.join(format!(
-            ".{}.tmp-{}",
-            destination
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or("generation-output"),
-            std::process::id()
-        ));
-        fs::copy(source, &temporary).with_context(|| {
-            format!(
-                "failed to materialize generation output {} to {}",
-                source.display(),
-                temporary.display()
-            )
+        let mut source_file = File::open(source)
+            .with_context(|| format!("failed to read generation output {}", source.display()))?;
+        let mut temporary = tempfile::NamedTempFile::new_in(parent)
+            .context("failed to create unique materialization temporary file")?;
+        std::io::copy(&mut source_file, temporary.as_file_mut())
+            .context("failed to copy generation output into temporary file")?;
+        temporary
+            .as_file()
+            .sync_all()
+            .context("failed to sync materialized generation output")?;
+        let installed = temporary.persist(destination).map_err(|error| {
+            anyhow::Error::new(error.error).context(format!(
+                "failed to install materialized generation output {}",
+                destination.display()
+            ))
         })?;
-        File::open(&temporary)
-            .and_then(|file| file.sync_all())
-            .with_context(|| {
-                format!(
-                    "failed to sync materialized generation output {}",
-                    temporary.display()
-                )
-            })?;
-        install_replacement(&temporary, destination)
+        drop(installed);
+        Ok(())
     }
 }
 
@@ -166,9 +160,11 @@ impl GenerationOrchestrator {
             .map_err(anyhow::Error::new)
             .context("invalid durable generation request")?;
         let job_id = job.id();
-        state.jobs.push(job);
         self.store
-            .save(project, &state)
+            .update(project, |current| {
+                current.jobs.push(job);
+                Ok(())
+            })
             .context("failed to persist queued generation job")?;
 
         let handle = match provider.submit(&provider_request).await {
@@ -534,32 +530,39 @@ impl GenerationOrchestrator {
         provenance: &ProviderProvenance,
         running: bool,
     ) -> Result<()> {
-        let current = job_state(state, job_id)?;
-        match (current, running) {
-            (GenerationJobState::Submitted { .. }, false)
-            | (GenerationJobState::Running { .. }, true) => Ok(()),
-            (GenerationJobState::Submitted { .. }, true) => self.transition_job(
-                project,
-                state,
-                job_id,
-                GenerationJobState::Running {
+        // Inspect and mutate the latest phase in the same transaction.
+        let regressed = self.store.update(project, |current| {
+            let phase = job_state(current, job_id)?.clone();
+            let next = match (&phase, running) {
+                (GenerationJobState::Submitted { .. }, false)
+                | (GenerationJobState::Running { .. }, true) => return Ok(false),
+                (GenerationJobState::Submitted { .. }, true) => GenerationJobState::Running {
                     provenance: provenance.clone(),
                 },
-            ),
-            (GenerationJobState::Running { .. }, false) => {
-                self.fail_job(
-                    project,
-                    state,
-                    job_id,
-                    Some(provenance.clone()),
-                    "generation provider status regressed from running to submitted".to_owned(),
-                )?;
-                bail!("generation provider status regressed from running to submitted")
-            }
-            _ => {
-                bail!("generation provider returned non-terminal status after job became terminal")
-            }
+                (GenerationJobState::Running { .. }, false) => GenerationJobState::Failed {
+                    provenance: Some(provenance.clone()),
+                    message: "generation provider status regressed from running to submitted"
+                        .to_owned(),
+                },
+                _ => bail!(
+                    "generation provider returned non-terminal status after job became terminal"
+                ),
+            };
+            let job = current
+                .jobs
+                .iter_mut()
+                .find(|job| job.id() == job_id)
+                .with_context(|| format!("generation job {job_id} is missing"))?;
+            job.transition_to(next)
+                .map_err(anyhow::Error::new)
+                .context("invalid durable generation job transition")?;
+            Ok(matches!(phase, GenerationJobState::Running { .. }) && !running)
+        })?;
+        *state = self.load_state(project)?;
+        if regressed {
+            bail!("generation provider status regressed from running to submitted")
         }
+        Ok(())
     }
 
     fn transition_job(
@@ -569,17 +572,21 @@ impl GenerationOrchestrator {
         job_id: GenerationJobId,
         next: GenerationJobState,
     ) -> Result<()> {
-        let job = state
-            .jobs
-            .iter_mut()
-            .find(|job| job.id() == job_id)
-            .with_context(|| format!("generation job {job_id} is missing"))?;
-        job.transition_to(next)
-            .map_err(anyhow::Error::new)
-            .context("invalid durable generation job transition")?;
         self.store
-            .save(project, state)
-            .context("failed to persist durable generation job transition")
+            .update(project, |current| {
+                let job = current
+                    .jobs
+                    .iter_mut()
+                    .find(|job| job.id() == job_id)
+                    .with_context(|| format!("generation job {job_id} is missing"))?;
+                job.transition_to(next)
+                    .map_err(anyhow::Error::new)
+                    .context("invalid durable generation job transition")?;
+                Ok(())
+            })
+            .context("failed to persist durable generation job transition")?;
+        *state = self.load_state(project)?;
+        Ok(())
     }
 
     fn fail_job(
@@ -619,6 +626,7 @@ impl GenerationOrchestrator {
         M: GenerationOutputMaterializer,
         V: GenerationOutputValidator,
     {
+        *state = self.load_state(project)?;
         if let Some(artifact) = state
             .artifacts
             .iter()
@@ -634,14 +642,14 @@ impl GenerationOrchestrator {
             .join("output.mp4");
         let destination = self.project_root.join(&relative);
 
-        if let Err(error) = materializer.materialize(output, &destination) {
-            remove_file_if_exists(&destination);
-            return Err(error).context("failed to materialize completed generation output");
-        }
-        if let Err(error) = validator.validate(&destination, MediaKind::Video) {
-            remove_file_if_exists(&destination);
-            return Err(error).context("materialized generation output failed validation");
-        }
+        // Do not delete the destination on failure: a concurrent finalizer may
+        // already have installed and published a valid output for this job.
+        materializer
+            .materialize(output, &destination)
+            .context("failed to materialize completed generation output")?;
+        validator
+            .validate(&destination, MediaKind::Video)
+            .context("materialized generation output failed validation")?;
 
         let metadata = fs::metadata(&destination).with_context(|| {
             format!(
@@ -655,23 +663,40 @@ impl GenerationOrchestrator {
         );
         ensure!(metadata.len() > 0, "verified generation output is empty");
         let sha256 = sha256_file(&destination)?;
-        let job = state
-            .job(job_id)
-            .with_context(|| format!("completed generation job {job_id} is missing"))?
-            .clone();
-        let artifact = DerivedArtifact::from_verified_materialization(
-            &job,
-            MediaKind::Video,
-            relative,
-            sha256,
-            metadata.len(),
-        )
-        .map_err(anyhow::Error::new)
-        .context("verified generation output could not be published as an artifact")?;
-        state.artifacts.push(artifact.clone());
-        self.store
-            .save(project, state)
+        let artifact = self
+            .store
+            .update(project, |current| {
+                // Two finalizers may race. Reuse the existing published artifact
+                // rather than creating duplicate records for the same job.
+                if let Some(existing) = current
+                    .artifacts
+                    .iter()
+                    .find(|artifact| artifact.job_id() == job_id)
+                {
+                    return Ok(existing.clone());
+                }
+                let job = current
+                    .job(job_id)
+                    .with_context(|| format!("completed generation job {job_id} is missing"))?
+                    .clone();
+                ensure!(
+                    matches!(job.state(), GenerationJobState::Completed { output: stored, .. } if stored == output),
+                    "generation job completion changed before artifact publication"
+                );
+                let artifact = DerivedArtifact::from_verified_materialization(
+                    &job,
+                    MediaKind::Video,
+                    relative,
+                    sha256,
+                    metadata.len(),
+                )
+                .map_err(anyhow::Error::new)
+                .context("verified generation output could not be published as an artifact")?;
+                current.artifacts.push(artifact.clone());
+                Ok(artifact)
+            })
             .context("failed to persist published generation artifact")?;
+        *state = self.load_state(project)?;
         Ok(artifact)
     }
 }
@@ -691,28 +716,6 @@ fn provider_error_message(prefix: &str, error: &GenerationProviderError) -> Stri
     }
 }
 
-fn install_replacement(temporary: &Path, destination: &Path) -> Result<()> {
-    match fs::rename(temporary, destination) {
-        Ok(()) => Ok(()),
-        Err(error) if destination.exists() => {
-            fs::remove_file(destination).with_context(|| {
-                format!(
-                    "failed to replace materialized generation output after rename error: {error}"
-                )
-            })?;
-            fs::rename(temporary, destination)
-                .context("failed to install replacement materialized generation output")
-        }
-        Err(error) => Err(error).context("failed to install materialized generation output"),
-    }
-}
-
-fn remove_file_if_exists(path: &Path) {
-    if path.exists() {
-        let _ = fs::remove_file(path);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::{
@@ -727,7 +730,7 @@ mod tests {
     use anyhow::{Context as _, Result, ensure};
     use laputa_domain::{
         Asset, AssetId, AssetTechnicalMetadata, GenerationJobState, GenerationOperation,
-        GenerationRequest, GenerationSource, MediaKind, ProjectManifest,
+        GenerationProviderOutput, GenerationRequest, GenerationSource, MediaKind, ProjectManifest,
     };
     use laputa_provider::{
         FakeGenerationScenario, FakeGenerationStep, FakeVideoGenerationProvider,
@@ -1060,6 +1063,177 @@ mod tests {
             .expect("generation state should exist");
         assert_eq!(state.jobs.len(), 1);
         assert_eq!(state.artifacts.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn polling_job_transition_keeps_job_submitted_during_stale_snapshot() -> Result<()> {
+        let temp = tempdir()?;
+        let project_root = temp.path().join("project");
+        let (project, original) = project_with_original(temp.path())?;
+        let original_hash = sha256_file(&original)?;
+        let provider_a = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+            FakeGenerationStep::Running,
+        ]));
+        let provider_b = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+            FakeGenerationStep::Running,
+        ]));
+        let orchestrator = GenerationOrchestrator::at(&project_root);
+        let first = block_on_ready(orchestrator.submit_video_generation(
+            &project,
+            request_for(&project),
+            "First job",
+            &provider_a,
+        ))?;
+        // A begins polling with this snapshot, then B is submitted meanwhile.
+        let mut polling_snapshot = orchestrator.load_state(&project)?;
+        let first_provenance = match polling_snapshot.job(first).expect("A exists").state() {
+            GenerationJobState::Submitted { provenance } => provenance.clone(),
+            state => anyhow::bail!("unexpected first job phase: {state:?}"),
+        };
+        let second = block_on_ready(orchestrator.submit_video_generation(
+            &project,
+            request_for(&project),
+            "Second job",
+            &provider_b,
+        ))?;
+        let before = orchestrator.load_state(&project)?;
+        let second_provenance = match before.job(second).expect("B exists").state() {
+            GenerationJobState::Submitted { provenance } => provenance.clone(),
+            state => anyhow::bail!("unexpected second job phase: {state:?}"),
+        };
+
+        orchestrator.transition_job(
+            &project,
+            &mut polling_snapshot,
+            first,
+            GenerationJobState::Running {
+                provenance: first_provenance,
+            },
+        )?;
+        let reopened = GenerationStore::at(&project_root)
+            .load(&project)?
+            .expect("both jobs must remain durable");
+        assert_eq!(reopened.jobs.len(), 2);
+        assert!(matches!(
+            reopened.job(first).expect("A must survive").state(),
+            GenerationJobState::Running { .. }
+        ));
+        assert!(matches!(
+            reopened.job(second).expect("B must survive").state(),
+            GenerationJobState::Submitted { provenance } if *provenance == second_provenance
+        ));
+        assert_eq!(sha256_file(&original)?, original_hash);
+        Ok(())
+    }
+
+    #[test]
+    fn artifact_publication_after_concurrent_submission_preserves_other_job() -> Result<()> {
+        let temp = tempdir()?;
+        let project_root = temp.path().join("project");
+        let (project, original) = project_with_original(temp.path())?;
+        let original_hash = sha256_file(&original)?;
+        let source = temp.path().join("generation-result.mp4");
+        write_video_fixture(&source)?;
+        let provider_a = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+            FakeGenerationStep::Running,
+        ]));
+        let provider_b = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+            FakeGenerationStep::Running,
+        ]));
+        let orchestrator = GenerationOrchestrator::at(&project_root);
+        let first = block_on_ready(orchestrator.submit_video_generation(
+            &project,
+            request_for(&project),
+            "First job",
+            &provider_a,
+        ))?;
+        let mut snapshot = orchestrator.load_state(&project)?;
+        let provenance = match snapshot.job(first).expect("A exists").state() {
+            GenerationJobState::Submitted { provenance } => provenance.clone(),
+            state => anyhow::bail!("unexpected first job phase: {state:?}"),
+        };
+        let output = GenerationProviderOutput {
+            locator: source.display().to_string(),
+        };
+        orchestrator.transition_job(
+            &project,
+            &mut snapshot,
+            first,
+            GenerationJobState::Completed {
+                provenance,
+                output: output.clone(),
+            },
+        )?;
+        let second = block_on_ready(orchestrator.submit_video_generation(
+            &project,
+            request_for(&project),
+            "Second job",
+            &provider_b,
+        ))?;
+        let artifact = orchestrator.finalize_video_artifact(
+            &project,
+            &mut snapshot,
+            first,
+            &output,
+            &LocalFileGenerationOutputMaterializer,
+            &FfprobeGenerationOutputValidator,
+        )?;
+        let reopened = GenerationStore::at(&project_root)
+            .load(&project)?
+            .expect("state must exist");
+        assert_eq!(reopened.jobs.len(), 2);
+        assert_eq!(reopened.artifacts.len(), 1);
+        assert_eq!(reopened.artifacts[0].id(), artifact.id());
+        assert!(matches!(
+            reopened.job(second).expect("B must survive").state(),
+            GenerationJobState::Submitted { .. }
+        ));
+        assert_eq!(sha256_file(&original)?, original_hash);
+        Ok(())
+    }
+
+    #[test]
+    fn stale_poll_cannot_resurrect_cancelled_job() -> Result<()> {
+        let temp = tempdir()?;
+        let root = temp.path().join("project");
+        let (project, _) = project_with_original(temp.path())?;
+        let provider = FakeVideoGenerationProvider::new(FakeGenerationScenario::Scripted(vec![
+            FakeGenerationStep::Running,
+        ]));
+        let orchestrator = GenerationOrchestrator::at(&root);
+        let job_id = block_on_ready(orchestrator.submit_video_generation(
+            &project,
+            request_for(&project),
+            "Test cancellation race",
+            &provider,
+        ))?;
+        let mut polling_snapshot = orchestrator.load_state(&project)?;
+        let provenance = match polling_snapshot.job(job_id).expect("job exists").state() {
+            GenerationJobState::Submitted { provenance } => provenance.clone(),
+            state => anyhow::bail!("unexpected initial phase: {state:?}"),
+        };
+        let mut cancelling_snapshot = orchestrator.load_state(&project)?;
+        orchestrator.transition_job(
+            &project,
+            &mut cancelling_snapshot,
+            job_id,
+            GenerationJobState::Cancelled {
+                provenance: Some(provenance.clone()),
+            },
+        )?;
+        let stale_result = orchestrator.transition_job(
+            &project,
+            &mut polling_snapshot,
+            job_id,
+            GenerationJobState::Running { provenance },
+        );
+        assert!(stale_result.is_err());
+        let reopened = orchestrator.load_state(&project)?;
+        assert!(matches!(
+            reopened.job(job_id).expect("job exists").state(),
+            GenerationJobState::Cancelled { .. }
+        ));
         Ok(())
     }
 }
