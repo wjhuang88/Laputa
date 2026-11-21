@@ -54,9 +54,9 @@ cargo run -p laputa-app --features desktop-ui --bin laputa-desktop -- ./demo-pro
 
 测试直接操作时，请打开一个至少有两个 Scene 且已有 First Cut 的项目，点击底部片段后在右侧操作。当前按钮排序不等于已经实现拖动，真人验收仍由[人工验收台账](docs/acceptance/MANUAL-ACCEPTANCE.md)记录。
 
-### Film Workspace 视觉返工 V1（待审查）
+### Film Workspace 视觉返工 V1（技术代码已合并）
 
-Story D 视觉返工分支将真实图片/视频缩略图接入 Film Workspace，素材区改为双列，底部场景条改用较大的横向缩略卡。缩略图由 FFmpeg 只读生成到项目缓存，原媒体不会被修改；缩略图失败时显示类型占位，并可以重新加载。六场景合成媒体与 Xvfb 截图仅用于**技术回归**，不等于真实摄影素材下的视觉验收。当前 [MA-D-VIS-01](docs/acceptance/MANUAL-ACCEPTANCE.md) 仍为 **FAIL**，待用户对真实桌面效果明确认可。
+Story D 的 PR #39 已将图片/视频缩略图接入 Film Workspace，素材区改为双列，底部场景条改为较大的横向缩略卡；PR #47 已将视频场景卡和右侧片段预览改为按裁切入点取帧，同一视频的不同片段不再复用素材首帧。缩略图由 FFmpeg 只读生成到项目缓存，原媒体不会被修改；缩略图失败时显示类型占位，并可以重新加载。六场景合成媒体与 Xvfb 截图仅用于**技术回归**，不等于真实摄影素材下的视觉验收。当前 [MA-D-VIS-01](docs/acceptance/MANUAL-ACCEPTANCE.md) 仍为 **FAIL**，待用户对真实桌面效果明确认可。
 
 ## 核心产品原则
 
