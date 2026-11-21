@@ -1,12 +1,18 @@
-name: Generation State Portability Smoke
+name: Generation State Portability
 
 on:
   push:
   pull_request:
 
 jobs:
-  smoke:
-    runs-on: ubuntu-latest
+  macos:
+    runs-on: macos-latest
     steps:
-      - name: Verify workflow registration
-        run: echo "workflow registered"
+      - name: Verify macOS runner
+        run: echo "macOS runner ready"
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Verify Windows runner
+        run: echo "Windows runner ready"
