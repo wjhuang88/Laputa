@@ -6,6 +6,8 @@ Use `docs/sop/START-ITERATION.md` to create a new iteration record and `docs/sop
 
 Current/latest records:
 
+- `2026-11-21-generation-state-portability.md` — LAPUTA-001-J / #44 platform verification in progress; macOS/Windows CI evidence pending, no platform success claim.
+
 - `2026-11-19-generation-state-concurrency-repair.md` — LAPUTA-001-I / #40, PR #42 merged; Ubuntu-backed transactional generation state fix accepted on closeout after main CI #44863056584, with macOS/Windows verification tracked under #44 and CI fixture flake #43.
 
 - `2026-11-16-workspace-visual-rework.md` — planned; MA-D-VIS-01 FAIL confirmed by user, rework UNSTARTED; MA-D-01 remains pending.

@@ -1,0 +1,46 @@
+name: Generation State Portability
+
+on:
+  push:
+    paths:
+      - "crates/laputa-media/**"
+      - "crates/laputa-domain/**"
+      - ".github/workflows/generation-state-portability.yml"
+  pull_request:
+    paths:
+      - "crates/laputa-media/**"
+      - "crates/laputa-domain/**"
+      - ".github/workflows/generation-state-portability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generation-state-macos:
+    name: Generation store / macOS
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust 1.95
+        shell: bash
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Generation state lock and cross-process tests
+        shell: bash
+        run: cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked -- --nocapture
+
+  generation-state-windows:
+    name: Generation store / Windows
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust 1.95
+        shell: pwsh
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Generation state lock and cross-process tests
+        shell: pwsh
+        run: cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked -- --nocapture
