@@ -3,7 +3,6 @@ name: CI
 on:
   push:
   pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -48,35 +47,3 @@ jobs:
           cargo test -p laputa-app --features desktop-ui --lib --locked
           cargo test -p laputa-app --features desktop-ui --bin laputa-desktop --locked
           scripts/validate_project_governance.sh .
-
-  # Run the heavier non-Linux persistence suite only for #44's validation PR
-  # or when maintainers explicitly dispatch the existing CI workflow.
-  generation-store-macos:
-    name: Generation store / macOS
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'ci/laputa-001-j-generation-state-portability-44'
-    runs-on: macos-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Rust 1.95
-        shell: bash
-        run: rustup toolchain install 1.95.0 --profile minimal
-      - name: Test generation state persistence
-        shell: bash
-        run: cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked -- --nocapture
-
-  generation-store-windows:
-    name: Generation store / Windows
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'ci/laputa-001-j-generation-state-portability-44'
-    runs-on: windows-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Rust 1.95
-        shell: pwsh
-        run: rustup toolchain install 1.95.0 --profile minimal
-      - name: Test generation state persistence
-        shell: pwsh
-        run: cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked -- --nocapture
