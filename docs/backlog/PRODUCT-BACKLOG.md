@@ -24,7 +24,6 @@ The canonical human-test checklist is [`docs/acceptance/MANUAL-ACCEPTANCE.md`](.
 | LAPUTA-001-F | Story | User can revise selected content with language/direct manipulation and locks | In Progress — F1/F2/F3a merged, F3b/F4 pending | Scene buttons, save/reopen and preview refresh merged in #34; true drag, live language input, variants and human acceptance pending; D MA-D-01 still open | `active/LAPUTA-001-F-selection-revision.md`, ADR-0003 |
 | LAPUTA-001-G | Story | Laputa can critique a preview and apply bounded repair | Proposed | Requires C+D and analysis provider | `active/LAPUTA-001-G-critic-repair.md`, ADR-0001, ADR-0002 |
 | LAPUTA-001-H | Story | User can reopen a project and export a valid final MP4 | Proposed | Integration closure across A-G | `active/LAPUTA-001-H-persistence-export.md`, product requirements |
-| LAPUTA-001-I | Technical defect Story | Concurrent generation updates retain durable remote-job handles | In Progress — fix PR/CI pending | #40, P1 proposed; corrective follow-up to completed Story E | `active/LAPUTA-001-I-generation-state-concurrency.md`, ADR-0002, architecture, testing SOP |
 
 ## Completed
 
@@ -34,6 +33,7 @@ The canonical human-test checklist is [`docs/acceptance/MANUAL-ACCEPTANCE.md`](.
 | LAPUTA-001-B | Story | Imported assets can be structurally analyzed through a functional provider | 2026-10-20 | `archive/LAPUTA-001-B-asset-understanding.md`; Issue #3; PR #13 |
 | LAPUTA-001-C | Story | Talos can produce a first-cut project state using Laputa tools | 2026-10-22 | `archive/LAPUTA-001-C-talos-first-cut.md`; Issue #4; PR #14 |
 | LAPUTA-001-E | Story | Talos can request generative derived media without vendor coupling | 2026-11-04 | `archive/LAPUTA-001-E-generative-media.md`; Issue #6; PRs #23–#28; post-merge CI `41649040890` |
+| LAPUTA-001-I | Technical defect Story | Concurrent-safe durable generation state updates (Ubuntu-tested; portability #44 residual) | 2026-11-21 | `archive/LAPUTA-001-I-generation-state-concurrency.md`; Issue #40; PR #42; push CI `44457205819`, PR CI `44457211375`; main CI `44863056584` gated at closeout |
 
 ## Later
 

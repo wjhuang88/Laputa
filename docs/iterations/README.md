@@ -6,7 +6,7 @@ Use `docs/sop/START-ITERATION.md` to create a new iteration record and `docs/sop
 
 Current/latest records:
 
-- `2026-11-19-generation-state-concurrency-repair.md` — LAPUTA-001-I / #40, transaction/lock/concurrent-job regression fix in progress; exact-head CI and review pending, no closure claimed.
+- `2026-11-19-generation-state-concurrency-repair.md` — LAPUTA-001-I / #40, PR #42 merged; Ubuntu-backed transactional generation state fix accepted on closeout after main CI #44863056584, with macOS/Windows verification tracked under #44 and CI fixture flake #43.
 
 - `2026-11-16-workspace-visual-rework.md` — planned; MA-D-VIS-01 FAIL confirmed by user, rework UNSTARTED; MA-D-01 remains pending.
 
