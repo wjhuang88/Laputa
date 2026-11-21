@@ -24,6 +24,7 @@ The canonical human-test checklist is [`docs/acceptance/MANUAL-ACCEPTANCE.md`](.
 | LAPUTA-001-F | Story | User can revise selected content with language/direct manipulation and locks | In Progress — F1/F2/F3a merged, F3b/F4 pending | Scene buttons, save/reopen and preview refresh merged in #34; true drag, live language input, variants and human acceptance pending; D MA-D-01 still open | `active/LAPUTA-001-F-selection-revision.md`, ADR-0003 |
 | LAPUTA-001-G | Story | Laputa can critique a preview and apply bounded repair | Proposed | Requires C+D and analysis provider | `active/LAPUTA-001-G-critic-repair.md`, ADR-0001, ADR-0002 |
 | LAPUTA-001-H | Story | User can reopen a project and export a valid final MP4 | Proposed | Integration closure across A-G | `active/LAPUTA-001-H-persistence-export.md`, product requirements |
+| LAPUTA-001-J | Technical verification Story | Verify generation state durability on macOS/Windows | In Progress — cross-platform CI pending | Issue #44; follows closed LAPUTA-001-I / #40 | `active/LAPUTA-001-J-generation-state-portability.md`, archive Story I, testing SOP |
 
 ## Completed
 
