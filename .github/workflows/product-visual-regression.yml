@@ -63,7 +63,8 @@ jobs:
             for _ in $(seq 1 90); do
               kill -0 "$app_pid"
               image_count=$(find /tmp/laputa-six-scene-visual/.laputa/cache -name "thumbnail-v1-*.png" -type f | wc -l)
-              if test "$image_count" -eq 6 && test -s /tmp/laputa-six-scene-visual/.laputa/cache/preview/current.mp4; then
+              cut_count=$(find /tmp/laputa-six-scene-visual/.laputa/cache -name "scene-thumbnail-v1-*.png" -type f | wc -l)
+              if test "$image_count" -eq 6 && test "$cut_count" -eq 3 && test -s /tmp/laputa-six-scene-visual/.laputa/cache/preview/current.mp4; then
                 success=true
                 break
               fi
@@ -98,6 +99,14 @@ jobs:
           diff -u visual-regression-artifacts/original-before.sha256 visual-regression-artifacts/original-after.sha256
           test -s visual-regression-artifacts/product-six-scene.png
           test -s visual-regression-artifacts/product-six-scene-selected.png
+          # The same imported video is used at 0ms and 1000ms in different
+          # scenes. Both cache files must exist and contain different frames.
+          cut_dir=$(find /tmp/laputa-six-scene-visual/.laputa/cache -type f -name 'scene-thumbnail-v1-*-1000.png' -printf '%h' -quit)
+          test -n "$cut_dir"
+          first_cut=$(find "$cut_dir" -maxdepth 1 -type f -name 'scene-thumbnail-v1-*-0.png' -print -quit)
+          second_cut=$(find "$cut_dir" -maxdepth 1 -type f -name 'scene-thumbnail-v1-*-1000.png' -print -quit)
+          test -s "$first_cut" && test -s "$second_cut"
+          ! cmp -s "$first_cut" "$second_cut"
           # An actual scene click must change the rendered product surface.
           ! cmp -s visual-regression-artifacts/product-six-scene.png visual-regression-artifacts/product-six-scene-selected.png
 
