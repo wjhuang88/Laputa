@@ -70,4 +70,4 @@ The Runway live smoke is intentionally `#[ignore]` and reads credentials only fr
 
 ## Post-closure corrective follow-up (2026-11-19)
 
-Issue [#40](https://github.com/wjhuang88/Laputa/issues/40), reported after Story E closure, identifies a lost-update risk in generation state persistence under concurrent operations. It is tracked separately as [LAPUTA-001-I](../active/LAPUTA-001-I-generation-state-concurrency.md), a Ready technical defect follow-up with implementation and runtime regression evidence pending. This does not reopen #6, rewrite 2026-11-04 acceptance, or claim the defect has been fixed.
+Issue [#40](https://github.com/wjhuang88/Laputa/issues/40), reported after Story E closure, identifies a lost-update risk in generation state persistence under concurrent operations. It is tracked separately as [LAPUTA-001-I](LAPUTA-001-I-generation-state-concurrency.md), a Ready technical defect follow-up with implementation and runtime regression evidence pending. This does not reopen #6, rewrite 2026-11-04 acceptance, or claim the defect has been fixed.
