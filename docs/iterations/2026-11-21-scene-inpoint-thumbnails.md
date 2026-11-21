@@ -1,6 +1,6 @@
 # Iteration — Story D scene video in-point thumbnails
 
-Status: in progress — code, exact-head CI and real desktop acceptance pending
+Status: technical code merged PR #47, exact-head CI success; independent post-merge main CI tracked separately; human visual and interaction gates pending
 Date: 2026-11-21
 Selected: LAPUTA-001-D / Issue #5 (bounded post-V1 rendering slice)
 Baseline: main `adabf39fc75da512f131d002fdaa7f978a3ff2b2`; V1 PR #39 already merged, exact-head and post-merge CI successful.
@@ -24,4 +24,4 @@ Story D MA-D-VIS-01 is **FAIL** and MA-D-01 is **PENDING** until the user execut
 
 ## Disposition
 
-In progress. Story D Issue #5 remains Open. Human acceptance evidence remains UNRUN for this slice, tracked in `docs/acceptance/MANUAL-ACCEPTANCE.md`.
+**Technical slice merged**, PR [#47](https://github.com/wjhuang88/Laputa/pull/47) squash commit `079e6e22b6b794a4eb133e704f97ca9e29045e22`. Exact-head source `423f58f8a4b60eabd1762bf27c7a22d5c69c995e`; push CI [#44885774237](https://github.com/wjhuang88/Laputa/actions/runs/44885774237), PR CI [#44885777859](https://github.com/wjhuang88/Laputa/actions/runs/44885777859), real GPUI product regression [#44885777770](https://github.com/wjhuang88/Laputa/actions/runs/44885777770) all **SUCCESS**. Independent post-merge main CI [#44886628771](https://github.com/wjhuang88/Laputa/actions/runs/44886628771) and product smoke [#44886628740](https://github.com/wjhuang88/Laputa/actions/runs/44886628740) must be checked from actual outcomes and are not pre-checked here. Original media hash evidence in the product artifact matched. Story D Issue #5 remains **Open**: MA-D-VIS-01 **FAIL**, MA-D-01 **PENDING**, conditional in-point human preflight **UNRUN**; F3b2 UI trim controls not merged.
