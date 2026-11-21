@@ -18,12 +18,14 @@ No live provider calls, no mutation of imported originals, no GUI functionality,
 
 ## Risk / unresolved assumptions
 
-The earlier portability workflow failed before Job creation (zero jobs). Root cause unknown: could be workflow validation/registration or runner policy. This iteration must distinguish an invalid workflow from a real macOS/Windows test failure. Do not mark platform coverage complete without green jobs for both.
+The earlier portability workflow failed before Job creation (zero jobs). Incremental isolation identified the unquoted inline `cargo ... generation_store::tests::` command as the triggering YAML configuration; a literal block is now required. Runner smoke successfully scheduled both macOS and Windows. This iteration must distinguish an invalid workflow from a real macOS/Windows test failure. Do not mark platform coverage complete without green jobs for both.
 
 ## Evidence log
 
 - Baseline `adabf39fc75da512f131d002fdaa7f978a3ff2b2`; new workflow and governance plan in PR for Issue #44.
-- macOS run: **UNRUN** at planning.
-- Windows run: **UNRUN** at planning.
-- PR review and exact-head CI: **PENDING**.
+- Workflow registration: confirmed by runner smoke at #44884672126, both macOS and Windows jobs completed successfully.
+- A/B workflow diagnosis: inline `run: cargo ... generation_store::tests:: ...` failed before job allocation; using a literal YAML block `run: |` allowed scheduling on both runners.
+- macOS generation-store test: **QUEUED / NOT YET VERIFIED** at #44884899173.
+- Windows generation-store test: **QUEUED / NOT YET VERIFIED** at #44884899173.
+- Exact-head PR/Push CI and single-maintainer review: **PENDING**.
 - Result: **partial** until independent OS results and post-merge CI are recorded.

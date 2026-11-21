@@ -25,7 +25,7 @@ No changes to UI, provider selection, generation business semantics, Story E's h
 
 ## Acceptance
 
-- [ ] GitHub Actions successfully registers and starts macOS and Windows jobs (not merely zero-job workflow attempts).
+- [x] The workflow has registered macOS and Windows jobs (as seen in #44884899173); actual execution and test success remain pending.
 - [ ] `cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked -- --nocapture` passes on both platforms, including cross-process writers and state rollback protection.
 - [ ] Evidence includes exact Git SHA, macOS and Windows Job IDs, failing/retried attempts if any, and a clear closeout decision.
 - [ ] Relevant documentation and scoped CI remain synchronized; no unsupported platform claims and no altered original user media.
@@ -35,4 +35,4 @@ No changes to UI, provider selection, generation business semantics, Story E's h
 
 A preceding workflow attempt in PR #42 showed zero jobs and was removed. The cause remains unverified; this slice first attempts an explicit two-job workflow rather than inferring a platform failure. OS lock behavior on external/network filesystems remains outside current runner coverage; it may require a separate environmental follow-up.
 
-**Evidence status:** UNRUN as of branch creation. Issue #44 remains Open until actual platform evidence is captured.
+**Current evidence (2026-11-21):** a minimal Ubuntu registration job and explicit macOS/Windows runner-smoke jobs both succeeded on the validation branch. The initial inline YAML `run: cargo ... generation_store::tests:: ...` triggered an immediate zero-job workflow failure; a `run: |` block was verified to register both platform jobs. Full Rust generation-store test jobs are now scheduled under [run #44884899173](https://github.com/wjhuang88/Laputa/actions/runs/44884899173) (still pending at documentation time). No OS-specific test success is claimed until these jobs actually finish. Issue #44 remains Open.

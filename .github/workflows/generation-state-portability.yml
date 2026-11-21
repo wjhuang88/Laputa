@@ -2,7 +2,22 @@ name: Generation State Portability
 
 on:
   push:
+    paths:
+      - "crates/laputa-media/**"
+      - "crates/laputa-domain/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/generation-state-portability.yml"
   pull_request:
+    paths:
+      - "crates/laputa-media/**"
+      - "crates/laputa-domain/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/generation-state-portability.yml"
+  workflow_dispatch:
 
 jobs:
   macos:
