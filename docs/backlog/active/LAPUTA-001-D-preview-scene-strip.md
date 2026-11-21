@@ -12,7 +12,7 @@ As a normal user, I want to watch the first cut and see its ordered scenes witho
 
 **MA-D-VIS-01: FAIL.** 用户在 main `310efec` 的真实桌面验收中明确否定整体视觉还原。素材缩略图、场景卡片、布局和上下文面板均有明显差距。历史 PR #17 的接受记录保留，但不证明当前产品达到高保真要求。
 
-[返工方案](../../iterations/2026-11-16-workspace-visual-rework.md) 已准备，限定为本 Story 原有视觉要求的缺陷修复；依赖已合入的真实 Workspace/Preview/Selection 和 F 编辑契约。本视觉切片 Ready，代码尚未开始。必须用实际产品、丰富非私人媒体和并排截图复验，用户确认前不得关闭视觉缺陷。MA-D-01 仍独立待验，两个门槛都满足后才能关闭 Story。
+[返工方案](../../iterations/2026-11-16-workspace-visual-rework.md) 已准备，限定为本 Story 原有视觉要求的缺陷修复；依赖已合入的真实 Workspace/Preview/Selection 和 F 编辑契约。本视觉切片进入 V1 实施：双列素材区、真实图片/视频缩略图、较大的场景缩略卡和面板去工程化已在 feature 分支提交，CI/审查和真实桌面视觉复验仍待完成；当前 main 视觉验收仍为 FAIL。必须用实际产品、丰富非私人媒体和并排截图复验，用户确认前不得关闭视觉缺陷。MA-D-01 仍独立待验，两个门槛都满足后才能关闭 Story。
 
 ## Delivery sequencing
 

@@ -40,6 +40,10 @@ Asset understanding, Talos First Cut, generative-media foundations, and the cano
 
 To try the F3a actions, open a project with a persisted first cut containing at least two scenes, select a bottom Scene Strip card and use the right-hand contextual actions. Buttons are not a substitute for the future drag interaction. Manual validation remains governed by the [acceptance ledger](docs/acceptance/MANUAL-ACCEPTANCE.md).
 
+### Film Workspace visual rework V1 (under review)
+
+The Story D visual-rework branch adds project-local image/video thumbnails to the working Film Workspace, a two-column Moments browser and larger Scene Strip cards. It uses FFmpeg to generate rebuildable derived PNG caches without changing imported originals; unavailable thumbnails fall back to a media-type placeholder and can be retried. The six-scene synthetic fixture and Xvfb screenshot are **technical regression evidence only**. The current real-desktop visual gate [MA-D-VIS-01](docs/acceptance/MANUAL-ACCEPTANCE.md) remains **FAIL** until a representative photographic-media comparison is explicitly accepted.
+
 ## Product principles
 
 - Consumer-first: normal users should not need to understand models, providers, workflows, tracks, or generation parameters.
