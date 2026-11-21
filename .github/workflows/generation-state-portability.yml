@@ -1,0 +1,12 @@
+name: Generation State Portability Smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify workflow registration
+        run: echo "workflow registered"
