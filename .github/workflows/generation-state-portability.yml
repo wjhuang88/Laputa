@@ -9,12 +9,16 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup toolchain install 1.95.0 --profile minimal
       - name: Verify macOS runner
-        run: echo "macOS checkout ready"
+        run: echo "macOS ready"
 
   windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup toolchain install 1.95.0 --profile minimal
       - name: Verify Windows runner
-        run: echo "Windows checkout ready"
+        run: echo "Windows ready"
