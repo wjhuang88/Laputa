@@ -90,13 +90,19 @@ fn run() -> Result<()> {
         .enumerate()
         .map(|(index, asset)| SceneDraft {
             beat_key: format!("beat-{index}"),
-            asset_id: asset.id,
+            // Scene 04 intentionally reuses Scene 02's video at a later
+            // in-point. It must not display the imported video's frame zero.
+            asset_id: if index == 3 {
+                report.imported[1].id
+            } else {
+                asset.id
+            },
             title: titles[index].to_owned(),
             source: if index % 2 == 0 {
                 SceneSource::Image { duration_ms: 1_500 }
             } else {
                 SceneSource::Video {
-                    start_ms: 0,
+                    start_ms: if index == 3 { 1_000 } else { 0 },
                     end_ms: 2_500,
                 }
             },

@@ -2,7 +2,7 @@
 
 Parent: LAPUTA-001  
 Type: Technical verification / corrective follow-up Story  
-Status: In Progress — portable CI validation pending  
+Status: In Progress — macOS/Windows tests passed; merge and post-merge verification pending  
 Issue: [#44](https://github.com/wjhuang88/Laputa/issues/44)  
 Dependency: [LAPUTA-001-I](../archive/LAPUTA-001-I-generation-state-concurrency.md) (Linux-validated lost-update fix; Complete 2026-11-21)  
 Iteration: [2026-11-21-generation-state-portability](../../iterations/2026-11-21-generation-state-portability.md)  
@@ -25,9 +25,9 @@ No changes to UI, provider selection, generation business semantics, Story E's h
 
 ## Acceptance
 
-- [x] The workflow has registered macOS and Windows jobs (as seen in #44884899173); actual execution and test success remain pending.
-- [ ] `cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked -- --nocapture` passes on both platforms, including cross-process writers and state rollback protection.
-- [ ] Evidence includes exact Git SHA, macOS and Windows Job IDs, failing/retried attempts if any, and a clear closeout decision.
+- [x] GitHub Actions registered and ran macOS and Windows jobs (both completed with real test output on #44884955085 and #44884959371).
+- [x] `cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked -- --nocapture` passed: macOS 9/9, Windows 9/9, including cross-process writers, state reopen and rollback.
+- [x] Exact-head `050fe8699973fc9d26d3b82447c55abf29fee7c6`: macOS job [136788137609](https://github.com/wjhuang88/Laputa/actions/runs/44884959371/job/136788137609), Windows [136788137461](https://github.com/wjhuang88/Laputa/actions/runs/44884959371/job/136788137461), both success; associated push [#44884955085](https://github.com/wjhuang88/Laputa/actions/runs/44884955085) also success.
 - [ ] Relevant documentation and scoped CI remain synchronized; no unsupported platform claims and no altered original user media.
 - [ ] Exact-head CI and documented single-maintainer code review (not independent approval) precede merge.
 
@@ -35,4 +35,4 @@ No changes to UI, provider selection, generation business semantics, Story E's h
 
 A preceding workflow attempt in PR #42 showed zero jobs and was removed. The cause remains unverified; this slice first attempts an explicit two-job workflow rather than inferring a platform failure. OS lock behavior on external/network filesystems remains outside current runner coverage; it may require a separate environmental follow-up.
 
-**Current evidence (2026-11-21):** a minimal Ubuntu registration job and explicit macOS/Windows runner-smoke jobs both succeeded on the validation branch. The initial inline YAML `run: cargo ... generation_store::tests:: ...` triggered an immediate zero-job workflow failure; a `run: |` block was verified to register both platform jobs. Full Rust generation-store test jobs are now scheduled under [run #44884899173](https://github.com/wjhuang88/Laputa/actions/runs/44884899173) (still pending at documentation time). No OS-specific test success is claimed until these jobs actually finish. Issue #44 remains Open.
+**Verified 2026-11-21:** actual pinned Rust 1.95 macOS and Windows tests passed at `050fe8699973fc9d26d3b82447c55abf29fee7c6`. [PR CI #44884959371](https://github.com/wjhuang88/Laputa/actions/runs/44884959371): both platform jobs success (9/9 tests each). [Push portability #44884955085](https://github.com/wjhuang88/Laputa/actions/runs/44884955085) and baseline Push/PR CI `44884955070`/`44884959301` all success. Initial inline YAML command produced zero-job invalid workflow; fixed by `run: |` block. **The Story remains In Progress only until synchronized main-branch CI and governance closeout**; no network-filesystem or paid-provider evidence is claimed.

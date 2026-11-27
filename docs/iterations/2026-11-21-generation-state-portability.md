@@ -1,6 +1,6 @@
 # Iteration — Generation State Portability Verification
 
-Status: In Progress — CI workflow registration and platform tests pending  
+Status: In Progress — both platform tests passed; main sync/merge and post-merge gate pending  
 Date: 2026-11-21  
 Selected Story: LAPUTA-001-J — Ready at selection, now In Progress  
 Issue: [#44](https://github.com/wjhuang88/Laputa/issues/44)  
@@ -25,7 +25,9 @@ The earlier portability workflow failed before Job creation (zero jobs). Increme
 - Baseline `adabf39fc75da512f131d002fdaa7f978a3ff2b2`; new workflow and governance plan in PR for Issue #44.
 - Workflow registration: confirmed by runner smoke at #44884672126, both macOS and Windows jobs completed successfully.
 - A/B workflow diagnosis: inline `run: cargo ... generation_store::tests:: ...` failed before job allocation; using a literal YAML block `run: |` allowed scheduling on both runners.
-- macOS generation-store test: **QUEUED / NOT YET VERIFIED** at #44884899173.
-- Windows generation-store test: **QUEUED / NOT YET VERIFIED** at #44884899173.
-- Exact-head PR/Push CI and single-maintainer review: **PENDING**.
+- macOS generation-store test **PASS 9/9**, job [136788137609](https://github.com/wjhuang88/Laputa/actions/runs/44884959371/job/136788137609) at `050fe8699973fc9d26d3b82447c55abf29fee7c6`.
+- Windows generation-store test **PASS 9/9**, job [136788137461](https://github.com/wjhuang88/Laputa/actions/runs/44884959371/job/136788137461) at same SHA, including the spawned cross-process writer test.
+- Exact-head PR/push portability CI `44884959371`/`44884955085` and baseline CI `44884959301`/`44884955070`: **SUCCESS** at same SHA.
+- Single-maintainer review [#6004147549](https://github.com/wjhuang88/Laputa/pull/46#pullrequestreview-6004147549): COMMENT self-review, **not** independent approval.
+- Sync to newer main, rerun exact-head checks, merge, post-merge CI, and final Story/Issue closeout: **PENDING**.
 - Result: **partial** until independent OS results and post-merge CI are recorded.

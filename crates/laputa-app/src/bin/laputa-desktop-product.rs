@@ -22,8 +22,8 @@ use laputa_app::{
     preview_player::PreviewPlayerState,
     preview_request::{PreviewProfile, preview_render_request},
     project_session::open_project_state,
-    thumbnail::load_thumbnail,
-    workspace_state::SceneStripItem,
+    thumbnail::{load_scene_video_thumbnail, load_thumbnail},
+    workspace_state::{PreviewSource, SceneStripItem},
 };
 use laputa_domain::{AssetId, MediaKind};
 use laputa_media::{FfprobeMediaProbe, ProjectStore};
@@ -73,6 +73,15 @@ struct SceneDragPreview {
     title: String,
 }
 
+/// Only the asset contents and the cut's validated source in-point determine
+/// the video frame. Multiple scenes reusing an identical source cut share work.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct VideoCutThumbnailKey {
+    asset_id: AssetId,
+    source_start_ms: u64,
+    source_sha256: String,
+}
+
 impl Render for SceneDragPreview {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
@@ -101,6 +110,10 @@ struct DesktopWindow {
     thumbnails: HashMap<AssetId, Arc<RenderImage>>,
     thumbnails_loading: HashSet<AssetId>,
     thumbnails_failed: HashSet<AssetId>,
+    /// A video Scene uses the frame at its source in-point rather than Asset frame zero.
+    scene_thumbnails: HashMap<VideoCutThumbnailKey, Arc<RenderImage>>,
+    scene_thumbnails_loading: HashSet<VideoCutThumbnailKey>,
+    scene_thumbnails_failed: HashSet<VideoCutThumbnailKey>,
     /// Fences stale work when switching projects or rebuilding derivative images.
     thumbnail_epoch: u64,
 }
@@ -118,6 +131,9 @@ impl DesktopWindow {
             thumbnails: HashMap::new(),
             thumbnails_loading: HashSet::new(),
             thumbnails_failed: HashSet::new(),
+            scene_thumbnails: HashMap::new(),
+            scene_thumbnails_loading: HashSet::new(),
+            scene_thumbnails_failed: HashSet::new(),
             thumbnail_epoch: 0,
         }
     }
@@ -148,6 +164,139 @@ impl DesktopWindow {
         self.thumbnails.clear();
         self.thumbnails_loading.clear();
         self.thumbnails_failed.clear();
+        self.scene_thumbnails.clear();
+        self.scene_thumbnails_loading.clear();
+        self.scene_thumbnails_failed.clear();
+    }
+
+    /// Resolves an in-point key from the canonical preview projection, not
+    /// the playhead or a possibly stale UI selection.
+    fn video_cut_key(&self, scene_id: SceneId) -> Option<VideoCutThumbnailKey> {
+        let segment = self
+            .state
+            .workspace()?
+            .preview_plan()
+            .iter()
+            .find(|segment| segment.scene_id == scene_id)?;
+        let PreviewSource::Video {
+            source_start_ms, ..
+        } = &segment.source
+        else {
+            return None;
+        };
+        let asset = self.state.project()?.asset(segment.asset_id)?;
+        Some(VideoCutThumbnailKey {
+            asset_id: segment.asset_id,
+            source_start_ms: *source_start_ms,
+            source_sha256: asset.source_sha256.clone(),
+        })
+    }
+
+    fn scene_thumbnail(&self, scene_id: SceneId, asset_id: AssetId) -> Option<Arc<RenderImage>> {
+        if let Some(key) = self.video_cut_key(scene_id) {
+            // Never substitute the imported video's first frame while its
+            // distinct cut thumbnail is loading; show the placeholder instead.
+            self.scene_thumbnails.get(&key).cloned()
+        } else {
+            self.thumbnails.get(&asset_id).cloned()
+        }
+    }
+
+    fn has_current_video_cut(&self, key: &VideoCutThumbnailKey) -> bool {
+        let (Some(workspace), Some(project)) = (self.state.workspace(), self.state.project())
+        else {
+            return false;
+        };
+        workspace.preview_plan().iter().any(|segment| {
+            segment.asset_id == key.asset_id
+                && matches!(
+                    &segment.source,
+                    PreviewSource::Video { source_start_ms, .. }
+                        if *source_start_ms == key.source_start_ms
+                )
+                && project
+                    .asset(key.asset_id)
+                    .is_some_and(|asset| asset.source_sha256 == key.source_sha256)
+        })
+    }
+
+    fn prepare_scene_thumbnails(&mut self, cx: &mut Context<Self>) {
+        let (Some(workspace), Some(project), Some(root)) = (
+            self.state.workspace(),
+            self.state.project(),
+            self.state.project_root(),
+        ) else {
+            return;
+        };
+        let mut valid = HashMap::new();
+        for segment in workspace.preview_plan() {
+            let PreviewSource::Video {
+                source_start_ms, ..
+            } = &segment.source
+            else {
+                continue;
+            };
+            if let Some(asset) = project.asset(segment.asset_id) {
+                let key = VideoCutThumbnailKey {
+                    asset_id: segment.asset_id,
+                    source_start_ms: *source_start_ms,
+                    source_sha256: asset.source_sha256.clone(),
+                };
+                valid.entry(key).or_insert_with(|| asset.clone());
+            }
+        }
+        let live = valid.keys().cloned().collect::<HashSet<_>>();
+        self.scene_thumbnails.retain(|key, _| live.contains(key));
+        self.scene_thumbnails_failed
+            .retain(|key| live.contains(key));
+        // In-flight old tasks keep counting toward the concurrency limit until
+        // they finish, even after the film's start_ms changes.
+        let capacity = 4_usize
+            .saturating_sub(self.thumbnails_loading.len() + self.scene_thumbnails_loading.len());
+        let pending = valid
+            .into_iter()
+            .filter(|(key, _)| {
+                !self.scene_thumbnails.contains_key(key)
+                    && !self.scene_thumbnails_loading.contains(key)
+                    && !self.scene_thumbnails_failed.contains(key)
+            })
+            .take(capacity)
+            .collect::<Vec<_>>();
+        let root = root.to_path_buf();
+        let epoch = self.thumbnail_epoch;
+        for (key, asset) in pending {
+            self.scene_thumbnails_loading.insert(key.clone());
+            let root = root.clone();
+            cx.spawn(async move |this, cx| {
+                let source_start_ms = key.source_start_ms;
+                let result = cx
+                    .background_spawn(async move {
+                        load_scene_video_thumbnail(&ProjectStore::at(root), &asset, source_start_ms)
+                            .map_err(|error| error.to_string())
+                    })
+                    .await;
+                let _ = this.update(cx, |this, cx| {
+                    if epoch != this.thumbnail_epoch {
+                        return;
+                    }
+                    this.scene_thumbnails_loading.remove(&key);
+                    // Drop obsolete seek-frame results rather than reinserting
+                    // images from an earlier cut after editing source_start_ms.
+                    if this.has_current_video_cut(&key) {
+                        match result {
+                            Ok(image) => {
+                                this.scene_thumbnails.insert(key, image);
+                            }
+                            Err(_) => {
+                                this.scene_thumbnails_failed.insert(key);
+                            }
+                        }
+                    }
+                    cx.notify();
+                });
+            })
+            .detach();
+        }
     }
 
     fn prepare_thumbnails(&mut self, cx: &mut Context<Self>) {
@@ -159,7 +308,8 @@ impl DesktopWindow {
         };
         // Bound in-flight decode/resize tasks. Project changes fence every
         // completion, so old media cannot appear in a new project's UI.
-        let capacity = 4_usize.saturating_sub(self.thumbnails_loading.len());
+        let capacity = 4_usize
+            .saturating_sub(self.thumbnails_loading.len() + self.scene_thumbnails_loading.len());
         let pending = project
             .assets
             .iter()
@@ -1060,21 +1210,24 @@ impl DesktopWindow {
                         )
                     })),
             )
-            .when(!self.thumbnails_failed.is_empty(), |view| {
-                view.child(
-                    div()
-                        .id("product-thumbnail-retry")
-                        .px_4()
-                        .py_2()
-                        .text_sm()
-                        .text_color(rgb(BLUE))
-                        .cursor_pointer()
-                        .child("部分缩略图不可用 · 重新加载")
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.execute(UiCommand::RetryThumbnails, cx);
-                        })),
-                )
-            })
+            .when(
+                !self.thumbnails_failed.is_empty() || !self.scene_thumbnails_failed.is_empty(),
+                |view| {
+                    view.child(
+                        div()
+                            .id("product-thumbnail-retry")
+                            .px_4()
+                            .py_2()
+                            .text_sm()
+                            .text_color(rgb(BLUE))
+                            .cursor_pointer()
+                            .child("部分缩略图不可用 · 重新加载")
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.execute(UiCommand::RetryThumbnails, cx);
+                            })),
+                    )
+                },
+            )
     }
 
     fn film_workspace(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -1468,7 +1621,7 @@ impl DesktopWindow {
                                         .overflow_hidden()
                                         .bg(rgb(OAT_SOFT))
                                         .when_some(
-                                            self.thumbnails.get(&item.asset_id).cloned(),
+                                            self.scene_thumbnail(item.scene_id, item.asset_id),
                                             |view, image| {
                                                 view.child(
                                                     img(image)
@@ -1602,7 +1755,7 @@ impl DesktopWindow {
             MediaKind::Image => SAND,
             MediaKind::Video => SKY_BLOCK,
         };
-        let thumbnail = self.thumbnails.get(&scene.asset_id).cloned();
+        let thumbnail = self.scene_thumbnail(scene.scene_id, scene.asset_id);
         let scene_id = scene.scene_id;
         let duration = format_time(scene.duration_ms());
         let title = scene.title;
@@ -1637,14 +1790,17 @@ impl DesktopWindow {
                 .when_some(thumbnail, |view, image| {
                     view.child(img(image).object_fit(ObjectFit::Cover).size_full())
                 })
-                .when(!self.thumbnails.contains_key(&scene.asset_id), |view| {
-                    view.flex()
-                        .items_center()
-                        .justify_center()
-                        .text_sm()
-                        .text_color(rgb(TEXT))
-                        .child(format!("片段 {:02}", index + 1))
-                }),
+                .when(
+                    self.scene_thumbnail(scene_id, scene.asset_id).is_none(),
+                    |view| {
+                        view.flex()
+                            .items_center()
+                            .justify_center()
+                            .text_sm()
+                            .text_color(rgb(TEXT))
+                            .child(format!("片段 {:02}", index + 1))
+                    },
+                ),
         )
         .child(
             div()
@@ -1760,6 +1916,7 @@ impl Render for DesktopWindow {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if self.state.project().is_some() {
             self.prepare_thumbnails(cx);
+            self.prepare_scene_thumbnails(cx);
         }
         if self.state.workspace().is_some()
             && self.controller.is_none()
