@@ -42,3 +42,7 @@ The originally reported bug let a long-running A poll retain an obsolete `Genera
 The primary lost-update defect is accepted for the repository's currently exercised Ubuntu CI environment, with no evidence of failed #40 tests. Non-Linux portability validation is a separately owned follow-up [#44](https://github.com/wjhuang88/Laputa/issues/44); this does not silently certify macOS/Windows or erase the recorded platform risk. CI flake [#43](https://github.com/wjhuang88/Laputa/issues/43) is unrelated to generation state.
 
 Do not mark this Story fully cross-platform verified. The closeout record and [#40](https://github.com/wjhuang88/Laputa/issues/40) should be finalized only after code-merge main CI #44863056584 and governance closeout CI are green; preserve issue and run URLs as evidence. Story E / #6 remains historically closed.
+
+## 2026-11-27 portability verification addendum
+
+Follow-up [LAPUTA-001-J](LAPUTA-001-J-generation-state-portability.md) / [Issue #44](https://github.com/wjhuang88/Laputa/issues/44) verified the existing generation state implementation on GitHub-hosted macOS and Windows runner local filesystems (9/9 tests on each OS at PR #46 synchronized head). This complements, rather than changes, the original 2026-11-21 Linux-only acceptance record. Network filesystems and live Runway remain outside the verified scope.

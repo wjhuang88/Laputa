@@ -1,6 +1,6 @@
 # Iteration — Generation State Portability Verification
 
-Status: In Progress — both platform tests passed; main sync/merge and post-merge gate pending  
+Status: Complete for GitHub-hosted macOS/Windows local-filesystem checks on governance closeout (network FS unverified)  
 Date: 2026-11-21  
 Selected Story: LAPUTA-001-J — Ready at selection, now In Progress  
 Issue: [#44](https://github.com/wjhuang88/Laputa/issues/44)  
@@ -29,5 +29,7 @@ The earlier portability workflow failed before Job creation (zero jobs). Increme
 - Windows generation-store test **PASS 9/9**, job [136788137461](https://github.com/wjhuang88/Laputa/actions/runs/44884959371/job/136788137461) at same SHA, including the spawned cross-process writer test.
 - Exact-head PR/push portability CI `44884959371`/`44884955085` and baseline CI `44884959301`/`44884955070`: **SUCCESS** at same SHA.
 - Single-maintainer review [#6004147549](https://github.com/wjhuang88/Laputa/pull/46#pullrequestreview-6004147549): COMMENT self-review, **not** independent approval.
-- Sync to newer main, rerun exact-head checks, merge, post-merge CI, and final Story/Issue closeout: **PENDING**.
-- Result: **partial** until independent OS results and post-merge CI are recorded.
+- Normal two-parent main sync `273e3718fbe633eae02c44663c959392b23201a3`: current-head macOS **9/9** and Windows **9/9**, [PR CI #46025102287](https://github.com/wjhuang88/Laputa/actions/runs/46025102287) SUCCESS. Same-head [baseline PR CI #46025102331](https://github.com/wjhuang88/Laputa/actions/runs/46025102331) and [push CI #46025090671](https://github.com/wjhuang88/Laputa/actions/runs/46025090671) SUCCESS.
+- [PR #46](https://github.com/wjhuang88/Laputa/pull/46) merged as `a96e971b412579b7c5ba6a02a2605ee0a2c3f97a`.
+- Post-merge main checks: [portability #46026645868](https://github.com/wjhuang88/Laputa/actions/runs/46026645868) and [baseline #46026645696](https://github.com/wjhuang88/Laputa/actions/runs/46026645696) **MUST be verified green before this closeout PR merges**.
+- Final disposition: **complete** for target GitHub-hosted macOS/Windows local filesystems once closeout CI gates succeed. Network/filesystem variants and live Runway service remain unrun; unrelated flaky fixture #43 is Open.
