@@ -6,7 +6,7 @@ Use `docs/sop/START-ITERATION.md` to create a new iteration record and `docs/sop
 
 Current/latest records:
 
-- `2026-11-21-generation-state-portability.md` — LAPUTA-001-J / #44 macOS and Windows generation store tests 9/9 passed each on PR #46; merge/post-merge evidence pending.
+- `2026-11-21-generation-state-portability.md` — LAPUTA-001-J / #44 macOS/Windows generation-store suite 9/9 on each OS, PR #46 merged as `a96e971`; post-merge main CI #46026645868/#46026645696 required before closeout is effective.
 
 - `2026-11-21-scene-inpoint-thumbnails.md` — Story D / #5 source in-point video thumbnails merged in PR #47, exact-head CI success, post-merge CI tracked separately; human MA-D-VIS-01 remains FAIL and MA-D-01 PENDING.
 
