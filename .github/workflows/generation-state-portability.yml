@@ -1,0 +1,41 @@
+name: Generation State Portability
+
+on:
+  push:
+    paths:
+      - "crates/laputa-media/**"
+      - "crates/laputa-domain/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/generation-state-portability.yml"
+  pull_request:
+    paths:
+      - "crates/laputa-media/**"
+      - "crates/laputa-domain/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/generation-state-portability.yml"
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Test macOS generation state
+        run: |
+          cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked -- --nocapture
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Test Windows generation state
+        run: |
+          cargo +1.95.0 test -p laputa-media --lib generation_store::tests:: --locked -- --nocapture
